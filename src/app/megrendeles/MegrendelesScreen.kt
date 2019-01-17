@@ -192,7 +192,7 @@ private val hataridosFilterForAdmin = SimpleMegrendelesFilter("Határidős", "ti
 })
 
 private fun Megrendeles.isHataridos(): Boolean {
-    return (hatarido.isBefore(moment()))
+    return (hatarido?.isBefore(moment())?:true)
             .and(feltoltveMegrendelonek == null)
             .and(zarolva == null)
 }
@@ -450,6 +450,11 @@ private fun RBuilder.megrendelesekTable(user: LoggedInUser,
         attrs.dataSource = filteredMegrendelesek
         attrs.rowKey = "id"
         attrs.asDynamic().size = ButtonSize.small
+        attrs.onRow = { megrendeles: Megrendeles ->
+            jsObject {
+                this.asDynamic().onClick = { onClick(megrendeles) }
+            }
+        }
     }
     /*data class MegrendelesColumnData(val dbName: String,
                                  val fieldName: String,

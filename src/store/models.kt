@@ -21,28 +21,28 @@ enum class Role {
 }
 
 data class Account(
-        var id: Int,
-        var fullName: String = "",
-        var username: String = "",
-        var disabled: Boolean = false,
-        var role: Role,
-        var alvallalkozoId: Int,
-        var plainPassword: String) {
+        val id: Int,
+        val fullName: String = "",
+        val username: String = "",
+        val disabled: Boolean = false,
+        val role: Role,
+        val alvallalkozoId: Int,
+        val plainPassword: String) {
 
 }
 
 data class Alvallalkozo(
-        var id: Int = 0,
-        var name: String = "",
-        var phone: String = "",
-        var szamlaSzam: String = "",
-        var kapcsolatTarto: String = "",
-        var email: String = "",
-        var adoszam: String = "",
-        var tagsagiSzam: String = "",
-        var cim: String = "",
-        var keszpenzes: Boolean = false,
-        var disabled: Boolean = false
+        val id: Int = 0,
+        val name: String = "",
+        val phone: String = "",
+        val szamlaSzam: String = "",
+        val kapcsolatTarto: String = "",
+        val email: String = "",
+        val adoszam: String = "",
+        val tagsagiSzam: String = "",
+        val cim: String = "",
+        val keszpenzes: Boolean = false,
+        val disabled: Boolean = false
 ) {
     override fun hashCode(): Int {
         return id
@@ -61,13 +61,13 @@ data class Alvallalkozo(
 }
 
 data class Ertekbecslo(
-        var id: Int = 0,
-        var name: String = "",
-        var alvallalkozoId: Int,
-        var phone: String = "",
-        var email: String = "",
-        var comment: String = "",
-        var disabled: Boolean = false
+        val id: Int = 0,
+        val name: String = "",
+        val alvallalkozoId: Int,
+        val phone: String = "",
+        val email: String = "",
+        val comment: String = "",
+        val disabled: Boolean = false
 ) {
     override fun hashCode(): Int {
         return id
@@ -86,14 +86,14 @@ data class Ertekbecslo(
 }
 
 data class RegioOsszerendeles(
-        var id: Int = 0,
-        var alvallalkozoId: Int,
-        var megye: String,
-        var leiras: String = "",
-        var munkatipus: String = "",
-        var nettoAr: Int = 0,
-        var afa: Int = 0,
-        var jutalek: Int = 0
+        val id: Int = 0,
+        val alvallalkozoId: Int,
+        val megye: String,
+        val leiras: String = "",
+        val munkatipus: String = "",
+        val nettoAr: Int = 0,
+        val afa: Int = 0,
+        val jutalek: Int = 0
 ) {
     override fun hashCode(): Int {
         return id
@@ -215,124 +215,124 @@ data class Akadaly(val id: Int,
                    val megrendelesId: Int)
 
 class MegrendelesFieldsFromExternalSource {
-    var helyszinelo: String? = null
-    var ingatlanTipusa: String? = null
-    var ertekBecslo: String? = null
-    var telekMeret: Double? = null
-    var keszultsegiFok: Double? = null
-    var ingatlanTerulet: Double? = null
-    var forgalmiErtek: Double? = null
+    val helyszinelo: String? = null
+    val ingatlanTipusa: String? = null
+    val ertekBecslo: String? = null
+    val telekMeret: Double? = null
+    val keszultsegiFok: Double? = null
+    val ingatlanTerulet: Double? = null
+    val forgalmiErtek: Double? = null
 
-    var adasvetel: String? = null
-    var adasvetelDatuma: String? = null
+    val adasvetel: String? = null
+    val adasvetelDatuma: String? = null
 
-    var szemleIdopontja: String? = null
-    var fajlagosAr: Double? = null
-    var kolcsonIgenylo: String? = null
-    var hrsz: String? = null
+    val szemleIdopontja: String? = null
+    val fajlagosAr: Double? = null
+    val kolcsonIgenylo: String? = null
+    val hrsz: String? = null
 
     // import text
-    var ebAzonosito: String? = null
-    var etAzonosito: String? = null
-    var hatarido: Moment? = null
-    var ugyfelNeve: String? = null
-    var ugyfelTelefonszama: String? = null
-    var ertesitesiNev: String? = null
-    var ertesitesiTel: String? = null
-    var lakasCel: String? = null
-    var hitelOsszeg: Int? = null
-    var ajanlatSzam: String? = null
-    var szerzodesSzam: String? = null
-    var energetika = false
-    var ertekbecsles = false
-    var irsz: String? = null
-    var telepules: String? = null
-    var regio: String? = null
+    val ebAzonosito: String? = null
+    val etAzonosito: String? = null
+    val hatarido: Moment? = null
+    val ugyfelNeve: String? = null
+    val ugyfelTelefonszama: String? = null
+    val ertesitesiNev: String? = null
+    val ertesitesiTel: String? = null
+    val lakasCel: String? = null
+    val hitelOsszeg: Int? = null
+    val ajanlatSzam: String? = null
+    val szerzodesSzam: String? = null
+    val energetika = false
+    val ertekbecsles = false
+    val irsz: String? = null
+    val telepules: String? = null
+    val regio: String? = null
 }
 
 
 data class Megrendeles(
-        var id: Int = 0,
-        var azonosito: String = "",
+        val id: Int = 0,
+        val azonosito: String = "",
 
-        var ugyfelNeve: String = "",
-        var ugyfelTel: String = "",
-        var ugyfelEmail: String = "",
+        val ugyfelNeve: String = "",
+        val ugyfelTel: String = "",
+        val ugyfelEmail: String = "",
 
-        var hrsz: String = "",
-        var regio: String = "",
-        var irsz: String = "",
-        var telepules: String = "",
-        var kerulet: String = "",
-        var utca: String = "",
-        var utcaJelleg: String = "",
-        var hazszam: String = "",
-        var lepcsohaz: String = "",
-        var emelet: String = "",
-        var ajto: String = "",
-        var ingatlanBovebbTipus: String = "",
-        var ingatlanTipusMunkadijMeghatarozasahoz: String? = null, // ~ sajat AR
-        var lakasTerulet: Int? = null,
-        var telekTerulet: Int? = null,
-        var keszultsegiFok: Int? = null,
+        val hrsz: String = "",
+        val regio: String = "",
+        val irsz: String = "",
+        val telepules: String = "",
+        val kerulet: String = "",
+        val utca: String = "",
+        val utcaJelleg: String = "",
+        val hazszam: String = "",
+        val lepcsohaz: String = "",
+        val emelet: String = "",
+        val ajto: String = "",
+        val ingatlanBovebbTipus: String = "",
+        val ingatlanTipusMunkadijMeghatarozasahoz: String? = null, // ~ sajat AR
+        val lakasTerulet: Int? = null,
+        val telekTerulet: Int? = null,
+        val keszultsegiFok: Int? = null,
 
 
-        var eladasiAr: Int? = null,
-        var becsultErtek: Int? = null,
-        var fajlagosEladAr: Int? = null,
-        var fajlagosBecsultAr: Int? = null,
+        val eladasiAr: Int? = null,
+        val becsultErtek: Int? = null,
+        val fajlagosEladAr: Int? = null,
+        val fajlagosBecsultAr: Int? = null,
 
-        var statusz: Statusz = Statusz.B1,
+        val statusz: Statusz = Statusz.B1,
         // Excelből jön
-        var helyszinelo: String? = null,
+        val helyszinelo: String? = null,
 
-        var ellenorizve: Boolean = false,
+        val ellenorizve: Boolean = false,
 
-        var megrendelve: Moment = moment(), // Megrendelés dátuma
-        var hatarido: Moment = moment(),
-        var feltoltveMegrendelonek: Moment? = null, // Feltöltve megrendelőnek
-        var energetikaFeltoltve: Moment? = null, // ???
-        var rogzitve: Moment? = null,
-        var szemleIdopontja: Moment? = null,
-        var adasvetelDatuma: Moment? = null,
-        var zarolva: Moment? = null,
-        var keszpenzesBefizetes: Moment? = null, // Iktató: Számla kifizetése, nálunk: Készpénzes befizetés
-        var penzBeerkezettDatum: Moment? = null,
-        var megrendelesMegtekint: Moment? = null, // Megrendelés átvétel ideje
-        var ertekbecslesFeltoltve: Moment? = null, // Vállalkozó feltöltöte a kész anyago
+        val megrendelve: Moment? = moment(), // Megrendelés dátuma
+        val hatarido: Moment? = moment(),
+        val feltoltveMegrendelonek: Moment? = null, // Feltöltve megrendelőnek
+        val energetikaFeltoltve: Moment? = null, // ???
+        val rogzitve: Moment? = null,
+        val szemleIdopontja: Moment? = null,
+        val adasvetelDatuma: Moment? = null,
+        val zarolva: Moment? = null,
+        val keszpenzesBefizetes: Moment? = null, // Iktató: Számla kifizetése, nálunk: Készpénzes befizetés
+        val penzBeerkezettDatum: Moment? = null,
+        val megrendelesMegtekint: Moment? = null, // Megrendelés átvétel ideje
+        val ertekbecslesFeltoltve: Moment? = null, // Vállalkozó feltöltöte a kész anyago
 
-        var megrendelo: String = "",
-        var hitelTipus: String = "",
-        var foVallalkozo: String = "",
+        val megrendelo: String = "",
+        val hitelTipus: String = "",
+        val foVallalkozo: String = "",
 
-        var szamlaSorszama: String = "",
-        var ertekbecsloDija: Int? = null,
+        val szamlaSorszama: String = "",
+        val ertekbecsloDija: Int? = null,
 
-        var megjegyzes: String = "",
-        var problema: String = "",
+        val megjegyzes: String = "",
+        val problema: String = "",
 
-        var alvallalkozoId: Int = 0,
-        var ertekbecsloId: Int = 0,
+        val alvallalkozoId: Int = 0,
+        val ertekbecsloId: Int = 0,
 
-        var ertesitesiNev: String = "",
-        var ertesitesiTel: String = "",
-        var hitelOsszeg: Int? = null,
-        var szamlazhatoDij: Int? = null,
-        var ajanlatSzam: String = "",
-        var szerzodesSzam: String = "",
-        var hetKod: String? = null,
-        var munkatipus: String = "",
-        var afa: Int = 0,
+        val ertesitesiNev: String = "",
+        val ertesitesiTel: String = "",
+        val hitelOsszeg: Int? = null,
+        val szamlazhatoDij: Int? = null,
+        val ajanlatSzam: String = "",
+        val szerzodesSzam: String = "",
+        val hetKod: String? = null,
+        val munkatipus: String = "",
+        val afa: Int = 0,
 
-        var created: Moment = moment(),
-        var createdBy: String = "",
-        var modified: Moment = moment(),
-        var modifiedBy: String = "",
+        val created: Moment = moment(),
+        val createdBy: String = "",
+        val modified: Moment = moment(),
+        val modifiedBy: String = "",
 
-        var files: Array<FileData> = emptyArray(),
-        var akadalyok: Array<Akadaly> = emptyArray(),
-        var readByAdmin: Boolean = false,
-        var readByAlvallalkozo: Boolean = false
+        val files: Array<FileData> = emptyArray(),
+        val akadalyok: Array<Akadaly> = emptyArray(),
+        val readByAdmin: Boolean = false,
+        val readByAlvallalkozo: Boolean = false
 
 ) {
 
@@ -403,17 +403,17 @@ val Link: BsStyle = js("'link'")
 data class Notification(val style: String, val text: String)
 
 data class SajatAr(
-        var id: Int = 0,
-        var leiras: String = "",
-        var nettoAr: Int = 0,
-        var megrendelo: String,
-        var afa: Int = 0,
-        var munkatipus: String,
+        val id: Int = 0,
+        val leiras: String = "",
+        val nettoAr: Int = 0,
+        val megrendelo: String,
+        val afa: Int = 0,
+        val munkatipus: String,
 
-        var created: Moment = moment(),
-        var createdBy: String = "",
-        var modified: Moment = moment(),
-        var modifiedBy: String = ""
+        val created: Moment = moment(),
+        val createdBy: String = "",
+        val modified: Moment = moment(),
+        val modifiedBy: String = ""
 ) {
 
 }

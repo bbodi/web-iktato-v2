@@ -40,6 +40,14 @@ data class AlvallalkozoState(
     }
 
     fun getEnabledAlvallalkozok() = alvallalkozok.values.filter { !it.disabled }
+
+    fun getSelectableAlvallalkozok(regio: String): Collection<Alvallalkozo> {
+        return regioOsszerendelesek.values
+                .filter { it.megye == regio }
+                .map { regioOsszerendeles -> getAlvallalkozoOf(regioOsszerendeles) }
+                .filter { alv -> alv.disabled == false }
+                .distinctBy { alv -> alv.id }
+    }
 }
 
 fun Map<Int, Alvallalkozo>.getEnabledAlvallalkozok() = this.values.filter { !it.disabled }

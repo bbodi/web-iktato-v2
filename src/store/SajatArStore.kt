@@ -3,26 +3,7 @@ package store
 import app.common.Moment
 import app.common.moment
 import hu.nevermind.iktato.RestUrl
-import hu.nevermind.utils.store.Role
-import hu.nevermind.utils.store.communicator
-import hu.nevermind.utils.store.dateTimeFormat
-import hu.nevermind.utils.store.fractionalSecondFormat
-
-data class SajatAr(
-        var id: Int = 0,
-        var leiras: String = "",
-        var nettoAr: Int = 0,
-        var megrendelo: String,
-        var afa: Int = 0,
-        var munkatipus: String,
-
-        var created: Moment = moment(),
-        var createdBy: String = "",
-        var modified: Moment = moment(),
-        var modifiedBy: String = ""
-) {
-
-}
+import hu.nevermind.utils.store.*
 
 
 data class SajatArState(

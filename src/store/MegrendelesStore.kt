@@ -3,17 +3,7 @@ package store
 import app.common.Moment
 import app.common.moment
 import hu.nevermind.iktato.RestUrl
-import hu.nevermind.utils.store.Akadaly
-import hu.nevermind.utils.store.FileData
-import hu.nevermind.utils.store.Megrendeles
-import hu.nevermind.utils.store.Munkatipusok
-import hu.nevermind.utils.store.Statusz
-import hu.nevermind.utils.store.communicator
-import hu.nevermind.utils.store.dateFormat
-import hu.nevermind.utils.store.dateTimeFormat
-import hu.nevermind.utils.store.dateTimeSecondFormat
-import hu.nevermind.utils.store.fractionalSecondFormat
-import hu.nevermind.utils.store.monthFormat
+import hu.nevermind.utils.store.*
 import kotlin.browser.window
 
 data class MegrendelesState(
@@ -140,13 +130,6 @@ private fun pollServerForChanges(lastUpdateTime: Moment) {
 //
 
 //
-//    fun getSelectableAlvallalkozok(regio: String): Collection<Alvallalkozo> {
-//        return AlvallalkozoStore.regioOsszerendelesek.values
-//                .filter { it.megye == regio }
-//                .map { regioOsszerendeles -> AlvallalkozoStore.getAlvallalkozoOf(regioOsszerendeles) }
-//                .filter { alv -> alv.disabled == false }
-//                .distinctBy { alv -> alv.id }
-//    }
 //}
 
 private fun filterMegrendelesek(avId: Int, d: Moment): List<Pair<Int, Megrendeles>> {
@@ -165,127 +148,127 @@ private fun filterMegrendelesek(avId: Int, d: Moment): List<Pair<Int, Megrendele
 }
 
 private fun toMegrendeles(json: dynamic): Megrendeles {
-    val megr = Megrendeles()
-    megr.id = json.id
-    megr.azonosito = json.azonosito
+    val megr = Megrendeles(
+            id = json.id,
+            azonosito = json.azonosito,
 
-    megr.ugyfelNeve = json.ugyfelNeve
-    megr.ugyfelTel = json.ugyfelTel
-    megr.ugyfelEmail = json.ugyfelEmail
+            ugyfelNeve = json.ugyfelNeve,
+            ugyfelTel = json.ugyfelTel,
+            ugyfelEmail = json.ugyfelEmail,
 
-    megr.hrsz = json.hrsz
-    megr.regio = json.regio
-    megr.irsz = json.irsz
-    megr.telepules = json.telepules
-    megr.kerulet = json.kerulet
-    megr.utca = json.utca
-    megr.utcaJelleg = json.utcaJelleg
-    megr.hazszam = json.hazszam
-    megr.lepcsohaz = json.lepcsohaz
-    megr.emelet = json.emelet
-    megr.ajto = json.ajto
-    megr.ingatlanBovebbTipus = json.ingatlanBovebbTipus
-    megr.ingatlanTipusMunkadijMeghatarozasahoz = json.ingatlanTipusMunkadijMeghatarozasahoz
-    megr.lakasTerulet = strToInt(json.lakasTerulet)
-    megr.telekTerulet = strToInt(json.telekTerulet)
+            hrsz = json.hrsz,
+            regio = json.regio,
+            irsz = json.irsz,
+            telepules = json.telepules,
+            kerulet = json.kerulet,
+            utca = json.utca,
+            utcaJelleg = json.utcaJelleg,
+            hazszam = json.hazszam,
+            lepcsohaz = json.lepcsohaz,
+            emelet = json.emelet,
+            ajto = json.ajto,
+            ingatlanBovebbTipus = json.ingatlanBovebbTipus,
+            ingatlanTipusMunkadijMeghatarozasahoz = json.ingatlanTipusMunkadijMeghatarozasahoz,
+            lakasTerulet = strToInt(json.lakasTerulet),
+            telekTerulet = strToInt(json.telekTerulet),
 
-    megr.keszultsegiFok = json.keszultsegiFok
-    megr.eladasiAr = strToInt(json.eladasiAr)
-    megr.becsultErtek = strToInt(json.becsultErtek)
-    megr.fajlagosEladAr = strToInt(json.fajlagosEladAr)
-    megr.fajlagosBecsultAr = strToInt(json.fajlagosBecsultAr)
+            keszultsegiFok = json.keszultsegiFok,
+            eladasiAr = strToInt(json.eladasiAr),
+            becsultErtek = strToInt(json.becsultErtek),
+            fajlagosEladAr = strToInt(json.fajlagosEladAr),
+            fajlagosBecsultAr = strToInt(json.fajlagosBecsultAr),
 
-    megr.hitelOsszeg = strToInt(json.hitelOsszeg)
-    megr.afa = strToInt(json.afa) ?: 0
-    megr.szamlazhatoDij = strToInt(json.szamlazhatoDij)
+            hitelOsszeg = strToInt(json.hitelOsszeg),
+            afa = strToInt(json.afa) ?: 0,
+            szamlazhatoDij = strToInt(json.szamlazhatoDij),
 
-    megr.ertesitesiNev = json.ertesitesiNev
-    megr.ertesitesiTel = json.ertesitesiTel
-    megr.ajanlatSzam = json.ajanlatSzam
-    megr.szerzodesSzam = json.szerzodesSzam
-    megr.hetKod = json.hetKod
-    if (json.energetika == "igen" && json.ertekbecsles == "igen") {
-        megr.munkatipus = Munkatipusok.EnergetikaAndErtekBecsles.str
-    } else if (json.ertekbecsles == "igen") {
-        megr.munkatipus = Munkatipusok.Ertekbecsles.str
-    } else if (json.energetika == "igen") {
-        megr.munkatipus = Munkatipusok.Energetika.str
-    } else {
-        megr.munkatipus = json.munkatipus
-    }
+            ertesitesiNev = json.ertesitesiNev,
+            ertesitesiTel = json.ertesitesiTel,
+            ajanlatSzam = json.ajanlatSzam,
+            szerzodesSzam = json.szerzodesSzam,
+            hetKod = json.hetKod,
+            munkatipus = if (json.energetika == "igen" && json.ertekbecsles == "igen") {
+                Munkatipusok.EnergetikaAndErtekBecsles.str
+            } else if (json.ertekbecsles == "igen") {
+                Munkatipusok.Ertekbecsles.str
+            } else if (json.energetika == "igen") {
+                Munkatipusok.Energetika.str
+            } else {
+                json.munkatipus
+            },
 
-    megr.statusz = Statusz.fromString(json.statusz)
+            statusz = Statusz.fromString(json.statusz),
 
-    megr.megrendelo = json.megrendelo
-    megr.hitelTipus = json.hitelTipus
-    megr.foVallalkozo = json.foVallalkozo
+            megrendelo = json.megrendelo,
+            hitelTipus = json.hitelTipus,
+            foVallalkozo = json.foVallalkozo,
 
-    megr.szamlaSorszama = json.szamlaSorszama
-    megr.ertekbecsloDija = strToInt(json.ertekbecsloDija)
+            szamlaSorszama = json.szamlaSorszama,
+            ertekbecsloDija = strToInt(json.ertekbecsloDija),
 
-    megr.megjegyzes = json.megjegyzes
-    megr.problema = json.problema
+            megjegyzes = json.megjegyzes,
+            problema = json.problema,
 
 
-    megr.alvallalkozoId = json.alvallalkozoId
-    megr.ertekbecsloId = json.ertekbecsloId
-    if (json.hatarido != null) {
-        megr.hatarido = readDateTime(json.hatarido, dateFormat)
-    }
-    if (json.megrendelesMegtekint != null) {
-        megr.megrendelesMegtekint = readDateTime(json.megrendelesMegtekint)
-    }
-    if (json.megrendelve != null) {
-        megr.megrendelve = readDateTime(json.megrendelve, dateFormat)
-    }
-    if (json.rogzitve != null) {
-        megr.rogzitve = readDateTime(json.rogzitve)
-    }
-    if (json.zarolva != null) {
-        megr.zarolva = readDateTime(json.zarolva, dateFormat)
-    }
-    if (json.feltoltve != null) {
-        megr.feltoltveMegrendelonek = readDateTime(json.feltoltve, dateFormat)
-    }
-    if (json.keszpenzesBefizetes != null) {
-        megr.keszpenzesBefizetes = readDateTime(json.keszpenzesBefizetes, dateFormat)
-    }
+            alvallalkozoId = json.alvallalkozoId,
+            ertekbecsloId = json.ertekbecsloId,
+            hatarido = if (json.hatarido != null) {
+                readDateTime(json.hatarido, dateFormat)
+            } else null,
+            megrendelesMegtekint = if (json.megrendelesMegtekint != null) {
+                readDateTime(json.megrendelesMegtekint)
+            } else null,
+            megrendelve = if (json.megrendelve != null) {
+                readDateTime(json.megrendelve, dateFormat)
+            } else null,
+            rogzitve = if (json.rogzitve != null) {
+                readDateTime(json.rogzitve)
+            } else null,
+            zarolva = if (json.zarolva != null) {
+                readDateTime(json.zarolva, dateFormat)
+            } else null,
+            feltoltveMegrendelonek = if (json.feltoltve != null) {
+                readDateTime(json.feltoltve, dateFormat)
+            } else null,
+            keszpenzesBefizetes = if (json.keszpenzesBefizetes != null) {
+                readDateTime(json.keszpenzesBefizetes, dateFormat)
+            } else null,
 
-    if (json.helysziniSzemle != null) {
-        megr.szemleIdopontja = readDateTime(json.helysziniSzemle, dateFormat)
-    }
-    if (json.ertekbecslesFeltoltve != null) {
-        megr.ertekbecslesFeltoltve = readDateTime(json.ertekbecslesFeltoltve)
-    }
+            szemleIdopontja = if (json.helysziniSzemle != null) {
+                readDateTime(json.helysziniSzemle, dateFormat)
+            } else null,
+            ertekbecslesFeltoltve = if (json.ertekbecslesFeltoltve != null) {
+                readDateTime(json.ertekbecslesFeltoltve)
+            } else null,
 
-    if (json.energetikaFeltoltve != null) {
-        megr.energetikaFeltoltve = readDateTime(json.energetikaFeltoltve)
-    }
+            energetikaFeltoltve = if (json.energetikaFeltoltve != null) {
+                readDateTime(json.energetikaFeltoltve)
+            } else null,
 
-    if (!(json.penzBeerkezettDatum as String?).isNullOrEmpty()) {
-        megr.penzBeerkezettDatum = readDateTime(json.penzBeerkezettDatum)
-    }
-    if (json.adasvetelDatuma != null) {
-        megr.adasvetelDatuma = readDateTime(json.adasvetelDatuma)
-    }
+            penzBeerkezettDatum = if (!(json.penzBeerkezettDatum as String?).isNullOrEmpty()) {
+                readDateTime(json.penzBeerkezettDatum)
+            } else null,
+            adasvetelDatuma = if (json.adasvetelDatuma != null) {
+                readDateTime(json.adasvetelDatuma)
+            } else null,
 
-    megr.helyszinelo = json.helyszinelo
-    megr.ellenorizve = json.ellenorizve == "igen"
+            helyszinelo = json.helyszinelo,
+            ellenorizve = json.ellenorizve == "igen",
 
-    megr.created = readDateTime(json.created, dateTimeFormat)
-    megr.modified = readDateTime(json.modified, fractionalSecondFormat)
-    megr.createdBy = json.createdBy
-    megr.modifiedBy = json.modifiedBy
-    megr.readByAdmin = json.readByAdmin
-    megr.readByAlvallalkozo = json.readByAlvallalkozo
+            created = readDateTime(json.created, dateTimeFormat),
+            modified = readDateTime(json.modified, fractionalSecondFormat),
+            createdBy = json.createdBy,
+            modifiedBy = json.modifiedBy,
+            readByAdmin = json.readByAdmin,
+            readByAlvallalkozo = json.readByAlvallalkozo,
 
-    megr.files = (json.files as Array<dynamic>).map {
-        FileData(it.name, it.humanReadableSize)
-    }.toTypedArray()
-    megr.akadalyok = (json.akadalyok as Array<dynamic>).map {
-        jsonToAkadaly(it)
-    }.toTypedArray()
-
+            files = (json.files as Array<dynamic>).map {
+                FileData(it.name, it.humanReadableSize)
+            }.toTypedArray(),
+            akadalyok = (json.akadalyok as Array<dynamic>).map {
+                jsonToAkadaly(it)
+            }.toTypedArray()
+    )
     return megr
 }
 

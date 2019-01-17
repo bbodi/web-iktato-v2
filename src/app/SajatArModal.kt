@@ -6,12 +6,12 @@ import hu.nevermind.antd.*
 import hu.nevermind.antd.autocomplete.AutoComplete
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import app.AppState
+import hu.nevermind.utils.store.SajatAr
 import kotlinext.js.jsObject
 import react.ReactElement
 import react.buildElement
 import react.children
 import react.createElement
-import store.SajatAr
 
 
 fun sajatArModal(

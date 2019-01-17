@@ -9,6 +9,7 @@ import hu.nevermind.iktato.RestUrl
 import hu.nevermind.utils.app.sajatArModal
 import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.store.LoggedInUser
+import hu.nevermind.utils.store.SajatAr
 import hu.nevermind.utils.store.communicator
 import kotlinext.js.jsObject
 import kotlinx.html.DIV
@@ -20,7 +21,6 @@ import react.createElement
 import react.dom.RDOMBuilder
 import react.dom.div
 import store.Action
-import store.SajatAr
 
 private data class ComponentState(
         val selectedMegrendelo: String,

@@ -7,7 +7,7 @@ import hu.nevermind.iktato.JqueryAjaxPoster
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
 import hu.nevermind.iktato.Result
-import hu.nevermind.iktato.component.megrendeles.megrendelesForm
+import app.megrendeles.megrendelesForm
 import hu.nevermind.utils.hu.nevermind.antd.*
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.*
@@ -255,7 +255,9 @@ fun main(args: Array<String>) {
                                             appState,
                                             dispatch)
                                 } else {
-                                    megrendelesForm(appState.megrendelesState.megrendelesek[currentScreen.editingMegrendelesId]!!)
+                                    megrendelesForm(currentScreen.editingMegrendelesId,
+                                            appState
+                                    )
                                 }
                             } else null
                         }
