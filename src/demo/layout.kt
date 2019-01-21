@@ -193,7 +193,7 @@ fun RBuilder.example(element: RBuilder.() -> Unit, source: String, title: String
         ))
     }
     Collapse {
-        attrs.defaultActiveKey = "showcase"
+        attrs.defaultActiveKey = arrayOf("showcase")
         Panel("showcase") {
             attrs.header = StringOrReactElement.fromString("Showcase")
             section("code-box") {

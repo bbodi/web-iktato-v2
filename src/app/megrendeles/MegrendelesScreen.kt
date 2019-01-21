@@ -881,8 +881,8 @@ private fun haviTeljesitesModal(state: MegrendelesScreenState,
                 }
                 Form {
                     FormItem {
-                        attrs.labelCol = ColProperties(span = 4)
-                        attrs.wrapperCol = ColProperties(span = 14)
+                        attrs.labelCol = ColProperties {span = 4}
+                        attrs.wrapperCol = ColProperties {span = 14}
                         attrs.label = StringOrReactElement.fromString("Alvállalkozó")
                         AutoComplete(alvallalkozok.map { it.name }.sortedBy { it }.toTypedArray()) {
                             attrs.placeholder = "Alvállalkozó"
@@ -895,8 +895,8 @@ private fun haviTeljesitesModal(state: MegrendelesScreenState,
                         }
                     }
                     FormItem {
-                        attrs.labelCol = ColProperties(span = 4)
-                        attrs.wrapperCol = ColProperties(span = 14)
+                        attrs.labelCol = ColProperties {span = 4}
+                        attrs.wrapperCol = ColProperties {span = 14}
                         attrs.label = StringOrReactElement.fromString("Hónap")
                         MonthPicker {
                             attrs.allowClear = false

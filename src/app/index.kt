@@ -1,13 +1,13 @@
 package app
 
 import app.common.moment
+import app.megrendeles.megrendelesForm
 import app.megrendeles.megrendelesScreen
 import hu.nevermind.antd.*
 import hu.nevermind.iktato.JqueryAjaxPoster
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
 import hu.nevermind.iktato.Result
-import app.megrendeles.megrendelesForm
 import hu.nevermind.utils.hu.nevermind.antd.*
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.*
@@ -24,13 +24,16 @@ import kotlin.browser.document
 import kotlin.browser.window
 import kotlin.math.roundToLong
 
+data class Geo(val irszamok: List<Irszam>, val varosok: List<Varos>)
+
 data class AppState(val megrendelesState: MegrendelesState,
                     val alvallalkozoState: AlvallalkozoState,
                     val currentScreen: AppScreen,
                     val urlData: UrlData,
                     val sajatArState: SajatArState,
                     val accountStore: AccountStore,
-                    val maybeLoggedInUser: LoggedInUser?)
+                    val maybeLoggedInUser: LoggedInUser?,
+                    val geoData: Geo)
 
 //val rootReducer = combineReducers<AppState, RAction>(mapOf(
 //        "megrendelesState" to megrendelesReducer
@@ -74,6 +77,50 @@ fun main(args: Array<String>) {
         }
     }
 
+    fun geoReducer(state: Geo, action: Action): Geo {
+        return when (action) {
+            is Action.MegrendelesekFromServer -> state
+            is Action.SetLoggedInUser -> state.copy(
+                    varosok = if (action.data != null && action.data.isAdmin) {
+                        communicator.getEntitiesFromServer(RestUrl.getVarosok) { returnedArray: Array<dynamic> ->
+                            returnedArray.map { json ->
+                                Varos(
+                                        id = json.id,
+                                        telepules = json.telepules,
+                                        irszam = json.irszam,
+                                        utcanev = json.utcanev,
+                                        kerulet = json.kerulet,
+                                        utotag = json.utotag
+                                )
+                            }
+                        }
+                    } else emptyList(),
+                    irszamok = if (action.data != null && action.data.isAdmin) {
+                        communicator.getEntitiesFromServer(RestUrl.getIrszamok) { returnedArray: Array<dynamic> ->
+                            returnedArray.map { json ->
+                                Irszam(
+                                        id = json.id,
+                                        telepules = json.telepules,
+                                        irszam = json.irszam,
+                                        megye = json.megye
+                                )
+                            }
+                        }
+                    } else emptyList()
+
+            )
+            is Action.ChangeURL -> state
+            is Action.changeURLSilently -> state
+            is Action.FilterMegrendelesek -> state
+            is Action.SajatArFromServer -> state
+            is Action.AccountFromServer -> state
+            is Action.AlvallalkozoFromServer -> state
+            is Action.ErtekbecsloFromServer -> state
+            is Action.RegioOsszerendelesFromServer -> state
+            is Action.DeleteRegioOsszerendeles -> state
+        }
+    }
+
     val AppComponent: () -> ReactElement? = {
         val (appState, dispatch) = useReducer<AppState, Action>({ currentState, action ->
             console.log("Message arrived: $action")
@@ -82,6 +129,7 @@ fun main(args: Array<String>) {
                     alvallalkozoState = alvallalkozoActionHandler(currentState.alvallalkozoState, action),
                     urlData = routerStoreHandler(currentState.urlData, action),
                     maybeLoggedInUser = appReducer(currentState.maybeLoggedInUser, action),
+                    geoData = geoReducer(currentState.geoData, action),
                     sajatArState = sajatArActionHandler(currentState.sajatArState, action),
                     accountStore = accountActionHandler(currentState.accountStore, action)
             )
@@ -90,6 +138,7 @@ fun main(args: Array<String>) {
                 currentScreen = AppScreen.LoginAppScreen(),
                 urlData = UrlData(window.location.hash.substring(1), emptyMap()),
                 sajatArState = SajatArState(),
+                geoData = Geo(emptyList(), emptyList()),
                 accountStore = AccountStore(emptyArray()))) // TODO: parse current uRL
         useEffect {
             var urlChangeOccurredByDispatchAction = false
@@ -255,8 +304,10 @@ fun main(args: Array<String>) {
                                             appState,
                                             dispatch)
                                 } else {
-                                    megrendelesForm(currentScreen.editingMegrendelesId,
-                                            appState
+                                    megrendelesForm(
+                                            currentScreen.editingMegrendelesId,
+                                            appState,
+                                            dispatch
                                     )
                                 }
                             } else null

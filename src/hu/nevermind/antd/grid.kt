@@ -1,6 +1,6 @@
 package hu.nevermind.antd
 
-import hu.nevermind.utils.hu.nevermind.antd.jsUndefined
+import kotlinext.js.jsObject
 import react.RBuilder
 import react.RClass
 import react.RHandler
@@ -64,36 +64,30 @@ fun RBuilder.Col(offset: Int = 0,
         attrs.push = push
         attrs.span = span
 
-        attrs.xs = xs?.value
-        attrs.sm = sm?.value
-        attrs.md = md?.value
-        attrs.lg = lg?.value
-        attrs.xl = xl?.value
-        attrs.xxl = xxl?.value
+        attrs.xs = xs
+        attrs.sm = sm
+        attrs.md = md
+        attrs.lg = lg
+        attrs.xl = xl
+        attrs.xxl = xxl
         handler()
     }
 }
 
-class ColProperties {
-    val value: Any
+fun ColProperties(fn: ColProperties.() -> Unit): ColProperties {
+    return jsObject<ColProperties> { fn() }
+}
 
-    constructor(num: Int) {
-        value = num
-    }
+fun ColProperties(value: Int): ColProperties {
+    return value.unsafeCast<ColProperties>()
+}
 
-    constructor(offset: Int = 0,
-                order: Int = 0,
-                pull: Int = 0,
-                push: Int = 0,
-                span: Int = 0) {
-        value = object {
-            val offset: Int = offset
-            val order: Int = order
-            val pull: Int = pull
-            val push: Int = push
-            val span: Int = span
-        }
-    }
+interface ColProperties {
+    var offset: Int
+    var order: Int
+    var pull: Int
+    var push: Int
+    var span: Int
 }
 
 external interface ColProps : RProps {

@@ -18,7 +18,7 @@ external interface CollapseProps : RProps {
     var accordion: Boolean
     var activeKey: Key
     var bordered: Boolean
-    var defaultActiveKey: Key
+    var defaultActiveKey: Array<Key>
     var onChange: () -> Unit
     var destroyInactivePanel: Boolean
 }

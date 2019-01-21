@@ -1,6 +1,7 @@
 package hu.nevermind.antd
 
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
+import hu.nevermind.utils.jsStyle
 import kotlinx.html.InputType
 import org.w3c.dom.events.InputEvent
 import react.RBuilder
@@ -56,7 +57,7 @@ external interface TextAreaProps : RProps {
 }
 
 external interface MyNumberInputProps : InputProps {
-    var number: Long
+    var number: Long?
     var onValueChange: (value: Long?) -> Unit
 }
 
@@ -78,6 +79,8 @@ fun RBuilder.MyNumberInput(handler: RHandler<MyNumberInputProps> = {}) {
         handler.asDynamic()(this)
         if (attrs.asDynamic().number) {
             attrs.value = parseGroupedStringToNum((attrs.unsafeCast<MyNumberInputProps>()).number.toString()).second
+        } else {
+            attrs.value = ""
         }
         attrs.onChange = { e ->
             val value: String = e.currentTarget.asDynamic().value
@@ -116,6 +119,7 @@ external interface FormItemProps : RProps {
     var label: StringOrReactElement
     var help: StringOrReactElement?
     var required: Boolean
+    var hasFeedback: Boolean
     var labelCol: ColProperties
     var wrapperCol: ColProperties
 }
