@@ -25,7 +25,7 @@ object AutoCompleteDefaultValue {
 
 external interface AutoCompleteProps : RProps {
     var style: Any
-    var dataSource: Array<Any>
+    var dataSource: Array<dynamic>
     var onSelect: (String) -> Unit
     var onChange: (String) -> Unit
     var onSearch: (String) -> Unit
@@ -41,8 +41,8 @@ external interface AutoCompleteProps : RProps {
 }
 
 
-fun RBuilder.AutoComplete(
-        dataSource: Array<Any>,
+fun <T> RBuilder.AutoComplete(
+        dataSource: Array<T>,
         handler: RHandler<AutoCompleteProps> = {}
 ) {
     AutoComplete {

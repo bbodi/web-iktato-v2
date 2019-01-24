@@ -47,7 +47,7 @@ fun sajatArModal(
                                 attrs.required = true
                                 attrs.help = StringOrReactElement.fromString("Meglévő vagy új Megrendelő")
                                 attrs.label = StringOrReactElement.fromString("Megrendelő")
-                                AutoComplete(appState.sajatArState.allMegrendelo.asDynamic()) {
+                                AutoComplete(appState.sajatArState.allMegrendelo) {
                                     attrs.value = sajatAr.megrendelo
                                     attrs.placeholder = "Megrendelő"
                                     attrs.filterOption = { inputString, optionElement ->

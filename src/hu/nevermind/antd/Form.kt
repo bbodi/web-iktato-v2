@@ -8,6 +8,7 @@ import react.RBuilder
 import react.RClass
 import react.RHandler
 import react.RProps
+import react.dom.div
 
 val FormComp: RClass<FormProps> = kotlinext.js.require("antd").Form
 val InputComp: RClass<InputProps> = kotlinext.js.require("antd").Input
@@ -77,13 +78,29 @@ fun RBuilder.TextArea(handler: RHandler<TextAreaProps> = {}) {
 fun RBuilder.MyNumberInput(handler: RHandler<MyNumberInputProps> = {}) {
     Input {
         handler.asDynamic()(this)
+        if (attrs.asDynamic().style != null) {
+            attrs.asDynamic().style["textAlign"] = "right"
+        } else {
+            attrs.asDynamic().style = jsStyle { textAlign = "right" }
+        }
+        if (attrs.asDynamic().className != null) {
+            attrs.asDynamic().className += "my-number-input"
+        } else {
+            attrs.asDynamic().className = "my-number-input"
+        }
         if (attrs.asDynamic().number) {
             attrs.value = parseGroupedStringToNum((attrs.unsafeCast<MyNumberInputProps>()).number.toString()).second
         } else {
             attrs.value = ""
         }
         attrs.onChange = { e ->
-            val value: String = e.currentTarget.asDynamic().value
+            val value: String = (e.currentTarget.asDynamic().value as String).let {
+                if (it.lastOrNull() == 'm') {
+                    it + "000000"
+                } else if (it.lastOrNull() == 'k') {
+                    it + "000"
+                } else it
+            }
             attrs.asDynamic().onValueChange(parseGroupedStringToNum(value).first)
         }
     }
@@ -119,6 +136,7 @@ external interface FormItemProps : RProps {
     var label: StringOrReactElement
     var help: StringOrReactElement?
     var required: Boolean
+    var colon: Boolean
     var hasFeedback: Boolean
     var labelCol: ColProperties
     var wrapperCol: ColProperties

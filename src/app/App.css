@@ -15,3 +15,7 @@
 .App-ticker {
   font-size: medium;
 }
+
+.my-number-input {
+  text-align: right;
+}

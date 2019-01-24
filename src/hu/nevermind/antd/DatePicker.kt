@@ -28,8 +28,9 @@ fun RBuilder.MonthPicker(
 
 external interface DatePickerProps : RProps {
     var onChange: (Moment?, String) -> Unit
-    var value: Moment
+    var value: Moment?
     var allowClear: Boolean
+    var disabled: Boolean
     var placeholder: String
     var disabledDate: (Moment) -> Boolean
 }
