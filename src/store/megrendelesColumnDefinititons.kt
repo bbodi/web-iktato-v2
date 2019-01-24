@@ -79,6 +79,7 @@ private val exactMatchFilter = { fieldGetter: (Megrendeles) -> String ->
 data class FilterDef<T>(val filterComboValues: (Array<Megrendeles>) -> Array<Pair<String, T>>,
                         val filter: ((value: T, row: Megrendeles) -> Boolean))
 
+
 val megyek = arrayOf(
         "Bács-Kiskun",
         "Baranya",

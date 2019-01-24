@@ -1,8 +1,10 @@
 package app
 
 import app.common.moment
-import app.megrendeles.megrendelesForm
-import app.megrendeles.megrendelesScreen
+import app.megrendeles.MegrendelesFormScreenComponent
+import app.megrendeles.MegrendelesFormScreenParams
+import app.megrendeles.MegrendelesScreenComponent
+import app.megrendeles.MegrendelesScreenParams
 import hu.nevermind.antd.*
 import hu.nevermind.iktato.JqueryAjaxPoster
 import hu.nevermind.iktato.Path
@@ -300,47 +302,52 @@ fun main(args: Array<String>) {
                         is AppScreen.MegrendelesAppScreen -> {
                             if (appState.maybeLoggedInUser != null) {
                                 if (currentScreen.editingMegrendelesId == null) {
-                                    megrendelesScreen(appState.maybeLoggedInUser,
+                                    MegrendelesScreenComponent.createElement(MegrendelesScreenParams(
                                             appState,
-                                            dispatch)
+                                            dispatch
+                                    ))
                                 } else {
-                                    megrendelesForm(
+                                    MegrendelesFormScreenComponent.createElement(MegrendelesFormScreenParams(
                                             currentScreen.editingMegrendelesId,
                                             appState,
                                             dispatch
-                                    )
+                                    ))
                                 }
                             } else null
                         }
                         is AppScreen.LoginAppScreen -> null
-                        is AppScreen.AlvallalkozoAppScreen -> alvallalkozoScreen(currentScreen.avId,
-                                appState.maybeLoggedInUser!!,
-                                appState,
-                                dispatch)
-                        is AppScreen.AccountAppScreen -> accountScreen(currentScreen.editingAccountId, appState.maybeLoggedInUser!!,
-                                appState,
-                                dispatch)
-                        is AppScreen.RegioAppScreen -> {
-                            regioScreen(
-                                    currentScreen.alvallalkozoId,
-                                    currentScreen.regioId,
-                                    appState.maybeLoggedInUser!!,
+                        is AppScreen.AlvallalkozoAppScreen ->
+                            AlvallalkozoScreenComponent.createElement(AlvallalkozoScreenParams(
+                                    currentScreen.avId,
+                                    appState,
+                                    dispatch))
+                        is AppScreen.AccountAppScreen ->
+                            AccountScreenComponent.createElement(AccountScreenParams(
+                                    currentScreen.editingAccountId,
                                     appState,
                                     dispatch
-                            )
+                            ))
+                        is AppScreen.RegioAppScreen -> {
+                            RegioScreenComponent.createElement(RegioScreenParams(
+                                    currentScreen.alvallalkozoId,
+                                    currentScreen.regioId,
+                                    appState,
+                                    dispatch
+                            ))
                         }
-                        is AppScreen.ErtekbecsloAppScreen -> ertekbecsloScreen(
-                                currentScreen.avId,
-                                currentScreen.ebId, appState.maybeLoggedInUser!!,
-                                appState,
-                                dispatch
-                        )
-                        is AppScreen.SajatArAppScreen -> sajatArScreen(
-                                currentScreen.editingSajatArId,
-                                appState.maybeLoggedInUser!!,
-                                appState,
-                                dispatch
-                        )
+                        is AppScreen.ErtekbecsloAppScreen ->
+                            ErtekbecsloScreenComponent.createElement(ErtekbecsloScreenParams(
+                                    currentScreen.avId,
+                                    currentScreen.ebId,
+                                    appState,
+                                    dispatch
+                            ))
+                        is AppScreen.SajatArAppScreen ->
+                            SajatArScreenComponent.createElement(SajatArScreenParams(
+                                    currentScreen.editingSajatArId,
+                                    appState,
+                                    dispatch
+                            ))
                     }
                     Layout {
                         Header {

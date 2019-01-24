@@ -5,17 +5,21 @@ import hu.nevermind.antd.table.ColumnProps
 import hu.nevermind.antd.table.Table
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
-import hu.nevermind.utils.app.accountModal
+import hu.nevermind.utils.app.AccountModalParams
+import hu.nevermind.utils.app.AccountModalComponent
+import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.Account
-import hu.nevermind.utils.store.LoggedInUser
 import hu.nevermind.utils.store.Role
 import hu.nevermind.utils.store.communicator
 import kotlinext.js.jsObject
 import kotlinx.html.DIV
-import react.*
+import react.RBuilder
+import react.RClass
+import react.RElementBuilder
+import react.buildElement
 import react.dom.RDOMBuilder
 import react.dom.div
 import store.Action
@@ -29,42 +33,32 @@ data class AccountScreenState(
         val fullnameSearchText: String
 )
 
-fun accountScreen(
-        editingAccountId: Int?,
-        user: LoggedInUser,
-        appState: AppState,
-        globalDispatch: (Action) -> Unit): ReactElement {
-    return createElement({ props: dynamic ->
-        val user: LoggedInUser = props.user
+data class AccountScreenParams(val editingAccountId: Int?,
+                               val appState: AppState,
+                               val globalDispatch: (Action) -> Unit)
+
+object AccountScreenComponent : DefinedReactComponent<AccountScreenParams>() {
+    override fun RBuilder.body(props: AccountScreenParams) {
         val appState: AppState = props.appState
         val globalDispatch: (Action) -> Unit = props.globalDispatch
         val editingAccountId: Int? = props.editingAccountId
         val (state, setState) = useState(AccountScreenState("", ""))
-
-
-        buildElement {
-            div {
-                Row {
-                    Col(offset = 5, span = 2) {
-                        addNewButton(globalDispatch)
-                    }
-                }
-                Row {
-                    Col(span = 14, offset = 5) {
-                        accountTable(appState, globalDispatch, state, setState)
-                    }
-                }
-                if (editingAccountId != null) {
-                    accountEditingModal(editingAccountId, appState, globalDispatch)
+        div {
+            Row {
+                Col(offset = 5, span = 2) {
+                    addNewButton(globalDispatch)
                 }
             }
+            Row {
+                Col(span = 14, offset = 5) {
+                    accountTable(appState, globalDispatch, state, setState)
+                }
+            }
+            if (editingAccountId != null) {
+                accountEditingModal(editingAccountId, appState, globalDispatch)
+            }
         }
-    }, jsObject<dynamic> {
-        this.user = user
-        this.appState = appState
-        this.globalDispatch = globalDispatch
-        this.editingAccountId = editingAccountId
-    })
+    }
 }
 
 private fun RDOMBuilder<DIV>.accountEditingModal(editingAccountId: Int, appState: AppState, globalDispatch: (Action) -> Unit) {
@@ -78,7 +72,7 @@ private fun RDOMBuilder<DIV>.accountEditingModal(editingAccountId: Int, appState
     } else {
         appState.accountStore.accounts.first { it.id == editingAccountId }
     }
-    child(accountModal(editingAccount, appState) { okButtonPressed, account ->
+    AccountModalComponent.insert(this, AccountModalParams(editingAccount, appState) { okButtonPressed, account ->
         if (okButtonPressed && account != null) {
             val sendingEntity = object {
                 val id = account.id
@@ -113,9 +107,9 @@ private fun RElementBuilder<ColProps>.addNewButton(globalDispatch: (Action) -> U
 }
 
 fun <T> StringFilteringColumnProps(searchText: String,
-                               setState: Dispatcher<String>,
-                               fieldGetter: (T) -> String,
-                               body: ColumnProps.() -> Unit): ColumnProps {
+                                   setState: Dispatcher<String>,
+                                   fieldGetter: (T) -> String,
+                                   body: ColumnProps.() -> Unit): ColumnProps {
     return ColumnProps {
         filterIcon = { filtered ->
             StringOrReactElement.from {

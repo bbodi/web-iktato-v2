@@ -1,30 +1,21 @@
 package app
 
-import hu.nevermind.antd.Button
-import hu.nevermind.antd.ButtonSize
-import hu.nevermind.antd.ButtonType
-import hu.nevermind.antd.Col
-import hu.nevermind.antd.ColProps
-import hu.nevermind.antd.Icon
-import hu.nevermind.antd.Row
-import hu.nevermind.antd.Tag
-import hu.nevermind.antd.Tooltip
+import hu.nevermind.antd.*
 import hu.nevermind.antd.table.ColumnProps
 import hu.nevermind.antd.table.Table
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
-import hu.nevermind.utils.app.alvallalkozoModal
+import hu.nevermind.utils.app.AlvallalkozoModalComponent
+import hu.nevermind.utils.app.AlvallalkozoModalParams
+import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.store.Alvallalkozo
-import hu.nevermind.utils.store.LoggedInUser
 import hu.nevermind.utils.store.communicator
 import kotlinext.js.jsObject
 import kotlinx.html.DIV
 import react.RBuilder
 import react.RElementBuilder
-import react.ReactElement
 import react.buildElement
-import react.createElement
 import react.dom.RDOMBuilder
 import react.dom.div
 import react.dom.jsStyle
@@ -38,43 +29,34 @@ data class AlvallalkozoScreenState(
         val tagsagiSzamSearchText: String
 )
 
-fun alvallalkozoScreen(
-        editingAlvallalkozoId: Int?,
-        user: LoggedInUser,
-        appState: AppState,
-        globalDispatch: (Action) -> Unit): ReactElement {
-    return createElement({ props: dynamic ->
-        val user: LoggedInUser = props.user
+data class AlvallalkozoScreenParams(val editingAlvallalkozoId: Int?,
+                                    val appState: AppState,
+                                    val globalDispatch: (Action) -> Unit)
+
+object AlvallalkozoScreenComponent : DefinedReactComponent<AlvallalkozoScreenParams>() {
+    override fun RBuilder.body(props: AlvallalkozoScreenParams) {
         val appState: AppState = props.appState
         val globalDispatch: (Action) -> Unit = props.globalDispatch
         val editingAlvallalkozoId: Int? = props.editingAlvallalkozoId
         val (state, setState) = useState(AlvallalkozoScreenState("", ""))
-
-
-        buildElement {
-            div {
-                Row {
-                    Col(offset = 1, span = 2) {
-                        addNewButton(globalDispatch)
-                    }
-                }
-                Row {
-                    Col(span = 22, offset = 1) {
-                        alvallalkozoTable(appState, globalDispatch, state, setState)
-                    }
-                }
-                if (editingAlvallalkozoId != null) {
-                    alvallalkozoEditingModal(editingAlvallalkozoId, appState, globalDispatch)
+        div {
+            Row {
+                Col(offset = 1, span = 2) {
+                    addNewButton(globalDispatch)
                 }
             }
+            Row {
+                Col(span = 22, offset = 1) {
+                    alvallalkozoTable(appState, globalDispatch, state, setState)
+                }
+            }
+            if (editingAlvallalkozoId != null) {
+                alvallalkozoEditingModal(editingAlvallalkozoId, appState, globalDispatch)
+            }
         }
-    }, jsObject<dynamic> {
-        this.user = user
-        this.appState = appState
-        this.globalDispatch = globalDispatch
-        this.editingAlvallalkozoId = editingAlvallalkozoId
-    })
+    }
 }
+
 
 private fun RDOMBuilder<DIV>.alvallalkozoEditingModal(editingAlvallalkozoId: Int, appState: AppState, globalDispatch: (Action) -> Unit) {
     val editingAlvallalkozo = if (editingAlvallalkozoId == 0) {
@@ -84,7 +66,7 @@ private fun RDOMBuilder<DIV>.alvallalkozoEditingModal(editingAlvallalkozoId: Int
     } else {
         appState.alvallalkozoState.alvallalkozok[editingAlvallalkozoId]!!
     }
-    child(alvallalkozoModal(editingAlvallalkozo) { okButtonPressed, alvallalkozo ->
+    AlvallalkozoModalComponent.insert(this, AlvallalkozoModalParams(editingAlvallalkozo, appState) { okButtonPressed, alvallalkozo ->
         if (okButtonPressed && alvallalkozo != null) {
             communicator.saveEntity<Any, dynamic>(RestUrl.saveAlvallalkozo, alvallalkozo) { response ->
                 globalDispatch(Action.AlvallalkozoFromServer(response))
@@ -129,10 +111,12 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                         if (phoneArr.size > 1) {
                             ul {
                                 attrs.jsStyle { listStyle = "none"; margin = 0; padding = 0 }
-                                phoneArr.forEach { li {
-                                    attrs.jsStyle { margin = 0; padding = 0 }
-                                    +it
-                                } }
+                                phoneArr.forEach {
+                                    li {
+                                        attrs.jsStyle { margin = 0; padding = 0 }
+                                        +it
+                                    }
+                                }
                             }
                         } else {
                             +phones
@@ -199,7 +183,8 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                                         globalDispatch(Action.ChangeURL(Path.alvallalkozo.regio(row.id)))
                                     }
                                 }
-                            } }
+                            }
+                        }
                     }
                 }
             }

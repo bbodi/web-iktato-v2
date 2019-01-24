@@ -6,18 +6,16 @@ import hu.nevermind.antd.table.ColumnProps
 import hu.nevermind.antd.table.Table
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
+import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.app.sajatArModal
 import hu.nevermind.utils.hu.nevermind.antd.message
-import hu.nevermind.utils.store.LoggedInUser
 import hu.nevermind.utils.store.SajatAr
 import hu.nevermind.utils.store.communicator
 import kotlinext.js.jsObject
 import kotlinx.html.DIV
 import react.RBuilder
 import react.RElementBuilder
-import react.ReactElement
 import react.buildElement
-import react.createElement
 import react.dom.RDOMBuilder
 import react.dom.div
 import store.Action
@@ -27,49 +25,41 @@ private data class ComponentState(
         val selectedMunkatipus: String
 )
 
-fun sajatArScreen(
-        editingSajatArId: Int?,
-        user: LoggedInUser,
-        appState: AppState,
-        globalDispatch: (Action) -> Unit): ReactElement {
-    return createElement({ props: dynamic ->
-        val user: LoggedInUser = props.user
+data class SajatArScreenParams(val editingSajatArId: Int?,
+                               val appState: AppState,
+                               val globalDispatch: (Action) -> Unit)
+
+object SajatArScreenComponent : DefinedReactComponent<SajatArScreenParams>() {
+    override fun RBuilder.body(props: SajatArScreenParams) {
         val appState: AppState = props.appState
         val globalDispatch: (Action) -> Unit = props.globalDispatch
         val editingSajatArId: Int? = props.editingSajatArId
 
         val defaultMegrendelo = appState.sajatArState.allMegrendelo.first()
-        val (state, componentDispatch) = useState(ComponentState(
+        val (state, setState) = useState(ComponentState(
                 selectedMegrendelo = defaultMegrendelo,
                 selectedMunkatipus = appState.sajatArState.getMunkatipusokForMegrendelo(defaultMegrendelo).first())
         )
-        buildElement {
-            div {
-                Row {
-                    Col(span = 13, offset = 4) {
-                        megrendeloSelect(appState, state, componentDispatch)
-                        munkatipusSelect(appState, state, componentDispatch)
-                    }
-                    Col(span = 2) {
-                        addNewButton(globalDispatch)
-                    }
+        div {
+            Row {
+                Col(span = 13, offset = 4) {
+                    megrendeloSelect(appState, state, setState)
+                    munkatipusSelect(appState, state, setState)
                 }
-                Row {
-                    Col(span = 16, offset = 4) {
-                        table(appState, state, globalDispatch)
-                    }
-                }
-                if (editingSajatArId != null) {
-                    editingModal(editingSajatArId, appState, globalDispatch, componentDispatch, state)
+                Col(span = 2) {
+                    addNewButton(globalDispatch)
                 }
             }
+            Row {
+                Col(span = 16, offset = 4) {
+                    table(appState, state, globalDispatch)
+                }
+            }
+            if (editingSajatArId != null) {
+                editingModal(editingSajatArId, appState, globalDispatch, setState, state)
+            }
         }
-    }, jsObject<dynamic> {
-        this.user = user
-        this.appState = appState
-        this.globalDispatch = globalDispatch
-        this.editingSajatArId = editingSajatArId
-    })
+    }
 }
 
 private fun RDOMBuilder<DIV>.editingModal(editingSajatArId: Int, appState: AppState, globalDispatch: (Action) -> Unit, componentDispatch: Dispatcher<ComponentState>, state: ComponentState) {

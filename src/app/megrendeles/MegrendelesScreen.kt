@@ -16,6 +16,7 @@ import hu.nevermind.antd.table.ColumnProps
 import hu.nevermind.antd.table.Table
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
+import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.app.customSearchModal
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.hu.nevermind.antd.message
@@ -192,7 +193,7 @@ private val hataridosFilterForAdmin = SimpleMegrendelesFilter("Határidős", "ti
 })
 
 private fun Megrendeles.isHataridos(): Boolean {
-    return (hatarido?.isBefore(moment())?:true)
+    return (hatarido?.isBefore(moment()) ?: true)
             .and(feltoltveMegrendelonek == null)
             .and(zarolva == null)
 }
@@ -309,19 +310,14 @@ private data class MegrendelesScreenState(
         val szuroMezok: List<SzuroMezo>
 )
 
+data class MegrendelesScreenParams(val appState: AppState,
+                                   val globalDispatch: (Action) -> Unit)
 
-// . = "MyComponent";
-fun megrendelesScreen(user: LoggedInUser,
-                      appState: AppState,
-                      globalDispatch: (Action) -> Unit): ReactElement {
-    val megrendelesScreenElement = { props: dynamic ->
-        val user: LoggedInUser = props.user
+object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParams>() {
+    override fun RBuilder.body(props: MegrendelesScreenParams) {
         val appState: AppState = props.appState
         val globalDispatch: (Action) -> Unit = props.globalDispatch
-        // props
-//    var megrendelesId: Int? by Property()
-//    var showAlvallalkozoSajatAdataiModal: Boolean by Property()
-//    var showTableConfigurationModal: Boolean by Property()
+        val user = props.appState.maybeLoggedInUser!!
         val (state, setState) = useState(MegrendelesScreenState(
                 activeFilter = atNemVettFilter,
                 haviTeljesites = if (user.isAlvallalkozo) {
@@ -332,78 +328,47 @@ fun megrendelesScreen(user: LoggedInUser,
                 szuroMezok = emptyList(),
                 showMindFilterModal = false)
         )
-        //    bsGrid({ id = MegrendelesScreenIds.screenId; fluid = true }) {
-//        if (LoggedInUserStore.loggedInUser.username == "bb") {
-//            Row {
-//                bsCol {
-//                    bsButton({
-//                        onClick = { runIntegrationTests() }
-//                    }) {
-//                        text("Test")
-//                    }
-//                }
-//            }
-//        }
-//        if (LoggedInUserStore.isAdmin) {
-//            bsRow {
-//                bsCol({ md = 12; mdOffset = 0 }) { addNewButton() }
-//            }
-//        }
-
-        buildElement {
-            div {
-                Row {
-                    simpleFilterButtons(user, state, appState.megrendelesState.megrendelesek, globalDispatch, setState)
-                    +"  "
-                    haviTeljesitesFilterButton(state, appState.megrendelesState.megrendelesek, appState.alvallalkozoState.alvallalkozok, setState, globalDispatch)
-                }
-                Row {
-                    Col(span = 24) {
-                        megrendelesekTable(user, state, appState, globalDispatch)
-                    }
-                }
-                if (haviTeljesitesFilter == state.activeFilter && user.isAdmin) {
-                    Row {
-                        val avId = state.haviTeljesites!!.alvallalkozoId
-                        val dateStr = state.haviTeljesites.date.format(monthFormat)
-                        Button {
-                            attrs.onClick = {
-                                val x = XMLHttpRequest()
-                                x.open("GET", "/haviTeljesites/$avId/$dateStr", true)
-                                x.responseType = XMLHttpRequestResponseType.BLOB
-                                x.onload = { e ->
-                                    downloadFile(e.target.asDynamic().response,
-                                            "${appState.alvallalkozoState.alvallalkozok[avId]!!.name} ${dateStr}.xlsx")
-                                }
-                                x.send()
-
-                            }
-                            Icon("download")
-                            +" Havi teljesítés letöltése"
-                        }
-
-                    }
-                }
-                child(haviTeljesitesModal(state,
-                        appState.alvallalkozoState.alvallalkozok,
-                        setState,
-                        globalDispatch
-                ))
-                mindFilterModal(appState, globalDispatch, state, setState)
+        div {
+            Row {
+                simpleFilterButtons(user, state, appState.megrendelesState.megrendelesek, globalDispatch, setState)
+                +"  "
+                haviTeljesitesFilterButton(state, appState.megrendelesState.megrendelesek, appState.alvallalkozoState.alvallalkozok, setState, globalDispatch)
             }
+            Row {
+                Col(span = 24) {
+                    megrendelesekTable(user, state, appState, globalDispatch)
+                }
+            }
+            if (haviTeljesitesFilter == state.activeFilter && user.isAdmin) {
+                Row {
+                    val avId = state.haviTeljesites!!.alvallalkozoId
+                    val dateStr = state.haviTeljesites.date.format(monthFormat)
+                    Button {
+                        attrs.onClick = {
+                            val x = XMLHttpRequest()
+                            x.open("GET", "/haviTeljesites/$avId/$dateStr", true)
+                            x.responseType = XMLHttpRequestResponseType.BLOB
+                            x.onload = { e ->
+                                downloadFile(e.target.asDynamic().response,
+                                        "${appState.alvallalkozoState.alvallalkozok[avId]!!.name} ${dateStr}.xlsx")
+                            }
+                            x.send()
+
+                        }
+                        Icon("download")
+                        +" Havi teljesítés letöltése"
+                    }
+
+                }
+            }
+            child(haviTeljesitesModal(state,
+                    appState.alvallalkozoState.alvallalkozok,
+                    setState,
+                    globalDispatch
+            ))
+            mindFilterModal(appState, globalDispatch, state, setState)
         }
-
-
-//                megrendelesModal(self)
-
-//                tableConfigurationModal(self)
-//    }
     }
-    return createElement(megrendelesScreenElement, jsObject<dynamic> {
-        this.user = user
-        this.appState = appState
-        this.globalDispatch = globalDispatch
-    })
 }
 
 private fun RBuilder.megrendelesekTable(user: LoggedInUser,
@@ -881,8 +846,8 @@ private fun haviTeljesitesModal(state: MegrendelesScreenState,
                 }
                 Form {
                     FormItem {
-                        attrs.labelCol = ColProperties {span = 4}
-                        attrs.wrapperCol = ColProperties {span = 14}
+                        attrs.labelCol = ColProperties { span = 4 }
+                        attrs.wrapperCol = ColProperties { span = 14 }
                         attrs.label = StringOrReactElement.fromString("Alvállalkozó")
                         AutoComplete(alvallalkozok.map { it.name }.sortedBy { it }.toTypedArray()) {
                             attrs.placeholder = "Alvállalkozó"
@@ -895,8 +860,8 @@ private fun haviTeljesitesModal(state: MegrendelesScreenState,
                         }
                     }
                     FormItem {
-                        attrs.labelCol = ColProperties {span = 4}
-                        attrs.wrapperCol = ColProperties {span = 14}
+                        attrs.labelCol = ColProperties { span = 4 }
+                        attrs.wrapperCol = ColProperties { span = 14 }
                         attrs.label = StringOrReactElement.fromString("Hónap")
                         MonthPicker {
                             attrs.allowClear = false
