@@ -32,7 +32,7 @@ import react.dom.jsStyle
 import react.dom.span
 import store.*
 
-private val downloadFile: (url: String, name: String) -> Unit = kotlinext.js.require("downloadjs")
+val downloadFile: (url: String, name: String) -> Unit = kotlinext.js.require("downloadjs")
 
 object MegrendelesScreenIds {
     val screenId = "megrendelesScreen"
@@ -157,7 +157,7 @@ private data class SimpleMegrendelesFilter(val label: String, val icon: String? 
 
 private val atNemVettFilter = SimpleMegrendelesFilter("Át nem vett") {
     (megrendelesMegtekint == null)
-            .and(!alvallalkozoElkeszult)
+            .and(!alvallalkozoFeltoltotteFajlokat)
             //.and(ellenorizve == false) // ???
             .and(penzBeerkezettDatum == null && keszpenzesBefizetes == null)
             .and(feltoltveMegrendelonek == null)
@@ -165,7 +165,7 @@ private val atNemVettFilter = SimpleMegrendelesFilter("Át nem vett") {
 }
 private val atvettFilter = SimpleMegrendelesFilter("Átvett") {
     (megrendelesMegtekint != null)
-            .and(!alvallalkozoElkeszult)
+            .and(!alvallalkozoFeltoltotteFajlokat)
             .and(penzBeerkezettDatum == null && keszpenzesBefizetes == null)
             .and(feltoltveMegrendelonek == null)
             .and(zarolva == null)
@@ -183,7 +183,7 @@ private val alvallalkozoVegzettVeleAdottHonapban = SimpleMegrendelesFilter("Elv�
 
 private fun Megrendeles.alvallalkozoVegzettVele(): Boolean {
     return (megrendelesMegtekint != null)
-            .and(alvallalkozoElkeszult)
+            .and(alvallalkozoFeltoltotteFajlokat)
             .and(penzBeerkezettDatum != null || keszpenzesBefizetes != null)
             .and(feladatElvegezveEbbenAHonapban(ertekbecslesFeltoltve, energetikaFeltoltve))
 }
@@ -199,10 +199,10 @@ private fun Megrendeles.isHataridos(): Boolean {
 }
 
 private val hataridosFilterForAlv = SimpleMegrendelesFilter("Határidős", "time") {
-    this.alvallalkozoElkeszult.not() && this.isHataridos()
+    this.alvallalkozoFeltoltotteFajlokat.not() && this.isHataridos()
 }
 
-private fun Megrendeles.isAkadalyos(): Boolean {
+fun Megrendeles.isAkadalyos(): Boolean {
     val statusIsAkadalyos = statusz in akadalyosStatuszok
     val latestStatusChangerDate = latest(ertekbecslesFeltoltve, energetikaFeltoltve, penzBeerkezettDatum, keszpenzesBefizetes, feltoltveMegrendelonek)
     return if (statusIsAkadalyos && latestStatusChangerDate != null) {
@@ -217,11 +217,11 @@ private val akadalyosFilterForAdmin = SimpleMegrendelesFilter("Akadályos", "ban
     this.isAkadalyos()
 }
 private val akadalyosFilterForAlvallalkozo = SimpleMegrendelesFilter("Akadályos", "ban-circle") {
-    this.alvallalkozoElkeszult.not() && this.isAkadalyos()
+    this.alvallalkozoFeltoltotteFajlokat.not() && this.isAkadalyos()
 }
 private val utalasHianyzikFilter = SimpleMegrendelesFilter("Utalás hiányzik", "alert") {
     (megrendelesMegtekint != null)
-            .and(alvallalkozoElkeszult)
+            .and(alvallalkozoFeltoltotteFajlokat)
             //.and(ellenorizve == false)
             .and(penzBeerkezettDatum == null && keszpenzesBefizetes == null)
             .and(feltoltveMegrendelonek == null)
@@ -230,7 +230,7 @@ private val utalasHianyzikFilter = SimpleMegrendelesFilter("Utalás hiányzik", 
 }
 private val ellenorzesreVarFilter = SimpleMegrendelesFilter("Ellenőrzésre vár", "check") {
     (megrendelesMegtekint != null)
-            .and(alvallalkozoElkeszult)
+            .and(alvallalkozoFeltoltotteFajlokat)
             //.and(ellenorizve == false) // ???
             .and(penzBeerkezettDatum != null || keszpenzesBefizetes != null)
             .and(feltoltveMegrendelonek == null)
@@ -239,7 +239,7 @@ private val ellenorzesreVarFilter = SimpleMegrendelesFilter("Ellenőrzésre vár
 }
 private val archivalasraVarFilter = SimpleMegrendelesFilter("Archiválásra vár", "folder-close") {
     (megrendelesMegtekint != null)
-            .and(alvallalkozoElkeszult)
+            .and(alvallalkozoFeltoltotteFajlokat)
             //.and(ellenorizve == false) // ???
             .and(szamlaSorszama.isNotEmpty())
             .and(penzBeerkezettDatum != null || keszpenzesBefizetes != null)
@@ -414,12 +414,12 @@ private fun RBuilder.megrendelesekTable(user: LoggedInUser,
         attrs.columns = columns
         attrs.dataSource = filteredMegrendelesek
         attrs.rowKey = "id"
-        attrs.asDynamic().size = ButtonSize.small
         attrs.onRow = { megrendeles: Megrendeles ->
             jsObject {
                 this.asDynamic().onClick = { onClick(megrendeles) }
             }
         }
+        attrs.asDynamic().size = "middle"
     }
     /*data class MegrendelesColumnData(val dbName: String,
                                  val fieldName: String,
@@ -686,10 +686,10 @@ private object MegrendelesScreen {
 //    private fun cellColorer(): (dynamic) -> String {
 //        return { params: dynamic ->
 //            val clazz = with(params.data as Megrendeles) {
-//                if (!alvallalkozoElkeszult && szamlaSorszama.isNotEmpty() && penzBeerkezettDatum != null) {
+//                if (!alvallalkozoFeltoltotteFajlokat && szamlaSorszama.isNotEmpty() && penzBeerkezettDatum != null) {
 //                    // az ügyfél fizetett, alvállalkozó még nem készítette el az értékbecslést
 //                    "bg-primary"
-//                } else if (alvallalkozoElkeszult && penzBeerkezettDatum == null) {
+//                } else if (alvallalkozoFeltoltotteFajlokat && penzBeerkezettDatum == null) {
 //                    // alvállalkozó feltöltötte, az ügyfél még nem fizetett
 //                    "bg-warning"
 //                } else if (isAkadalyos()) {
@@ -698,7 +698,7 @@ private object MegrendelesScreen {
 //                } else if (statusz == Statusz.G4) {
 //                    // lemondva
 //                    "bg-info"
-//                } else if (alvallalkozoElkeszult && penzBeerkezettDatum != null && szamlaSorszama.isNotEmpty()) {
+//                } else if (alvallalkozoFeltoltotteFajlokat && penzBeerkezettDatum != null && szamlaSorszama.isNotEmpty()) {
 //                    // ellenőrizhető - értékbecslés díja átutalva, az alvállalkozó feltöltötte az értékbecslést
 //                    "bg-success"
 //                } else {

@@ -365,7 +365,7 @@ data class Megrendeles(
     val atVett: Boolean
         get() = !atNemVett
 
-    val alvallalkozoElkeszult: Boolean
+    val alvallalkozoFeltoltotteFajlokat: Boolean
         get() {
             if (munkatipus.isErtekbecsles() && ertekbecslesFeltoltve == null) {
                 return false

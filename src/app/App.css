@@ -19,3 +19,11 @@
 .my-number-input {
   text-align: right;
 }
+
+.affix-hack-noinline {
+  display: inline
+}
+
+.affix-hack-noinline div {
+  display: inline
+}

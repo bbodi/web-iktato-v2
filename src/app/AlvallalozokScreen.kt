@@ -105,7 +105,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
             },
             ColumnProps {
                 title = "Telefon"; dataIndex = "phone"; width = 130
-                render = { phones: String ->
+                render = { phones: String, _ ->
                     buildElement {
                         val phoneArr = phones.split("[^\\d\\+\\-\\/]+".toRegex())
                         if (phoneArr.size > 1) {
@@ -138,7 +138,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
             },
             ColumnProps {
                 title = "Állapot"; key = "state"; width = 50
-                render = { alvallalkozo: Alvallalkozo ->
+                render = { alvallalkozo: Alvallalkozo, _ ->
                     buildElement {
                         Tag {
                             attrs.color = if (alvallalkozo.disabled) "red" else "green"
@@ -156,7 +156,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
             },
             ColumnProps {
                 title = ""; key = "action"; width = 120
-                render = { row: Alvallalkozo ->
+                render = { row: Alvallalkozo, _ ->
                     buildElement {
                         div {
                             Tooltip("Szerkesztés") {
@@ -193,7 +193,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
         attrs.columns = columns
         attrs.dataSource = appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.toTypedArray()
         attrs.rowKey = "id"
-        attrs.asDynamic().size = ButtonSize.small
+        attrs.asDynamic().size = "middle"
     }
 }
 

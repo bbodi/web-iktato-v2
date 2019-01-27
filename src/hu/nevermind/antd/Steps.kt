@@ -20,8 +20,8 @@ object StepsStatus {
 }
 
 object StepsDirection {
-    val vertical: FormLayout = js("'vertical'")
-    val horizontal: FormLayout = js("'horizontal'")
+    val vertical: StepsDirection = js("'vertical'")
+    val horizontal: StepsDirection = js("'horizontal'")
 }
 
 external interface StepsProps : RProps {
@@ -41,7 +41,7 @@ fun RBuilder.Steps(handler: RHandler<StepsProps> = {}) {
 
 external interface StepProps : RProps {
     var title: StringOrReactElement
-    var description: String?
+    var description: StringOrReactElement?
     var icon: StringOrReactElement
     var status: StepsStatus
 }

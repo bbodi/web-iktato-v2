@@ -613,10 +613,10 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
                     MyNumberInput {
                         attrs.number = state.megrendeles.szamlazhatoDij?.toLong()
                         attrs.addonAfter = StringOrReactElement.from {
-                            if (state.megrendeles.szamlazhatoDij != null) {
-                                val afa = (state.megrendeles.szamlazhatoDij * 1.27).roundToLong()
-                                +"+ ÁFA(27%) = ${parseGroupedStringToNum(afa.toString()).second}"
-                            }
+                            val afa = if (state.megrendeles.szamlazhatoDij != null) {
+                                (state.megrendeles.szamlazhatoDij * 1.27).roundToLong()
+                            } else 0L
+                            +"+ ÁFA(27%) = ${parseGroupedStringToNum(afa.toString()).second}"
                         }
                         attrs.onValueChange = { value -> setState(state.copy(megrendeles = state.megrendeles.copy(szamlazhatoDij = value?.toInt()))) }
                     }

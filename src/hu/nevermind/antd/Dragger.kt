@@ -20,10 +20,11 @@ data class DefaultFileListItem(
 external interface DraggerProps : RProps {
     var name: String
     var multiple: Boolean
-    var action: String
+    var action: Any
     var defaultFileList: Array<DefaultFileListItem>
+    var fileList: Array<DefaultFileListItem>
     var onChange: (dynamic) -> Unit
-    var onRemove: (File) -> Boolean
+    var onRemove: (DefaultFileListItem) -> Boolean
 }
 
 fun RBuilder.Dragger(handler: RHandler<DraggerProps> = {}) {

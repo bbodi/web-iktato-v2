@@ -169,7 +169,7 @@ fun <T> StringFilteringColumnProps(searchText: String,
         onFilter = { value, record ->
             fieldGetter(record as T).toUpperCase().replace(" ", "").contains((value as String).toUpperCase().replace(" ", ""))
         }
-        render = { text: String ->
+        render = { text: String, _ ->
             buildElement {
                 Highlighter {
                     attrs.asDynamic().highlightStyle = jsStyle { backgroundColor = "#ffc069"; padding = 0 }
@@ -203,7 +203,7 @@ private fun RBuilder.accountTable(appState: AppState,
             },
             ColumnProps {
                 title = "Állapot"; key = "state"; width = 100
-                render = { account: Account ->
+                render = { account: Account, _ ->
                     buildElement {
                         Tag {
                             attrs.color = if (account.disabled) "red" else "green"
@@ -229,7 +229,7 @@ private fun RBuilder.accountTable(appState: AppState,
                 this.asDynamic().onClick = { globalDispatch(Action.ChangeURL(Path.account.withOpenedEditorModal((account as Account).id))) }
             }
         }
-        attrs.asDynamic().size = ButtonSize.small
+        attrs.asDynamic().size = "middle"
     }
 }
 

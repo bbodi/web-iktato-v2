@@ -12,7 +12,7 @@ val RadioGroupComp: RClass<RadioGroupProps> = kotlinext.js.require("antd").Radio
 val RadioButtonComp: RClass<RadioButtonProps> = kotlinext.js.require("antd").Radio.Button
 
 external interface RadioGroupProps : RProps {
-    var value: String
+    var value: Any?
     var defaultValue: String
     var name: String
     var options: RadioGroupOptions
@@ -43,26 +43,15 @@ external interface RadioProps : RProps {
     var checked: Boolean
     var defaultChecked: Boolean
     var autoFocus: Boolean
-    var value: String
+    var value: Any
 
 }
 
 fun RBuilder.Radio(
-        value: String,
-        autoFocus: Boolean = false,
-        checked: Boolean = jsUndefined,
-        defaultChecked: Boolean = false,
-        disabled: Boolean = false,
-        handler: RHandler<RadioProps> = {}
-) {
+        value: Any,
+        handler: RHandler<RadioProps>) {
     RadioComp {
-        attrs.disabled = disabled
         attrs.value = value
-        if (checked != jsUndefined) {
-            attrs.checked = checked
-        }
-        attrs.autoFocus = autoFocus
-        attrs.defaultChecked = defaultChecked
         handler()
     }
 }
@@ -85,36 +74,8 @@ object ButtonStyle {
     val solid: ButtonStyle = js("'solid'")
 }
 
-fun RBuilder.RadioGroup(
-        value: String = jsUndefined,
-        defaultValue: String = jsUndefined,
-        name: String = jsUndefined,
-        options: RadioGroupOptions = jsUndefined,
-        autoFocus: Boolean = false,
-        size: ButtonSize = ButtonSize.default,
-        buttonStyle: ButtonStyle = ButtonStyle.outline,
-        onChange: (e: Event) -> Unit = jsUndefined,
-        handler: RHandler<RadioGroupProps> = {}
-) {
+fun RBuilder.RadioGroup(handler: RHandler<RadioGroupProps>) {
     RadioGroupComp {
-        if (value != undefined) {
-            attrs.value = value
-        }
-        if (defaultValue != undefined) {
-            attrs.defaultValue = defaultValue
-        }
-        if (name != undefined) {
-            attrs.name = name
-        }
-        if (options != undefined) {
-            attrs.options = options
-        }
-        if (onChange != undefined) {
-            attrs.onChange = onChange
-        }
-        attrs.autoFocus = autoFocus
-        attrs.size = size
-        attrs.buttonStyle = buttonStyle
         handler()
     }
 }

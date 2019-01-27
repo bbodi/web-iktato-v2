@@ -1,5 +1,6 @@
 package hu.nevermind.iktato
 
+import hu.nevermind.utils.hu.nevermind.antd.message
 import store.UploadData
 import hu.nevermind.utils.store.Megrendeles
 import hu.nevermind.utils.store.MegrendelesFieldsFromExternalSource
@@ -292,7 +293,7 @@ class Communicator(val ajaxPoster: AjaxPoster) {
                 callback(response)
             }
             result.ifError { response ->
-//                Actions.notification(Notification("Danger", "Hiba: $response"))
+                message.error("Hiba: $response")
             }
         }
     }

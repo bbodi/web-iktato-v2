@@ -9,6 +9,7 @@ import react.RProps
 
 val ModalComp: RClass<ModalProps> = kotlinext.js.require("antd").Modal
 private val confirm: dynamic = kotlinext.js.require("antd").Modal.confirm
+private val info: dynamic = kotlinext.js.require("antd").Modal.info
 
 
 external interface ModalProps : RProps {
@@ -34,7 +35,7 @@ external interface ModalProps : RProps {
 
 external interface ModalConfirmOption {
     var title: String
-    var content: String
+    var content: StringOrReactElement
     var onCancel: () -> Unit
     var okText: String
     var cancelText: String
@@ -45,6 +46,10 @@ external interface ModalConfirmOption {
 object Modal {
     fun confim(body: ModalConfirmOption.()->Unit) {
         confirm(jsObject<ModalConfirmOption> { this.body() })
+    }
+
+    fun info(body: ModalConfirmOption.()->Unit) {
+        info(jsObject<ModalConfirmOption> { this.body() })
     }
 }
 

@@ -29,7 +29,7 @@ fun RBuilder.ingatlanAdataiTab(state: MegrendelesFormState, appState: AppState, 
     }
 }
 
-fun RBuilder.helyszinelesPanel(state: MegrendelesFormState, appState: AppState, setState: Dispatcher<MegrendelesFormState>) {
+private fun RBuilder.helyszinelesPanel(state: MegrendelesFormState, appState: AppState, setState: Dispatcher<MegrendelesFormState>) {
     Row {
         Col(span = 8) {
             FormItem {
@@ -91,7 +91,7 @@ fun RBuilder.helyszinelesPanel(state: MegrendelesFormState, appState: AppState, 
     }
 }
 
-fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppState, setState: Dispatcher<MegrendelesFormState>) {
+private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppState, setState: Dispatcher<MegrendelesFormState>) {
     Row {
         Col(span = 8) {
             FormItem {

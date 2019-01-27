@@ -158,7 +158,7 @@ private fun RBuilder.table(appState: AppState,
             ColumnProps { title = "Leírás"; dataIndex = "leiras"; width = 300 },
             ColumnProps {
                 title = "Nettó ár (Ft)"; dataIndex = "nettoAr"; align = ColumnAlign.right; width = 100
-                render = { nettoAr: Int ->
+                render = { nettoAr: Int, _ ->
                     buildElement {
                         +parseGroupedStringToNum(nettoAr.toString()).second
                     }
@@ -175,7 +175,7 @@ private fun RBuilder.table(appState: AppState,
                 this.asDynamic().onClick = { globalDispatch(Action.ChangeURL(Path.sajatAr.withOpenedEditorModal((sajatAr as SajatAr).id))) }
             }
         }
-        attrs.asDynamic().size = ButtonSize.small
+        attrs.asDynamic().size = "middle"
     }
 }
 

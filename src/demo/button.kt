@@ -48,7 +48,9 @@ class ButtonDemoPage : RComponent<RProps, ButtonDemoPageState>() {
 
     val sizeDemoBox: RBuilder.() -> Unit = {
         div {
-            RadioGroup(value = state.radioGroupSize.asString(), onChange = { setState { radioGroupSize = it.target.asDynamic().value } }) {
+            RadioGroup {
+                attrs.value = state.radioGroupSize.asString()
+                attrs.onChange = { setState { radioGroupSize = it.target.asDynamic().value } }
                 RadioButton(value = ButtonSize.large.asString()) { +"Large" }
                 RadioButton(value = ButtonSize.default.asString()) { +"Default" }
                 RadioButton(value = ButtonSize.small.asString()) { +"Small" }

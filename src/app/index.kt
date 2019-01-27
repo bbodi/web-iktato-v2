@@ -10,21 +10,20 @@ import hu.nevermind.iktato.JqueryAjaxPoster
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
 import hu.nevermind.iktato.Result
-import hu.nevermind.utils.hu.nevermind.antd.*
+import hu.nevermind.utils.hu.nevermind.antd.Menu
+import hu.nevermind.utils.hu.nevermind.antd.MenuItem
+import hu.nevermind.utils.hu.nevermind.antd.MenuMode
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.*
 import kotlinext.js.require
 import kotlinext.js.requireAll
-import kotlinx.html.InputType
 import react.RProps
 import react.ReactElement
 import react.buildElement
 import react.dom.div
-import react.dom.p
 import store.*
 import kotlin.browser.document
 import kotlin.browser.window
-import kotlin.math.roundToLong
 
 data class Geo(val irszamok: List<Irszam>, val varosok: List<Varos>)
 
@@ -189,109 +188,17 @@ fun main(args: Array<String>) {
             }
         }
 
-        val (inputNum, numDispatch) = useState(0L)
         buildElement {
             div {
-                InputNumber {
-                    attrs.decimalSeparator = " "
-                    attrs.onChange = { value -> numDispatch(value.toLong()) }
+                val (currentScreen: AppScreen, changeScreenDispatcher: Dispatcher<AppScreen>) = useState(AppScreen.LoginAppScreen() as AppScreen)
+                useEffect(changeSet = arrayOf(appState.urlData)) {
+                    route(appState.megrendelesState.megrendelesek,
+                            appState.maybeLoggedInUser,
+                            appState.urlData.path,
+                            changeScreenDispatcher,
+                            dispatch)
                 }
-                Input {
-                    attrs.type = InputType.number
-                    attrs.addonAfter = StringOrReactElement.from {
-                        +"+ ÁFA(27%) = ${(inputNum * 1.27).roundToLong()}"
-                    }
-                    attrs.onChange = { e -> numDispatch(e.currentTarget.asDynamic().value) }
-                }
-                MyNumberInput {
-                    attrs.number = inputNum
-                    attrs.addonAfter = StringOrReactElement.from {
-                        +"+ ÁFA(27%) = ${(inputNum * 1.27).roundToLong()}"
-                    }
-                    attrs.onValueChange = { value -> numDispatch(value ?: 0) }
-                }
-                div {
-                    Steps {
-                        attrs.current = 2
-                        val akadalyos = true
-                        attrs.status = if (akadalyos) StepsStatus.error else StepsStatus.wait
-                        attrs.size = "small"
-                        // TODO: use icons
-                        Step {
-                            attrs.title = StringOrReactElement.fromString("Átvett")
-                            attrs.description = ""
-                        }
-                        Step {
-                            attrs.title = StringOrReactElement.fromString("Szemle")
-                            attrs.description = ""
-                        }
-                        Step {
-                            attrs.title = StringOrReactElement.fromString("Utalás")
-                            attrs.description = if (akadalyos) "Akadályos" else null
-                        }
-                        Step {
-                            attrs.title = StringOrReactElement.fromString("Ellenőrizve")
-                            attrs.description = ""
-                        }
-                        Step {
-                            attrs.title = StringOrReactElement.fromString("Archiválva")
-                            attrs.description = ""
-                        }
-                    }
-                }
-                div {
-                    Dragger {
-                        attrs.name = "file"
-                        attrs.multiple = true
-                        attrs.onRemove = { file ->
-                            message.success("${file.name} was removed")
-                            false
-                        }
-                        attrs.defaultFileList = arrayOf(DefaultFileListItem(
-                                uid = "1",
-                                name = "asd",
-                                status = "done",
-                                url = "asd.com"
-                        ),
-                                DefaultFileListItem(
-                                        uid = "2",
-                                        name = "bsd",
-                                        status = "error",
-                                        url = "asd.com",
-                                        response = "Túl nagy fájlméret (nagyobb mint 20MB)"
-                                )
-                        )
-                        attrs.action = "//jsonplaceholder.typicode.com.shitaka/posts/"
-                        attrs.onChange = { info ->
-                            val status = info.file.status
-                            if (status !== "uploading") {
-                                console.log(info.file, info.fileList)
-                            }
-                            if (status === "done") {
-                                message.success("${info.file.name} feltöltése sikeresen befejeződött.")
-                            } else if (status === "error") {
-                                message.error("${info.file.name} feltöltése sikertelen.")
-                            }
-                        }
-                        p(classes = "ant-upload-drag-icon") {
-                            Icon("inbox")
-                        }
-                        p(classes = "ant-upload-text") {
-                            +"Kattints vagy mozgass egy fájlt ide a feltöltéshez"
-                        }
-                        p(classes = "ant-upload-hint") {
-                            +"Support for a single or bulk upload. Strictly prohibit from uploading company data or other band files"
-                        }
-                    }
-                    val (currentScreen: AppScreen, changeScreenDispatcher: Dispatcher<AppScreen>) = useState(AppScreen.LoginAppScreen() as AppScreen)
-                    useEffect(changeSet = arrayOf(appState.urlData)) {
-                        route(appState.megrendelesState.megrendelesek,
-                                appState.maybeLoggedInUser,
-                                appState.urlData.path,
-                                changeScreenDispatcher,
-                                dispatch)
-                    }
-                    val content = when (currentScreen) {
+                val content = when (currentScreen) {
 //                    is AccountAppScreen -> AccountScreen({ this.editingAccountId = screen.editingAccountId })
 //                    is SajatArAppScreen -> SajatArScreen({ this.editingSajatArId = screen.editingSajatArId })
 //                    LoginAppScreen -> LoginScreen()
@@ -299,102 +206,103 @@ fun main(args: Array<String>) {
 //                        this.editingAlvallalkozoId = screen.avId
 //                        this.editingErtekbecsloId = screen.ebId
 //                    })
-                        is AppScreen.MegrendelesAppScreen -> {
-                            if (appState.maybeLoggedInUser != null) {
-                                if (currentScreen.editingMegrendelesId == null) {
-                                    MegrendelesScreenComponent.createElement(MegrendelesScreenParams(
-                                            appState,
-                                            dispatch
-                                    ))
-                                } else {
-                                    MegrendelesFormScreenComponent.createElement(MegrendelesFormScreenParams(
-                                            currentScreen.editingMegrendelesId,
-                                            appState,
-                                            dispatch
-                                    ))
-                                }
-                            } else null
-                        }
-                        is AppScreen.LoginAppScreen -> null
-                        is AppScreen.AlvallalkozoAppScreen ->
-                            AlvallalkozoScreenComponent.createElement(AlvallalkozoScreenParams(
-                                    currentScreen.avId,
-                                    appState,
-                                    dispatch))
-                        is AppScreen.AccountAppScreen ->
-                            AccountScreenComponent.createElement(AccountScreenParams(
-                                    currentScreen.editingAccountId,
-                                    appState,
-                                    dispatch
-                            ))
-                        is AppScreen.RegioAppScreen -> {
-                            RegioScreenComponent.createElement(RegioScreenParams(
-                                    currentScreen.alvallalkozoId,
-                                    currentScreen.regioId,
-                                    appState,
-                                    dispatch
-                            ))
-                        }
-                        is AppScreen.ErtekbecsloAppScreen ->
-                            ErtekbecsloScreenComponent.createElement(ErtekbecsloScreenParams(
-                                    currentScreen.avId,
-                                    currentScreen.ebId,
-                                    appState,
-                                    dispatch
-                            ))
-                        is AppScreen.SajatArAppScreen ->
-                            SajatArScreenComponent.createElement(SajatArScreenParams(
-                                    currentScreen.editingSajatArId,
-                                    appState,
-                                    dispatch
-                            ))
-                    }
-                    Layout {
-                        Header {
-                            attrs.style = jsStyle {
-                                height = "auto"
+                    is AppScreen.MegrendelesAppScreen -> {
+                        if (appState.maybeLoggedInUser != null) {
+                            if (currentScreen.editingMegrendelesId == null) {
+                                MegrendelesScreenComponent.createElement(MegrendelesScreenParams(
+                                        appState,
+                                        dispatch
+                                ))
+                            } else {
+                                MegrendelesFormScreenComponent.createElement(MegrendelesFormScreenParams(
+                                        currentScreen.editingMegrendelesId,
+                                        appState,
+                                        appState.megrendelesState.megrendelesek[currentScreen.editingMegrendelesId]?.akadalyok
+                                                ?: emptyArray(),
+                                        dispatch
+                                ))
                             }
-                            div("logo") { }
-                            Menu {
-                                attrs.mode = MenuMode.horizontal
-                                attrs.theme = Theme.dark
-                                attrs.selectedKeys = arrayOf(currentScreen::class.simpleName!!)
-                                attrs.onSelect = { event ->
-                                    when (event.key) {
-                                        AppScreen.MegrendelesAppScreen::class.simpleName -> dispatch(Action.ChangeURL(Path.megrendeles.root))
-                                        AppScreen.SajatArAppScreen::class.simpleName -> dispatch(Action.ChangeURL(Path.sajatAr.root))
-                                        AppScreen.AlvallalkozoAppScreen::class.simpleName -> dispatch(Action.ChangeURL(Path.alvallalkozo.root))
-                                        AppScreen.AccountAppScreen::class.simpleName -> dispatch(Action.ChangeURL(Path.account.root))
-                                        AppScreen.RegioAppScreen::class.simpleName -> {
-                                            val initialAlvallalkozoId = appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.first().id
-                                            dispatch(Action.ChangeURL(Path.alvallalkozo.regio(initialAlvallalkozoId)))
-                                        }
-                                        AppScreen.ErtekbecsloAppScreen::class.simpleName -> {
-                                            val initialAlvallalkozoId = appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.first().id
-                                            dispatch(Action.ChangeURL(Path.ertekbecslo.root(initialAlvallalkozoId)))
-                                        }
+                        } else null
+                    }
+                    is AppScreen.LoginAppScreen -> null
+                    is AppScreen.AlvallalkozoAppScreen ->
+                        AlvallalkozoScreenComponent.createElement(AlvallalkozoScreenParams(
+                                currentScreen.avId,
+                                appState,
+                                dispatch))
+                    is AppScreen.AccountAppScreen ->
+                        AccountScreenComponent.createElement(AccountScreenParams(
+                                currentScreen.editingAccountId,
+                                appState,
+                                dispatch
+                        ))
+                    is AppScreen.RegioAppScreen -> {
+                        RegioScreenComponent.createElement(RegioScreenParams(
+                                currentScreen.alvallalkozoId,
+                                currentScreen.regioId,
+                                appState,
+                                dispatch
+                        ))
+                    }
+                    is AppScreen.ErtekbecsloAppScreen ->
+                        ErtekbecsloScreenComponent.createElement(ErtekbecsloScreenParams(
+                                currentScreen.avId,
+                                currentScreen.ebId,
+                                appState,
+                                dispatch
+                        ))
+                    is AppScreen.SajatArAppScreen ->
+                        SajatArScreenComponent.createElement(SajatArScreenParams(
+                                currentScreen.editingSajatArId,
+                                appState,
+                                dispatch
+                        ))
+                }
+                Layout {
+                    Header {
+                        attrs.style = jsStyle {
+                            height = "auto"
+                        }
+                        div("logo") { }
+                        Menu {
+                            attrs.mode = MenuMode.horizontal
+                            attrs.theme = Theme.dark
+                            attrs.selectedKeys = arrayOf(currentScreen::class.simpleName!!)
+                            attrs.onSelect = { event ->
+                                when (event.key) {
+                                    AppScreen.MegrendelesAppScreen::class.simpleName -> dispatch(Action.ChangeURL(Path.megrendeles.root))
+                                    AppScreen.SajatArAppScreen::class.simpleName -> dispatch(Action.ChangeURL(Path.sajatAr.root))
+                                    AppScreen.AlvallalkozoAppScreen::class.simpleName -> dispatch(Action.ChangeURL(Path.alvallalkozo.root))
+                                    AppScreen.AccountAppScreen::class.simpleName -> dispatch(Action.ChangeURL(Path.account.root))
+                                    AppScreen.RegioAppScreen::class.simpleName -> {
+                                        val initialAlvallalkozoId = appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.first().id
+                                        dispatch(Action.ChangeURL(Path.alvallalkozo.regio(initialAlvallalkozoId)))
+                                    }
+                                    AppScreen.ErtekbecsloAppScreen::class.simpleName -> {
+                                        val initialAlvallalkozoId = appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.first().id
+                                        dispatch(Action.ChangeURL(Path.ertekbecslo.root(initialAlvallalkozoId)))
                                     }
                                 }
-                                MenuItem(AppScreen.MegrendelesAppScreen::class.simpleName!!) { +"Megrendelések" }
-                                MenuItem(AppScreen.SajatArAppScreen::class.simpleName!!) { +"Sajár ár" }
-                                MenuItem(AppScreen.AlvallalkozoAppScreen::class.simpleName!!) { +"Alvállalkozó/Régió" }
-                                MenuItem(AppScreen.ErtekbecsloAppScreen::class.simpleName!!) { +"Értékbecslők" }
-                                MenuItem(AppScreen.AccountAppScreen::class.simpleName!!) { +"Felhasználók" }
-                                MenuItem(AppScreen.RegioAppScreen::class.simpleName!!) { +"Régiók" }
                             }
+                            MenuItem(AppScreen.MegrendelesAppScreen::class.simpleName!!) { +"Megrendelések" }
+                            MenuItem(AppScreen.SajatArAppScreen::class.simpleName!!) { +"Sajár ár" }
+                            MenuItem(AppScreen.AlvallalkozoAppScreen::class.simpleName!!) { +"Alvállalkozó/Régió" }
+                            MenuItem(AppScreen.ErtekbecsloAppScreen::class.simpleName!!) { +"Értékbecslők" }
+                            MenuItem(AppScreen.AccountAppScreen::class.simpleName!!) { +"Felhasználók" }
+                            MenuItem(AppScreen.RegioAppScreen::class.simpleName!!) { +"Régiók" }
                         }
-                        Content {
-                            attrs.style = jsStyle {
-                                margin = "24px 16px"
-                                padding = "0px"
-                            }
-                            if (content != null) {
-                                child(content)
-                            }
+                    }
+                    Content {
+                        attrs.style = jsStyle {
+                            margin = "24px 16px"
+                            padding = "0px"
                         }
-                        Footer {
-                            +"Presting Iktató ©2019 Created by NeverMind Software Kft"
+                        if (content != null) {
+                            child(content)
                         }
+                    }
+                    Footer {
+                        +"Presting Iktató ©2019 Created by NeverMind Software Kft"
                     }
                 }
             }

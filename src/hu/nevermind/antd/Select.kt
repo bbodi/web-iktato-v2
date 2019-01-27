@@ -6,7 +6,7 @@ val SelectComp: RClass<SelectProps> = kotlinext.js.require("antd").Select
 val OptionComp: RClass<OptionProps> = kotlinext.js.require("antd").Select.Option
 
 external interface SelectProps : RProps {
-    var value: Any
+    var value: Any?
     var filterOption: (String, ReactElement) -> Boolean
     var onChange: (Any, Any) -> Unit
     var onSelect: (dynamic, Any) -> Unit

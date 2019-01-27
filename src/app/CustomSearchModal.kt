@@ -53,7 +53,6 @@ fun customSearchModal(
                     Select {
                         attrs.asDynamic().style = jsStyle { minWidth = 300 }
                         attrs.showSearch = true
-//                        attrs.value = state.filter
                         attrs.notFoundContent = "Nincs találat"
                         attrs.filterOption = { inputString, optionElement ->
                             (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))

@@ -130,7 +130,7 @@ private fun RBuilder.ertekbecsloTable(alvallalkozoId: Int,
             },
             ColumnProps {
                 title = "Állapot"; key = "state"; width = 50
-                render = { ertekbecslo: Ertekbecslo ->
+                render = { ertekbecslo: Ertekbecslo, _ ->
                     buildElement {
                         Tag {
                             attrs.color = if (ertekbecslo.disabled) "red" else "green"
@@ -148,7 +148,7 @@ private fun RBuilder.ertekbecsloTable(alvallalkozoId: Int,
             },
             ColumnProps {
                 title = ""; key = "action"; width = 100
-                render = { row: Ertekbecslo ->
+                render = { row: Ertekbecslo, _ ->
                     buildElement {
                         div {
                             Tooltip("Szerkesztés") {
@@ -168,6 +168,6 @@ private fun RBuilder.ertekbecsloTable(alvallalkozoId: Int,
         attrs.columns = columns
         attrs.dataSource = appState.alvallalkozoState.getErtekbecslokOf(alvallalkozoId).sortedBy { it.name }.toTypedArray()
         attrs.rowKey = "id"
-        attrs.asDynamic().size = ButtonSize.small
+        attrs.asDynamic().size = "middle"
     }
 }
