@@ -129,7 +129,7 @@ private fun RBuilder.ertekbecsloTable(alvallalkozoId: Int,
                 title = "Email"; dataIndex = "email"; width = 150
             },
             ColumnProps {
-                title = "Állapot"; key = "state"; width = 50
+                title = "Állapot"; key = "formState"; width = 50
                 render = { ertekbecslo: Ertekbecslo, _ ->
                     buildElement {
                         Tag {

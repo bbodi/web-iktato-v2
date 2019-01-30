@@ -10,27 +10,47 @@ data class MegrendelesState(
         val megrendelesek: Map<Int, Megrendeles> = hashMapOf()
 )
 
-//val megrendelesReducer: Reducer<MegrendelesState, RAction> = { state, action ->
-//    if (state == undefined) {
+//val megrendelesReducer: Reducer<MegrendelesState, RAction> = { formState, action ->
+//    if (formState == undefined) {
 //        MegrendelesState(emptyMap())
 //    } else when (action) {
 //        is Actions.MegrendelesekFromServer -> {
-//            megrendelesekFromServer(state, action)
+//            megrendelesekFromServer(formState, action)
 //        }
-//        else -> state
+//        else -> formState
 //    }
 //}
+
+private val listeners = hashMapOf<String, (Any) -> Unit>()
+
+fun addListener(name: String, action: (Any) -> Unit) {
+    listeners.put(name, action)
+}
+
+fun removeListener(name: String) {
+    listeners.remove(name)
+}
+
+fun emitEvent(item: Any) {
+    listeners.forEach {
+        console.log("Store listener: ", it.key, ", ", item)
+        it.value(item)
+    }
+}
 
 fun megrendelesekFromServer(state: MegrendelesState, action: Action): MegrendelesState {
     return when (action) {
         is Action.MegrendelesekFromServer -> {
             if (state.megrendelesek.isEmpty()) {
                 state.copy(megrendelesek = action.data.map {
-                    (it.id as Int) to toMegrendeles(it)
+                    val megr = toMegrendeles(it)
+                    emitEvent(megr)
+                    (it.id as Int) to megr
                 }.toMap())
             } else {
                 val updatedMegrendelesek = action.data.map {
                     val updatedMegr = toMegrendeles(it)
+                    emitEvent(updatedMegr)
                     val oldMegr = state.megrendelesek[updatedMegr.id]
                     if (oldMegr == null) {
                         console.info("Új Megrendelés: ${updatedMegr.id}, ${updatedMegr.azonosito}")
@@ -38,7 +58,7 @@ fun megrendelesekFromServer(state: MegrendelesState, action: Action): Megrendele
                         console.info("Megrendelés módosult: ${updatedMegr.id}, ${updatedMegr.azonosito}")
                         val diffs = diff(oldMegr, updatedMegr)
                         diffs?.forEach { diffNode ->
-                            if (diffNode.kind == 'E') {
+                            if (diffNode.kind[0] == 'E') {
                                 if (diffNode.path[0] != "modified")
                                     console.info(" ${diffNode.path[0]}: ${diffNode.lhs} -> ${diffNode.rhs}")
                             }
@@ -118,8 +138,8 @@ private fun pollServerForChanges(lastUpdateTime: Moment) {
 //    private fun loadMegrendelesekOfAlvallalkozo() {
 //        communicator.getEntitiesFromServer(RestUrl.getMegrendelesekOfAlvallalkozo) { returnedArray: Array<dynamic> ->
 //            returnedArray.forEach {
-//                val megr = toMegrendeles(it)
-//                _megrendelesek.put(megr.id, megr)
+//                val megrendeles = toMegrendeles(it)
+//                _megrendelesek.put(megrendeles.id, megrendeles)
 //            }
 //        }
 //    }
@@ -299,7 +319,7 @@ private fun readDateTime(str: String, format: String = dateTimeFormat): Moment {
 val diff: (a: Any, b: Any) -> Array<DiffResult>? = kotlinext.js.require("deep-diff").diff
 
 external interface DiffResult {
-    val kind: Char
+    val kind: String
     val path: Array<String>
     val lhs: String
     val rhs: String

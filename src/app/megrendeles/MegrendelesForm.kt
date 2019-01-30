@@ -25,23 +25,19 @@ import store.diff
 
 data class MegrendelesFormState(val activeTab: String,
                                 val megrendeles: Megrendeles,
-                                val szamlazhatoDijAfa: Int?,
-                                val azonosito1: String,
-                                val azonosito2: String,
-                                val ertesitendoSzemelyAzonos: Boolean,
-                                val selectableMunkatipusok: Collection<String>,
-                                val selectableAlvallalkozok: Collection<Alvallalkozo>)
+                                val megrendelesFieldsFromExcel: MegrendelesFieldsFromExternalSource? = null,
+                                val megrendelesFieldsFromImportText: MegrendelesFieldsFromExternalSource? = null
+)
 
-data class MegrendelesFormScreenParams(val megrendelesId: Int,
+data class MegrendelesFormScreenParams(val megrendeles: Megrendeles?,
                                        val appState: AppState,
-                                       val akadalyok: Array<Akadaly>,
                                        val globalDispatch: (Action) -> Unit)
 
 object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScreenParams>() {
     override fun RBuilder.body(props: MegrendelesFormScreenParams) {
         val appState: AppState = props.appState
         val globalDispatch: (Action) -> Unit = props.globalDispatch
-        val megrendeles = if (props.megrendelesId == 0)
+        val megrendeles = if (props.megrendeles == null)
             Megrendeles(
                     megrendelo = appState.sajatArState.allMegrendelo.first(),
                     foVallalkozo = "Presting Zrt.",
@@ -53,34 +49,10 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
                     hatarido = getNextWeekDay(5),
                     ellenorizve = true,
                     statusz = Statusz.B1
-            ) else appState.megrendelesState.megrendelesek[props.megrendelesId]!!.copy()
-        val sameName = !megrendeles.ertesitesiNev.isNullOrEmpty() && megrendeles.ertesitesiNev == megrendeles.ugyfelNeve
-        val sameTel = !megrendeles.ertesitesiTel.isNullOrEmpty() && megrendeles.ertesitesiTel == megrendeles.ugyfelTel
-
-        val azonosito1: String
-        val azonosito2: String
-        if (megrendeles.munkatipus == Munkatipusok.EnergetikaAndErtekBecsles.str) {
-            azonosito1 = megrendeles.getErtekbecslesId()
-            azonosito2 = megrendeles.getEnergetikaId()
-        } else if (megrendeles.munkatipus == Munkatipusok.Energetika.str) {
-            azonosito1 = ""
-            azonosito2 = megrendeles.azonosito
-        } else {
-            azonosito1 = megrendeles.azonosito
-            azonosito2 = ""
-        }
-        val sajatArak = appState.sajatArState.getSajatArakFor(megrendeles.megrendelo, megrendeles.munkatipus)
-        val sajatAr = sajatArak.firstOrNull { it.leiras == megrendeles.ingatlanTipusMunkadijMeghatarozasahoz }
-
+            ) else props.megrendeles.copy()
         val (state, setState) = useState(MegrendelesFormState(
                 activeTab = MegrendelesScreenIds.modal.tab.first,
-                megrendeles = megrendeles,
-                szamlazhatoDijAfa = sajatAr?.afa,
-                azonosito1 = azonosito1,
-                azonosito2 = azonosito2,
-                ertesitendoSzemelyAzonos = props.megrendelesId == 0 || (sameName && sameTel),
-                selectableAlvallalkozok = appState.alvallalkozoState.getSelectableAlvallalkozok(megrendeles.regio),
-                selectableMunkatipusok = munkatipusokForRegio(appState.alvallalkozoState, megrendeles.regio)
+                megrendeles = megrendeles
         ))
         val (onSaveFunctions, _) = useState(Array<(Megrendeles) -> Megrendeles>(6) { size -> { megr -> megr } })
         div {
@@ -89,9 +61,9 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
                     Affix {
                         attrs.offsetTop = 30
                         h1 {
-                            +createAzonosito(state)
+                            +state.megrendeles.azonosito
                         }
-                        steps(megrendeles, appState)
+                        steps(state.megrendeles, appState)
                     }
                 }
                 Col(span = 18) {
@@ -109,9 +81,7 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
                     }
                     Row {
                         Col(span = 24) {
-                            megrendelesForm(state, appState, setState, onSaveFunctions,
-                                    props.akadalyok,
-                                    globalDispatch)
+                            megrendelesForm(state, appState, setState, onSaveFunctions, globalDispatch)
                         }
                     }
                 }
@@ -244,17 +214,17 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
                 attrs.asDynamic().id = MegrendelesScreenIds.modal.button.save
                 attrs.type = ButtonType.primary
                 attrs.onClick = {
-                    val finalMegrendeles = onSaveFunctions.fold(state.megrendeles) { megrendeles, tabOnSaveFunction ->
-                        tabOnSaveFunction(megrendeles)
+                    val finalMegrendeles = onSaveFunctions.fold(state.megrendeles) { megrendeles, onSaveFunctionOfTab ->
+                        onSaveFunctionOfTab(megrendeles)
                     }
                     val diffs = diff(state.megrendeles, finalMegrendeles)
                     diffs?.forEach { diffNode ->
-                        if (diffNode.kind == 'E') {
+                        if (diffNode.kind[0] == 'E') {
                             console.info(" ${diffNode.path[0]}: ${diffNode.lhs} -> ${diffNode.rhs}")
                         }
                     }
                 }
-                +" Mentés"
+                +"Mentés"
             }
             Button {
                 attrs.asDynamic().id = MegrendelesScreenIds.modal.button.close
@@ -262,7 +232,7 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
                 attrs.onClick = {
                     globalDispatch(Action.ChangeURL(Path.megrendeles.root))
                 }
-                +" Vissza"
+                +"Vissza"
             }
         }
     }
@@ -270,37 +240,50 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
 
 private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
                                      appState: AppState,
-                                     setState: Dispatcher<MegrendelesFormState>,
+                                     setFormState: Dispatcher<MegrendelesFormState>,
                                      onSaveFunctions: Array<(Megrendeles) -> Megrendeles>,
-                                     akadalyok: Array<Akadaly>,
                                      globalDispatch: (Action) -> Unit) {
     Tabs {
+        attrs.activeKey = state.activeTab
+        attrs.onChange = { key ->
+            val finalMegrendeles = onSaveFunctions.fold(state.megrendeles) { megrendeles, onSaveFunctionOfTab ->
+                onSaveFunctionOfTab(megrendeles)
+            }
+            setFormState(state.copy(
+                    activeTab = key,
+                    megrendeles = finalMegrendeles
+            ))
+        }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.first
             attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Alap adatok", color = "black", icon = "list-alt"))
-            alapAdatokTab(state, appState, setState)
+            AlapAdatokTabComponent.insert(this, AlapAdatokTabParams(state, appState, onSaveFunctions, setFormState))
         }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.ingatlanAdatai
             attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Ingatlan adatai", color = "red", icon = "home"))
-            ingatlanAdataiTab(state, appState, setState)
+            IngatlanAdataiTabComponent.insert(this, IngatlanAdataiTabParams(state, appState, onSaveFunctions, setFormState))
         }
-        - a tabok mentéskor irják át a global Megrendelés fieldjeit
-        - alvállalkozó nézet
+        ha feltöltök egy fájlt majd tabot váltok, a steps component m,egváltozik
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.akadalyok
+            val akadalyok = state.megrendeles.akadalyok
             val akadalyokSize = maxOf(akadalyok.size, if (state.megrendeles.megjegyzes.isNotEmpty()) 1 else 0)
             attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Megjegyzés/Akadály", color = "black", icon = "message", badgeNum = akadalyokSize))
             AkadalyokTabComponent.insert(this,
                     AkadalyokTabParams(state.megrendeles.hatarido,
                             onSaveFunctions, globalDispatch,
-                            state.megrendeles.id,
-                            akadalyok))
+                            state,
+                            setFormState))
         }
         TabPane {
             attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Fájlok", color = "black", icon = "upload", badgeNum = state.megrendeles.files.size))
-            FajlokTabComponent.insert(this, FajlokTabParams(state.megrendeles, onSaveFunctions, globalDispatch))
-            AkadalyokTabComponent
+            FajlokTabComponent.insert(this, FajlokTabParams(state,
+                    onSaveFunctions,
+                    globalDispatch,
+                    appState,
+                    setFormState,
+                    appState.alvallalkozoState))
         }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.penzBeerkezett
@@ -310,7 +293,10 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.feltoltesZarolas
             attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Feltöltés/Zárolás", color = "black", icon = "file-done"))
-            ZarolasTabComponent.insert(this, ZarolasTabParams(state.megrendeles, onSaveFunctions))
+            ZarolasTabComponent.insert(this, ZarolasTabParams(
+                    state,
+                    setFormState,
+                    onSaveFunctions))
         }
     }
 
@@ -349,14 +335,4 @@ fun getNextWeekDay(dayCount: Int): Moment {
         }
     }
     return day
-}
-
-private fun createAzonosito(state: MegrendelesFormState): String {
-    return if (state.megrendeles.munkatipus == Munkatipusok.EnergetikaAndErtekBecsles.str) {
-        "EB${state.azonosito1}_ET${state.azonosito2}"
-    } else if (state.megrendeles.munkatipus == Munkatipusok.Energetika.str) {
-        state.azonosito2
-    } else {
-        state.azonosito1
-    }
 }

@@ -1,9 +1,9 @@
 package hu.nevermind.utils.app.megrendeles
 
-import app.Dispatcher
+import app.*
+import app.common.moment
+import app.megrendeles.MegrendelesFormState
 import app.megrendeles.downloadFile
-import app.useEffect
-import app.useState
 import hu.nevermind.antd.*
 import hu.nevermind.antd.table.ColumnAlign
 import hu.nevermind.antd.table.ColumnProps
@@ -25,15 +25,19 @@ import react.buildElement
 import react.dom.*
 import store.Action
 import store.UploadData
+import store.addListener
+import store.removeListener
 import kotlin.js.Promise
 
 
-data class FajlokTabParams(val megrendeles: Megrendeles,
+data class FajlokTabParams(val formState: MegrendelesFormState,
                            val onSaveFunctions: Array<(Megrendeles) -> Megrendeles>,
-                           val globalDispatch: (Action) -> Unit)
+                           val globalDispatch: (Action) -> Unit,
+                           val appState: AppState,
+                           val setFormState: Dispatcher<MegrendelesFormState>,
+                           val alvallalkozoStore: AlvallalkozoState)
 
 data class FajlokTabComponentState(val uploadModalVisible: Boolean,
-                                   val megrendeles: Megrendeles,
                                    val tartalmazEnergetika: Boolean?,
                                    val tartalmazErtekbecsles: Boolean?,
                                    val uploadingFiles: List<File>)
@@ -44,13 +48,26 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                 uploadModalVisible = false,
                 tartalmazEnergetika = null,
                 tartalmazErtekbecsles = null,
-                megrendeles = props.megrendeles.copy(),
                 uploadingFiles = emptyList()
         ))
+        useEffectWithCleanup(RUN_ONLY_WHEN_MOUNT) {
+            addListener("FajlokTab") { megr ->
+                if (megr is Megrendeles) {
+                    props.setFormState(props.formState.copy(megrendeles = props.formState.megrendeles.copy(
+                            ertekbecslesFeltoltve = megr.ertekbecslesFeltoltve,
+                            energetikaFeltoltve = megr.energetikaFeltoltve,
+                            readByAdmin = megr.readByAdmin,
+                            files = megr.files
+                    )))
+                }
+            }
+            val cleanup: () -> Unit = { removeListener("FajlokTab") }
+            cleanup
+        }
+
         useEffect {
             props.onSaveFunctions[3] = { globalMegrendeles ->
                 globalMegrendeles.copy(
-//                        keszpenzesBefizetes = tabState.keszpenzesBefizetes,
                 )
             }
         }
@@ -65,17 +82,112 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                 Panel("Feltöltött fájlok") {
                     attrs.header = StringOrReactElement.fromString("Feltöltött fájlok")
                     Row {
-                        Col(offset = 5, span = 14) {
-                            fileTable(tabState)
+                        if (props.formState.megrendelesFieldsFromExcel != null) {
+                            Col(span = 14) {
+                                fileTable(props)
+                            }
+                            Col(offset = 1, span = 9) {
+                                excelImportResultTable(
+                                        props.appState.alvallalkozoState,
+                                        props.formState.megrendeles,
+                                        props.formState.megrendelesFieldsFromExcel
+                                )
+                            }
+                        } else {
+                            Col(offset = 5, span = 14) {
+                                fileTable(props)
+                            }
                         }
                     }
                 }
             }
-            uploadModal(tabState, setTabState, props.globalDispatch)
+            uploadModal(tabState, props, setTabState, props.globalDispatch)
         }
     }
 
-    private fun RBuilder.fileTable(tabState: FajlokTabComponentState) {
+    private data class OldNewValues(val name: String, val newValue: String, val oldValue: String) {
+
+    }
+
+    private fun oldNewValues(name: String, newValue: Int?, oldValue: Int?): OldNewValues {
+        val formattedNewValue = newValue?.let { parseGroupedStringToNum(it.toString()).second } ?: ""
+        val formattedOldValue = oldValue?.let { parseGroupedStringToNum(it.toString()).second } ?: ""
+        return OldNewValues(
+                name,
+                formattedNewValue,
+                formattedOldValue
+        )
+    }
+
+    private fun RBuilder.excelImportResultTable(
+            alvallalkozoStore: AlvallalkozoState,
+            megr: Megrendeles,
+            excel: MegrendelesFieldsFromExternalSource) {
+        val columns = arrayOf(
+                ColumnProps {
+                    title = "Név"
+                    dataIndex = "name"
+                    width = 100
+                    render = { cell: String, row: OldNewValues ->
+                        val c = if (row.oldValue != row.newValue && row.oldValue.isNotEmpty()) {
+                            "rgb(235, 148, 6)"
+                        } else {
+                            "black"
+                        }
+                        buildElement {
+                            span {
+                                attrs.jsStyle = jsStyle { color = c }
+                                +cell
+                            }
+                        }
+                    }
+                },
+                ColumnProps {
+                    title = "Új érték"
+                    dataIndex = "newValue"
+                    align = ColumnAlign.right
+                    width = 50
+                    render = { cell: String, _ ->
+                        buildElement {
+                            span {
+                                attrs.jsStyle = jsStyle {
+                                    fontFamily = """"Lucida Console", Monaco, monospace"""
+                                }
+                                +cell
+                            }
+                        }
+                    }
+                }
+        )
+        Table {
+            attrs.columns = columns
+            attrs.dataSource = arrayOf(
+                    OldNewValues("Helyszínelő", excel.helyszinelo ?: "", megr.helyszinelo ?: ""),
+                    OldNewValues("Eladási ár", excel.adasvetel ?: "", megr.eladasiAr?.toString() ?: ""),
+                    OldNewValues("Adásvétel dátuma", excel.adasvetelDatuma
+                            ?: "", megr.adasvetelDatuma?.format(dateFormat) ?: ""),
+                    OldNewValues("Értékbecslő", excel.ertekBecslo
+                            ?: "", alvallalkozoStore.ertekbecslok[megr.ertekbecsloId]?.name ?: ""),
+                    oldNewValues("Fajlagos becsült ár", excel.fajlagosAr?.toInt(), megr.fajlagosBecsultAr),
+                    oldNewValues("Becsült érték", excel.forgalmiErtek?.toInt(), megr.becsultErtek),
+                    OldNewValues("Hrsz", excel.hrsz ?: "", megr.hrsz),
+                    oldNewValues("Lakás terület", excel.ingatlanTerulet?.toInt(), megr.lakasTerulet),
+                    OldNewValues("Lakás típusa", excel.ingatlanTipusa?.toLowerCase()
+                            ?: "", megr.ingatlanBovebbTipus.toLowerCase()),
+                    oldNewValues("Készültségi fok", excel.keszultsegiFok?.toInt(), megr.keszultsegiFok),
+                    OldNewValues("Kapcsolattartó neve", excel.kolcsonIgenylo ?: "", megr.ugyfelNeve),
+                    OldNewValues("Szemle időpontja", excel.szemleIdopontja
+                            ?: "", megr.szemleIdopontja?.format(dateFormat) ?: ""),
+                    oldNewValues("Telek terület", excel.telekMeret?.toInt(), megr.telekTerulet)
+            )
+            attrs.rowKey = "name"
+            attrs.asDynamic().size = "middle"
+        }
+    }
+
+
+    private fun RBuilder.fileTable(props: FajlokTabParams) {
+        val megr = props.formState.megrendeles
         val columns = arrayOf(
                 ColumnProps {
                     title = "Név"
@@ -103,27 +215,35 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                     key = "action"
                     align = ColumnAlign.right
                     width = 150
-                    render = { _, record: FileData ->
+                    render = { _, fileData: FileData ->
                         buildElement {
                             span {
                                 a(href = null) {
                                     attrs.onClickFunction = {
                                         val x = XMLHttpRequest()
-                                        val str = record.name
+                                        val str = fileData.name
                                         val encodedFilename = js("btoa(encodeURIComponent(str))")
-                                        val url = "/download/${tabState.megrendeles.azonosito}/$encodedFilename/"
+                                        val url = "/download/${megr.azonosito}/$encodedFilename/"
                                         x.open("GET", "url", true)
                                         x.responseType = XMLHttpRequestResponseType.BLOB
                                         x.onload = { e ->
-                                            downloadFile(e.target.asDynamic().response, record.name)
+                                            downloadFile(e.target.asDynamic().response, fileData.name)
                                         }
                                         x.send()
                                     }
                                     +"Letöltés"
                                 }
-                                if (record.name.endsWith(".xlsx")) {
+                                if (fileData.name.endsWith(".xlsx")) {
                                     Divider(type = DividerType.vertical)
-                                    a() {
+                                    a(href = null) {
+                                        attrs.onClickFunction = {
+                                            communicator.parseExcel(megr.azonosito, fileData.name) { excel ->
+                                                props.setFormState(props.formState.copy(
+                                                        megrendeles = setMegrendeloFieldsFromExcel(megr, excel, props),
+                                                        megrendelesFieldsFromExcel = excel
+                                                ))
+                                            }
+                                        }
                                         +"Adatok betöltése"
                                     }
                                 }
@@ -137,7 +257,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
 
         Table {
             attrs.columns = columns
-            attrs.dataSource = tabState.megrendeles.files
+            attrs.dataSource = megr.files
             attrs.rowKey = "name"
             attrs.onRow = { account ->
                 jsObject {
@@ -148,11 +268,60 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
         }
     }
 
+    private fun setMegrendeloFieldsFromExcel(megr: Megrendeles, excel: MegrendelesFieldsFromExternalSource, props: FajlokTabParams): Megrendeles {
+        var updatedMegr = megr.copy()
+        ifExcelIsFilledButMegrIsNot(excel.helyszinelo ?: "", megr.helyszinelo ?: "") {
+            updatedMegr = updatedMegr.copy(helyszinelo = it);
+        }
+        ifExcelIsFilledButMegrIsNot(excel.adasvetel ?: "", megr.eladasiAr?.toString() ?: "") {
+            updatedMegr = updatedMegr.copy(eladasiAr = (it as String?)?.toIntOrNull())
+        }
+        ifExcelIsFilledButMegrIsNot(excel.adasvetelDatuma ?: "", megr.adasvetelDatuma?.format(dateFormat) ?: "") {
+            updatedMegr = updatedMegr.copy(adasvetelDatuma = moment(it, dateFormat))
+        }
+        ifExcelIsFilledButMegrIsNot(excel.ertekBecslo
+                ?: "", props.alvallalkozoStore.ertekbecslok[megr.ertekbecsloId]?.name ?: "") { ebName ->
+            updatedMegr = updatedMegr.copy(ertekbecsloId = props.alvallalkozoStore.ertekbecslok.values.first { it.name == ebName }.id)
+        }
+        //ifExcelIsFilledButMegrIsNot(excel.fajlagosAr, megrendeles.fajlagosEladAr) { megrendeles.fajlagosEladAr = it }
+        if (excel.fajlagosAr != null) {
+            updatedMegr = updatedMegr.copy(fajlagosBecsultAr = excel.fajlagosAr?.toInt())
+        }
+        //ifExcelIsFilledButMegrIsNot(excel.szemleIdopontja ?: "", megrendeles.szemleIdopontja?.format(dateFormat) ?: "") { megrendeles.szemleIdopontja = moment(it, dateFormat) }
+        if (excel.szemleIdopontja != null) {
+            updatedMegr = updatedMegr.copy(szemleIdopontja = moment(excel.szemleIdopontja!!, dateFormat))
+        }
+        ifExcelIsFilledButMegrIsNot(excel.forgalmiErtek?.toInt(), megr.becsultErtek) {
+            updatedMegr = updatedMegr.copy(becsultErtek = it)
+        }
+        ifExcelIsFilledButMegrIsNot(excel.hrsz ?: "", megr.hrsz) {
+            updatedMegr = updatedMegr.copy(hrsz = it)
+        }
+        ifExcelIsFilledButMegrIsNot(excel.ingatlanTerulet?.toInt(), megr.lakasTerulet?.toInt()) {
+            updatedMegr = updatedMegr.copy(lakasTerulet = it)
+        }
+        ifExcelIsFilledButMegrIsNot(excel.ingatlanTipusa?.toLowerCase()
+                ?: "", megr.ingatlanBovebbTipus.toLowerCase()) { tipus ->
+            updatedMegr = updatedMegr.copy(ingatlanBovebbTipus = ingatlanBovebbTipusaArray.firstOrNull { it.toLowerCase() == tipus.toLowerCase() }
+                    ?: "")
+        }
+        ifExcelIsFilledButMegrIsNot(excel.keszultsegiFok?.toInt(), megr.keszultsegiFok) { updatedMegr = updatedMegr.copy(keszultsegiFok = it) }
+        ifExcelIsFilledButMegrIsNot(excel.kolcsonIgenylo ?: "", megr.ugyfelNeve) {
+            updatedMegr = updatedMegr.copy(ugyfelNeve = it)
+        }
+        ifExcelIsFilledButMegrIsNot(excel.telekMeret?.toInt(), megr.telekTerulet?.toInt()) {
+            updatedMegr = updatedMegr.copy(telekTerulet = it)
+        }
+        return updatedMegr
+    }
+
     private fun Int.toMB() = this / 1048576
 
     private fun RBuilder.uploadModal(tabState: FajlokTabComponentState,
+                                     props: FajlokTabParams,
                                      setTabState: Dispatcher<FajlokTabComponentState>,
                                      globalDispatch: (Action) -> Unit) {
+        val megrendeles = props.formState.megrendeles
         Modal {
             attrs.title = StringOrReactElement.fromString("Fájlok feltöltése")
             attrs.visible = tabState.uploadModalVisible
@@ -163,11 +332,11 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
             attrs.onOk = {
                 communicator.upload(
                         UploadData(
-                                tabState.megrendeles,
+                                megrendeles,
                                 tabState.uploadingFiles,
                                 tabState.tartalmazErtekbecsles ?: false,
                                 tabState.tartalmazEnergetika ?: false
-                        )) { response ->
+                        )) { response: Megrendeles ->
                     setTabState(tabState.copy(uploadingFiles = emptyList(), uploadModalVisible = false))
                     globalDispatch(Action.MegrendelesekFromServer(arrayOf(response)))
                     message.success("Fájlok sikeresen feltöltve")
@@ -177,7 +346,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                 setTabState(tabState.copy(uploadModalVisible = false))
             }
             Form {
-                if (tabState.megrendeles.munkatipus.isEnergetika()) {
+                if (megrendeles.munkatipus.isEnergetika()) {
                     FormItem {
                         attrs.label = StringOrReactElement.fromString("A feltölteni kívánt fájlok tartalmazzák az Energetikai tanusítványt")
                         RadioGroup {
@@ -192,7 +361,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                         }
                     }
                 }
-                if (tabState.megrendeles.munkatipus.isErtekbecsles()) {
+                if (megrendeles.munkatipus.isErtekbecsles()) {
                     FormItem {
                         attrs.label = StringOrReactElement.fromString("A feltölteni kívánt fájlok tartalmazzák az Értékbecslést")
                         RadioGroup {
@@ -207,8 +376,8 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                         }
                     }
                 }
-                val energetikaChosen = !tabState.megrendeles.munkatipus.isEnergetika() || tabState.tartalmazEnergetika != null
-                val ebChosen = !tabState.megrendeles.munkatipus.isErtekbecsles() || tabState.tartalmazErtekbecsles != null
+                val energetikaChosen = !megrendeles.munkatipus.isEnergetika() || tabState.tartalmazEnergetika != null
+                val ebChosen = !megrendeles.munkatipus.isErtekbecsles() || tabState.tartalmazErtekbecsles != null
                 if (energetikaChosen && ebChosen) {
                     uploader(setTabState, tabState)
                 }
@@ -255,6 +424,18 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                 +"Support for a single or bulk upload. Strictly prohibit from uploading company data or other band files"
             }
         }
+    }
+}
+
+private fun ifExcelIsFilledButMegrIsNot(newValue: String, oldValue: String, callIfEquals: (newValue: String) -> Unit) {
+    if (oldValue.isEmpty() && newValue.isNotEmpty()) {
+        callIfEquals(newValue)
+    }
+}
+
+private fun ifExcelIsFilledButMegrIsNot(newValue: Int?, oldValue: Int?, callIfEquals: (newValue: Int) -> Unit) {
+    if (oldValue == null && newValue != null) {
+        callIfEquals(newValue)
     }
 }
 

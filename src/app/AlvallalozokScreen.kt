@@ -137,7 +137,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                 title = "Cím"; dataIndex = "cim"; width = 300
             },
             ColumnProps {
-                title = "Állapot"; key = "state"; width = 50
+                title = "Állapot"; key = "formState"; width = 50
                 render = { alvallalkozo: Alvallalkozo, _ ->
                     buildElement {
                         Tag {

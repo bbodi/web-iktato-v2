@@ -1,13 +1,11 @@
 package hu.nevermind.utils.app.megrendeles
 
-import app.Dispatcher
+import app.*
 import app.common.Moment
 import app.common.TimeUnit
 import app.common.moment
 import app.megrendeles.MegrendelesFormState
 import app.megrendeles.MegrendelesScreenIds
-import app.useEffect
-import app.useState
 import hu.nevermind.antd.*
 import hu.nevermind.antd.table.ColumnProps
 import hu.nevermind.antd.table.Table
@@ -23,94 +21,153 @@ import react.RBuilder
 import react.RElementBuilder
 import react.buildElement
 import react.dom.a
+import react.dom.b
 import react.dom.div
 import react.dom.jsStyle
 import store.Action
+import store.addListener
+import store.removeListener
 
 
 data class AkadalyokTabParams(val jelenlegiHatarido: Moment?,
                               val onSaveFunctions: Array<(Megrendeles) -> Megrendeles>,
                               val globalDispatch: (Action) -> Unit,
-                              val megrendelesId: Int,
-                              val akadalyok: Array<Akadaly>)
+                              val formState: MegrendelesFormState,
+                              val setFormState: Dispatcher<MegrendelesFormState>)
 
 data class AkadalyokTabComponentState(val akadalyReason: Statusz?,
                                       val hataridoForAkadaly: Moment,
-                                      val szovegesMagyarazat: String)
+                                      val szovegesMagyarazat: String,
+                                      val megjegyzes: String)
 
 object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
     override fun RBuilder.body(props: AkadalyokTabParams) {
         val (tabState, setTabState) = useState(AkadalyokTabComponentState(
                 hataridoForAkadaly = props.jelenlegiHatarido?.clone() ?: moment(),
                 akadalyReason = null,
-                szovegesMagyarazat = ""
+                szovegesMagyarazat = "",
+                megjegyzes = props.formState.megrendeles.megjegyzes
         ))
         useEffect {
-            props.onSaveFunctions[3] = { globalMegrendeles ->
+            props.onSaveFunctions[2] = { globalMegrendeles ->
                 globalMegrendeles.copy(
-//                        keszpenzesBefizetes = tabState.keszpenzesBefizetes,
+                        megjegyzes = tabState.megjegyzes
                 )
             }
         }
+        useEffectWithCleanup(RUN_ONLY_WHEN_MOUNT) {
+            addListener("AkadalyokTab") { megr ->
+                if (megr is Megrendeles) {
+                    props.setFormState(props.formState.copy(megrendeles = props.formState.megrendeles.copy(
+                            akadalyok = megr.akadalyok,
+                            hatarido = if (megr.statusz != Statusz.G4 && megr.statusz != Statusz.G6) {
+                                megr.hatarido
+                            } else props.formState.megrendeles.hatarido,
+                            statusz = megr.statusz
+                    )))
+                }
+            }
+            val cleanup: () -> Unit = { removeListener("AkadalyokTab") }
+            cleanup
+        }
         div {
             Collapse {
-                attrs.defaultActiveKey = arrayOf("Akadályok", "Akadály közlése", "Megjegyzés")
+                attrs.defaultActiveKey = arrayOf("Akadály közlése", "Megjegyzés")
+                if (props.formState.megrendeles.akadalyok.isNotEmpty()) {
+                    attrs.defaultActiveKey += arrayOf("Akadályok")
+                }
                 Panel("Akadályok") {
                     attrs.header = StringOrReactElement.fromString("Akadályok")
                     Row {
                         Col(span = 24) {
-                            table(props.akadalyok)
-                        }
-                    }
-                }
-                Panel("Akadály közlése") {
-                    attrs.header = StringOrReactElement.fromString("Akadály közlése")
-                    Row {
-                        Col(span = 8) {
-                            keslekedesOkaSelect(tabState, setTabState, props)
-                        }
-                        Col(offset = 1, span = 6) {
-                            jelenlegiHataridoField(props)
-                        }
-                        Col(offset = 1, span = 6) {
-                            if (tabState.akadalyReason != Statusz.G4 && tabState.akadalyReason != Statusz.G6) {
-                                javitasiHataridoField(tabState, setTabState)
-                            }
-                        }
-                    }
-                    Row {
-                        Col(span = 24) {
-                            szovegesMagyarazatField(tabState, setTabState)
-                        }
-                    }
-                    Row {
-                        Col(span = 24) {
-                            Button {
-                                attrs.asDynamic().id = MegrendelesScreenIds.modal.button.akadalyFeltoltes
-                                attrs.type = ButtonType.primary
-                                attrs.disabled = tabState.akadalyReason == null
-                                attrs.onClick = {
-                                    setTabState(tabState.copy(
-                                            szovegesMagyarazat = "",
-                                            akadalyReason = null
-                                    ))
-                                    communicator.getEntityFromServer<dynamic, Unit>(RestUrl.akadalyKozles,
-                                            object {
-                                                val megrendelesId = props.megrendelesId
-                                                val ujHatarido = tabState.hataridoForAkadaly.format(dateTimeFormat)
-                                                val akadalyOka = tabState.akadalyReason!!.text
-                                                val szoveg = tabState.szovegesMagyarazat
-                                            }) { response ->
-                                        props.globalDispatch(Action.MegrendelesekFromServer(response))
-                                        message.success("Akadály rögztíve")
-                                    }
-                                }
-                                +"Akadály közlése"
-                            }
+                            table(props.formState.megrendeles.akadalyok)
                         }
                     }
                 }
             }
+            Row {
+                Col(span = 12) {
+                    Collapse {
+                        attrs.defaultActiveKey = arrayOf("Akadály közlése")
+                        Panel("Akadály közlése") {
+                            attrs.header = StringOrReactElement.fromString("Akadály közlése")
+                            Row {
+                                Col(span = 12) {
+                                    keslekedesOkaSelect(tabState, setTabState, props)
+                                }
+                            }
+                            Row {
+                                Col(span = 8) {
+                                    jelenlegiHataridoField(props)
+                                }
+                                Col(offset = 1, span = 8) {
+                                    if (tabState.akadalyReason != Statusz.G4 && tabState.akadalyReason != Statusz.G6) {
+                                        javitasiHataridoField(tabState, setTabState)
+                                    }
+                                }
+                            }
+                            Row {
+                                Col(span = 24) {
+                                    szovegesMagyarazatField(tabState, setTabState)
+                                }
+                            }
+                            Row {
+                                Col(span = 24) {
+                                    akadalyKozleseButton(tabState, setTabState, props)
+                                }
+                            }
+                        }
+                    }
+                }
+                Col(span = 12) {
+                    Collapse {
+                        attrs.defaultActiveKey = arrayOf("Megjegyzés")
+                        Panel("Megjegyzés") {
+                            attrs.header = StringOrReactElement.fromString("Megjegyzés")
+                            FormItem {
+                                attrs.label = StringOrReactElement.fromString("Megjegyzés")
+                                TextArea {
+                                    attrs.value = tabState.megjegyzes
+                                    attrs.rows = 5
+                                    attrs.onChange = { e ->
+                                        setTabState(tabState.copy(
+                                                megjegyzes = e.currentTarget.asDynamic().value
+                                        ))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                }
+            }
+        }
+    }
+
+    private fun RElementBuilder<ColProps>.akadalyKozleseButton(tabState: AkadalyokTabComponentState,
+                                                               setTabState: Dispatcher<AkadalyokTabComponentState>,
+                                                               props: AkadalyokTabParams) {
+        Button {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.button.akadalyFeltoltes
+            attrs.type = ButtonType.primary
+            attrs.disabled = tabState.akadalyReason == null
+            attrs.onClick = {
+                setTabState(tabState.copy(
+                        szovegesMagyarazat = "",
+                        akadalyReason = null
+                ))
+                communicator.getEntityFromServer<dynamic, Unit>(RestUrl.akadalyKozles,
+                        object {
+                            val megrendelesId = props.formState.megrendeles.id
+                            val ujHatarido = tabState.hataridoForAkadaly.format(dateTimeFormat)
+                            val akadalyOka = tabState.akadalyReason!!.text
+                            val szoveg = tabState.szovegesMagyarazat
+                        }) { response ->
+                    props.globalDispatch(Action.MegrendelesekFromServer(response))
+                    message.success("Akadály rögztíve")
+                }
+            }
+            +"Akadály közlése"
         }
     }
 
@@ -119,7 +176,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
             attrs.label = StringOrReactElement.fromString("Szöveges magyarázat")
             TextArea {
                 attrs.value = tabState.szovegesMagyarazat
-                attrs.rows = 3
+                attrs.rows = 5
                 attrs.onChange = { e ->
                     setTabState(tabState.copy(
                             szovegesMagyarazat = e.currentTarget.asDynamic().value
@@ -246,7 +303,8 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                                             }
                                         }
                                     }
-                                    +(cell.substring(0, 50) + "...")
+                                    +(cell.substring(0, 50))
+                                    b { +"..." }
                                 }
                             } else +cell
                         }

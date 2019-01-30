@@ -443,12 +443,12 @@ private fun RBuilder.megrendelesekTable(user: LoggedInUser,
 //
 //            }
 //            search = true
-//            trClassName = { megr: Megrendeles, rowIndex: Int ->
+//            trClassName = { megrendeles: Megrendeles, rowIndex: Int ->
 //                val (alvallalkozoAzAtNemVettTabon, alvallalkozoAzElvegezveTabon) = if (LoggedInUserStore.loggedInUser.role == Role.ROLE_USER) {
-//                    Pair(self.state.filter == atNemVettFilter, self.state.filter == alvallalkozoVegzettVeleAdottHonapban)
+//                    Pair(self.formState.filter == atNemVettFilter, self.formState.filter == alvallalkozoVegzettVeleAdottHonapban)
 //                } else Pair(false, false)
 //                val goodTab = !alvallalkozoAzAtNemVettTabon && !alvallalkozoAzElvegezveTabon
-//                if (goodTab && megr.isUnread(LoggedInUserStore.loggedInUser.role)) {
+//                if (goodTab && megrendeles.isUnread(LoggedInUserStore.loggedInUser.role)) {
 //                    "unread_megr"
 //                } else ""
 //            }
@@ -517,7 +517,7 @@ private object MegrendelesScreen {
 //                self.forceUpdate()
 //            }
 //            MegrendelesStore.addChangeListener(this) {
-//                self.setState(self.state.copy(megrendelesek = MegrendelesStore.megrendelesek))
+//                self.setState(self.formState.copy(megrendelesek = MegrendelesStore.megrendelesek))
 //            }
 //        }
 //
@@ -585,8 +585,8 @@ private object MegrendelesScreen {
                     onClick = {
                         screenDispatch(state.copy(activeFilter = haviTeljesitesFilter))
 //                        globalDispatch(Action.FilterMegrendelesek(MegrendelesFilter(
-//                                state.haviTeljesites!!.alvallalkozoId,
-//                                state.haviTeljesites.date
+//                                formState.haviTeljesites!!.alvallalkozoId,
+//                                formState.haviTeljesites.date
 //                        )))
                     }) {
                 val filteredMegrendelesek = megrendelesek.values.filter { haviTeljesitesFilter.predicate(state, it) }
@@ -614,14 +614,14 @@ private object MegrendelesScreen {
         }
 //        div({ className = "dropdown btn-group" }) {
 //            bsButton({
-//                disabled = self.state.haviTeljesites == null
-//                bsStyle = if (self.state.filter == haviTeljesitesFilter) BsStyle.Info else BsStyle.Default
+//                disabled = self.formState.haviTeljesites == null
+//                bsStyle = if (self.formState.filter == haviTeljesitesFilter) BsStyle.Info else BsStyle.Default
 //                onClick = {
 
 //                }
 //            }) {
 //                text("${haviTeljesitesFilter.label(self)} ")
-//                val filteredMegrendelesek = self.state.megrendelesek.values.filter { haviTeljesitesFilter.predicate(self, it) }
+//                val filteredMegrendelesek = self.formState.megrendelesek.values.filter { haviTeljesitesFilter.predicate(self, it) }
 //                val count = filteredMegrendelesek.count()
 //                if (count > 0) {
 //                    span({ className = "badge" }) {
@@ -630,7 +630,7 @@ private object MegrendelesScreen {
 //                }
 //            }
 //            bsButton({
-//                onClick = { self.setState(self.state.copy(haviTeljesitesModalOpen = true)) }
+//                onClick = { self.setState(self.formState.copy(haviTeljesitesModalOpen = true)) }
 //            }) {
 //                bsIcon("cog")
 //            }
@@ -644,9 +644,9 @@ private object MegrendelesScreen {
 //            if (LoggedInUserStore.isAdmin) {
 //                MegrendelesModal({
 //                    primaryKey = id
-//                    close = { result, megr ->
+//                    close = { result, megrendeles ->
 //                        if (result == ModalResult.Save) {
-//                            communicator.saveEntity<Megrendeles, dynamic>(RestUrl.saveMegrendeles, megr!!) { response ->
+//                            communicator.saveEntity<Megrendeles, dynamic>(RestUrl.saveMegrendeles, megrendeles!!) { response ->
 //                                Actions.megrendelesekFromServer(arrayOf(response))
 //                                Actions.changeURL(Path.megrendeles.root)
 //                                val str = if (id == 0) "létrejött" else "módosult"
@@ -659,7 +659,7 @@ private object MegrendelesScreen {
 //                })
 //            } else if (LoggedInUserStore.isAlvallalkozo) {
 //                AlvallalkozoMegrendelesModal({
-//                    megrendeles = self.state.megrendelesek[id]!!
+//                    megrendeles = self.formState.megrendelesek[id]!!
 //                    close = { dataToSave ->
 //                        if (dataToSave != null) {
 //                            communicator.saveEntity<Any, dynamic>(RestUrl.saveMegrendeles, dataToSave) { response ->

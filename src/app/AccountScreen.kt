@@ -202,7 +202,7 @@ private fun RBuilder.accountTable(appState: AppState,
                 title = "Név"; dataIndex = "fullName"; width = 100
             },
             ColumnProps {
-                title = "Állapot"; key = "state"; width = 100
+                title = "Állapot"; key = "formState"; width = 100
                 render = { account: Account, _ ->
                     buildElement {
                         Tag {

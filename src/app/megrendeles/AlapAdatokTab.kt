@@ -3,15 +3,17 @@ package hu.nevermind.utils.app.megrendeles
 import app.AppState
 import app.Dispatcher
 import app.common.moment
-import app.megrendeles.*
+import app.megrendeles.MegrendelesFormState
+import app.megrendeles.MegrendelesScreenIds
+import app.useEffect
+import app.useState
 import hu.nevermind.antd.*
 import hu.nevermind.antd.autocomplete.AutoComplete
+import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.jsStyle
-import hu.nevermind.utils.store.AlvallalkozoState
-import hu.nevermind.utils.store.Megrendeles
-import hu.nevermind.utils.store.SajatAr
-import hu.nevermind.utils.store.isEnergetika
+import hu.nevermind.utils.store.*
+import react.RBuilder
 import react.RElementBuilder
 import react.children
 import react.dom.div
@@ -20,35 +22,111 @@ import store.kozteruletJellegek
 import store.megyek
 import kotlin.math.roundToLong
 
-fun RElementBuilder<TabPaneProps>.alapAdatokTab(state: MegrendelesFormState, appState: AppState,
-                                                        setState: Dispatcher<MegrendelesFormState>) {
-    Collapse {
-        attrs.bordered = false
-        attrs.defaultActiveKey = arrayOf("Megrendelés", "Ügyfél", "Értesítendő személy", "Cím", "Hitel")
-        Panel("Megrendelés") {
-            attrs.header = StringOrReactElement.fromString("Megrendelés")
-            megrendelesPanel(appState, state, setState)
+data class AlapAdatokTabParams(val formState: MegrendelesFormState,
+                               val appState: AppState,
+                               val onSaveFunctions: Array<(Megrendeles) -> Megrendeles>,
+                               val setState: Dispatcher<MegrendelesFormState>)
+
+data class AlapAdatokTabComponentState(val megrendeles: Megrendeles,
+                                       val szamlazhatoDijAfa: Int?,
+                                       val azonosito1: String,
+                                       val azonosito2: String,
+                                       val selectableMunkatipusok: Collection<String>,
+                                       val selectableAlvallalkozok: Collection<Alvallalkozo>,
+                                       val ertesitendoSzemelyAzonos: Boolean)
+
+object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
+    override fun RBuilder.body(props: AlapAdatokTabParams) {
+        val megrendeles = props.formState.megrendeles
+        val sameName = !megrendeles.ertesitesiNev.isNullOrEmpty() && megrendeles.ertesitesiNev == megrendeles.ugyfelNeve
+        val sameTel = !megrendeles.ertesitesiTel.isNullOrEmpty() && megrendeles.ertesitesiTel == megrendeles.ugyfelTel
+        val ertesitendoSzemelyAzonos = megrendeles.id == 0 || (sameName && sameTel)
+        val azonosito1: String
+        val azonosito2: String
+        if (megrendeles.munkatipus == Munkatipusok.EnergetikaAndErtekBecsles.str) {
+            azonosito1 = megrendeles.getErtekbecslesId()
+            azonosito2 = megrendeles.getEnergetikaId()
+        } else if (megrendeles.munkatipus == Munkatipusok.Energetika.str) {
+            azonosito1 = ""
+            azonosito2 = megrendeles.azonosito
+        } else {
+            azonosito1 = megrendeles.azonosito
+            azonosito2 = ""
         }
-        Panel("Ügyfél") {
-            attrs.header = StringOrReactElement.fromString("Ügyfél")
-            ugyfelPanel(state, setState)
+        val sajatArak = props.appState.sajatArState.getSajatArakFor(megrendeles.megrendelo, megrendeles.munkatipus)
+        val sajatAr = sajatArak.firstOrNull { it.leiras == megrendeles.ingatlanTipusMunkadijMeghatarozasahoz }
+        val (tabState, setTabState) = useState(AlapAdatokTabComponentState(megrendeles.copy(),
+                szamlazhatoDijAfa = sajatAr?.afa,
+                azonosito1 = azonosito1,
+                azonosito2 = azonosito2,
+                selectableAlvallalkozok = props.appState.alvallalkozoState.getSelectableAlvallalkozok(megrendeles.regio),
+                selectableMunkatipusok = munkatipusokForRegio(props.appState.alvallalkozoState, megrendeles.regio),
+                ertesitendoSzemelyAzonos = ertesitendoSzemelyAzonos))
+        useEffect {
+            props.onSaveFunctions[0] = { globalMegrendeles ->
+                globalMegrendeles.copy(
+                        megrendelo = tabState.megrendeles.megrendelo,
+                        regio = tabState.megrendeles.regio,
+                        munkatipus = tabState.megrendeles.munkatipus,
+                        ingatlanTipusMunkadijMeghatarozasahoz = tabState.megrendeles.ingatlanTipusMunkadijMeghatarozasahoz,
+                        alvallalkozoId = tabState.megrendeles.alvallalkozoId,
+                        ertekbecsloId = tabState.megrendeles.ertekbecsloId,
+                        ertekbecsloDija = tabState.megrendeles.ertekbecsloDija,
+                        szamlazhatoDij = tabState.megrendeles.szamlazhatoDij,
+                        azonosito = createAzonosito(tabState),
+                        foVallalkozo = tabState.megrendeles.foVallalkozo,
+                        megrendelve = tabState.megrendeles.megrendelve,
+                        hatarido = tabState.megrendeles.hatarido,
+                        ugyfelNeve = tabState.megrendeles.ugyfelNeve,
+                        ugyfelTel = tabState.megrendeles.ugyfelTel,
+                        ugyfelEmail = tabState.megrendeles.ugyfelEmail,
+                        ertesitesiNev = tabState.megrendeles.ertesitesiNev,
+                        ertesitesiTel = tabState.megrendeles.ertesitesiTel,
+                        hrsz = tabState.megrendeles.hrsz,
+                        irsz = tabState.megrendeles.irsz,
+                        telepules = tabState.megrendeles.telepules,
+                        kerulet = tabState.megrendeles.kerulet,
+                        utcaJelleg = tabState.megrendeles.utcaJelleg,
+                        utca = tabState.megrendeles.utca,
+                        hazszam = tabState.megrendeles.hazszam,
+                        lepcsohaz = tabState.megrendeles.lepcsohaz,
+                        emelet = tabState.megrendeles.emelet,
+                        ajto = tabState.megrendeles.ajto,
+                        hitelTipus = tabState.megrendeles.hitelTipus,
+                        hitelOsszeg = tabState.megrendeles.hitelOsszeg,
+                        ajanlatSzam = tabState.megrendeles.ajanlatSzam,
+                        szerzodesSzam = tabState.megrendeles.szerzodesSzam
+                )
+            }
         }
-        Panel("Értesítendő személy") {
-            attrs.header = StringOrReactElement.fromString("Értesítendő személy")
-            ertesitendoSzemelyPanel(state, setState)
-        }
-        Panel("Cím") {
-            attrs.header = StringOrReactElement.fromString("Cím")
-            cimPanel(appState, state, setState)
-        }
-        Panel("Hitel") {
-            attrs.header = StringOrReactElement.fromString("Hitel")
-            hitelPanel(state, setState)
+        Collapse {
+            attrs.bordered = false
+            attrs.defaultActiveKey = arrayOf("Megrendelés", "Ügyfél", "Értesítendő személy", "Cím", "Hitel")
+            Panel("Megrendelés") {
+                attrs.header = StringOrReactElement.fromString("Megrendelés")
+                megrendelesPanel(props.appState, tabState, setTabState)
+            }
+            Panel("Ügyfél") {
+                attrs.header = StringOrReactElement.fromString("Ügyfél")
+                ugyfelPanel(tabState, setTabState)
+            }
+            Panel("Értesítendő személy") {
+                attrs.header = StringOrReactElement.fromString("Értesítendő személy")
+                ertesitendoSzemelyPanel(tabState, setTabState)
+            }
+            Panel("Cím") {
+                attrs.header = StringOrReactElement.fromString("Cím")
+                cimPanel(props.appState, tabState, setTabState)
+            }
+            Panel("Hitel") {
+                attrs.header = StringOrReactElement.fromString("Hitel")
+                hitelPanel(tabState, setTabState)
+            }
         }
     }
 }
 
-private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: MegrendelesFormState, setState: Dispatcher<MegrendelesFormState>) {
+private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     Form {
         Row {
             Col(span = 7) {
@@ -56,9 +134,9 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                     attrs.label = StringOrReactElement.fromString("Helyrajzi szám")
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.helyrajziSzam
-                        attrs.value = state.megrendeles.hrsz
+                        attrs.value = tabState.megrendeles.hrsz
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(hrsz = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(hrsz = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -67,16 +145,16 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
             Col(offset = 1, span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Irányítószám")
-                    val helpMsg = state.megrendeles.irsz.let { inputIrsz ->
+                    val helpMsg = tabState.megrendeles.irsz.let { inputIrsz ->
                         if (inputIrsz.isNullOrEmpty()) {
                             null
                         } else {
                             val irsz = appState.geoData.irszamok.firstOrNull { it.irszam == inputIrsz }
                             if (irsz == null) {
                                 "Nem létezik ilyen irányítószám az adatbázisban!"
-                            } else if (irsz.megye != state.megrendeles.regio) {
+                            } else if (irsz.megye != tabState.megrendeles.regio) {
                                 "A megadott irányítószám nem létezik a kiválasztott régióban!"
-                            } else if (irsz.telepules != state.megrendeles.telepules) {
+                            } else if (irsz.telepules != tabState.megrendeles.telepules) {
                                 "A megadott irányítószám nem létezik a kiválasztott településen!"
                             } else {
                                 null
@@ -87,16 +165,16 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                     attrs.hasFeedback = helpMsg != null
                     attrs.help = if (helpMsg != null) StringOrReactElement.fromString(helpMsg) else null
                     val source: Array<Any> = appState.geoData.irszamok.let { irszamok ->
-                        val unknownRegio = state.megrendeles.regio !in megyek
+                        val unknownRegio = tabState.megrendeles.regio !in megyek
                         if (unknownRegio) {
                             irszamok
                         } else {
-                            irszamok.filter { it.megye == state.megrendeles.regio }
+                            irszamok.filter { it.megye == tabState.megrendeles.regio }
                         }.map { it.irszam }
                     }.filter { it.isNotEmpty() }.distinct().toTypedArray()
                     AutoComplete(source) {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.iranyitoszam
-                        attrs.value = state.megrendeles.irsz
+                        attrs.value = tabState.megrendeles.irsz
                         attrs.placeholder = "Irányítószám"
                         attrs.filterOption = { inputString, optionElement ->
                             if (inputString.length < 2) false else
@@ -105,12 +183,12 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                         attrs.onChange = { value ->
                             val irsz = appState.geoData.irszamok.firstOrNull { it.irszam == value }
                             if (irsz != null) {
-                                setState(state.copy(megrendeles = state.megrendeles.copy(
+                                setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(
                                         irsz = value,
                                         telepules = irsz.telepules
                                 )))
                             } else {
-                                setState(state.copy(megrendeles = state.megrendeles.copy(irsz = value)))
+                                setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(irsz = value)))
                             }
                         }
                     }
@@ -119,13 +197,13 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
             Col(offset = 1, span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Település")
-                    val helpMsg = state.megrendeles.irsz.let { inputIrsz ->
-                        val inputTelepules = state.megrendeles.telepules
+                    val helpMsg = tabState.megrendeles.irsz.let { inputIrsz ->
+                        val inputTelepules = tabState.megrendeles.telepules
                         if (inputTelepules.isNullOrEmpty() || inputIrsz.isNullOrEmpty()) {
                             null
                         } else {
-                            val telepules = appState.geoData.irszamok.firstOrNull { it.telepules == state.megrendeles.telepules }
-                            val telepulesWithIrszam = appState.geoData.irszamok.firstOrNull { it.telepules == state.megrendeles.telepules && it.irszam == state.megrendeles.irsz }
+                            val telepules = appState.geoData.irszamok.firstOrNull { it.telepules == tabState.megrendeles.telepules }
+                            val telepulesWithIrszam = appState.geoData.irszamok.firstOrNull { it.telepules == tabState.megrendeles.telepules && it.irszam == tabState.megrendeles.irsz }
                             if (telepules == null) {
                                 "Nem létezik ilyen település az adatbázisban!"
                             } else if (telepulesWithIrszam == null) {
@@ -139,22 +217,22 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                     attrs.hasFeedback = helpMsg != null
                     attrs.help = if (helpMsg != null) StringOrReactElement.fromString(helpMsg) else null
                     val source: Array<Any> = appState.geoData.irszamok.let { irszamok ->
-                        if (state.megrendeles.irsz.isNullOrEmpty()) {
+                        if (tabState.megrendeles.irsz.isNullOrEmpty()) {
                             irszamok
                         } else {
-                            irszamok.filter { it.irszam == state.megrendeles.irsz }
+                            irszamok.filter { it.irszam == tabState.megrendeles.irsz }
                         }.map { it.telepules }.distinct()
                     }.filter { it.isNotEmpty() }.distinct().toTypedArray()
                     AutoComplete(source) {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.telepules
-                        attrs.value = state.megrendeles.telepules
+                        attrs.value = tabState.megrendeles.telepules
                         attrs.placeholder = "Település"
                         attrs.filterOption = { inputString, optionElement ->
                             if (inputString.length < 3) false else
                                 (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))
                         }
                         attrs.onChange = { value ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(telepules = value)))
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(telepules = value)))
                         }
                     }
                 }
@@ -165,12 +243,12 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Kerület")
                     val source: Array<Any> = appState.geoData.varosok.let { varosok ->
-                        if (state.megrendeles.telepules.isNullOrEmpty()) {
+                        if (tabState.megrendeles.telepules.isNullOrEmpty()) {
                             varosok
                         } else {
                             varosok.filter {
-                                it.telepules == state.megrendeles.telepules &&
-                                        it.irszam == state.megrendeles.irsz
+                                it.telepules == tabState.megrendeles.telepules &&
+                                        it.irszam == tabState.megrendeles.irsz
                             }
                         }.map { it.kerulet }
                     }
@@ -179,14 +257,14 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                             .toTypedArray()
                     AutoComplete(source) {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.kerulet
-                        attrs.value = state.megrendeles.kerulet
+                        attrs.value = tabState.megrendeles.kerulet
                         attrs.placeholder = "Kerület"
                         attrs.filterOption = { inputString, optionElement ->
                             if (inputString.length < 2) false else
                                 (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))
                         }
                         attrs.onChange = { value ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(kerulet = value)))
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(kerulet = value)))
                         }
                     }
                 }
@@ -195,18 +273,18 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Közterület neve")
                     val source: Array<Any> = appState.geoData.varosok.let { varosok ->
-                        if (state.megrendeles.irsz.isNullOrEmpty()) {
+                        if (tabState.megrendeles.irsz.isNullOrEmpty()) {
                             emptyList<String>()
                         } else {
                             varosok.filter {
-                                it.kerulet == state.megrendeles.kerulet &&
-                                        it.irszam == state.megrendeles.irsz
+                                it.kerulet == tabState.megrendeles.kerulet &&
+                                        it.irszam == tabState.megrendeles.irsz
                             }.map { it.utcanev }
                         }
                     }.filter { it.isNotEmpty() }.distinct().toTypedArray()
                     AutoComplete(source) {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.kozteruletNeve
-                        attrs.value = state.megrendeles.utca
+                        attrs.value = tabState.megrendeles.utca
                         attrs.placeholder = "Közterület neve"
                         attrs.filterOption = { inputString, optionElement ->
                             if (inputString.length < 2) false else
@@ -215,11 +293,11 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                         attrs.onChange = { value ->
                             val utcaJellegek = appState.geoData.varosok.filter {
                                 it.utcanev == value &&
-                                        it.irszam == state.megrendeles.irsz
+                                        it.irszam == tabState.megrendeles.irsz
                             }.map { it.utotag }
                             val utcaJelleg = if (utcaJellegek.size == 1) utcaJellegek.first() else ""
 
-                            setState(state.copy(megrendeles = state.megrendeles.copy(
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(
                                     utca = value,
                                     utcaJelleg = utcaJelleg
                             )))
@@ -231,24 +309,24 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Közterület jellege")
                     val source: Array<Any> = appState.geoData.varosok.let { varosok ->
-                        if (state.megrendeles.utca.isNullOrEmpty()) {
+                        if (tabState.megrendeles.utca.isNullOrEmpty()) {
                             kozteruletJellegek.asList()
                         } else {
                             varosok.filter {
-                                it.utcanev == state.megrendeles.utca &&
-                                        it.irszam == state.megrendeles.irsz
+                                it.utcanev == tabState.megrendeles.utca &&
+                                        it.irszam == tabState.megrendeles.irsz
                             }.map { it.utotag }
                         }
                     }.filter { it.isNotEmpty() }.distinct().toTypedArray()
                     AutoComplete(source) {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.kozteruletJellege
-                        attrs.value = state.megrendeles.utcaJelleg
+                        attrs.value = tabState.megrendeles.utcaJelleg
                         attrs.placeholder = "Közterület jellege"
                         attrs.filterOption = { inputString, optionElement ->
                             (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))
                         }
                         attrs.onChange = { value ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(utcaJelleg = value)))
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(utcaJelleg = value)))
                         }
                     }
                 }
@@ -260,9 +338,9 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                     attrs.label = StringOrReactElement.fromString("Házszám")
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.hazszam
-                        attrs.value = state.megrendeles.hazszam
+                        attrs.value = tabState.megrendeles.hazszam
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(hazszam = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(hazszam = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -273,9 +351,9 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                     attrs.label = StringOrReactElement.fromString("Lépcsőház")
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.lepcsohaz
-                        attrs.value = state.megrendeles.lepcsohaz
+                        attrs.value = tabState.megrendeles.lepcsohaz
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(lepcsohaz = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(lepcsohaz = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -286,9 +364,9 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                     attrs.label = StringOrReactElement.fromString("Emelet")
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.emelet
-                        attrs.value = state.megrendeles.emelet
+                        attrs.value = tabState.megrendeles.emelet
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(emelet = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(emelet = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -299,9 +377,9 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
                     attrs.label = StringOrReactElement.fromString("Ajtó")
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ajto
-                        attrs.value = state.megrendeles.ajto
+                        attrs.value = tabState.megrendeles.ajto
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(ajto = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(ajto = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -311,7 +389,7 @@ private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, state: Megr
     }
 }
 
-private fun RElementBuilder<PanelProps>.hitelPanel(state: MegrendelesFormState, setState: Dispatcher<MegrendelesFormState>) {
+private fun RElementBuilder<PanelProps>.hitelPanel(tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     Form {
         Row {
             Col(span = 10) {
@@ -328,9 +406,9 @@ private fun RElementBuilder<PanelProps>.hitelPanel(state: MegrendelesFormState, 
                     } else null
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ajanlatSzam
-                        attrs.value = state.megrendeles.ajanlatSzam
+                        attrs.value = tabState.megrendeles.ajanlatSzam
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(ajanlatSzam = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(ajanlatSzam = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -350,9 +428,9 @@ private fun RElementBuilder<PanelProps>.hitelPanel(state: MegrendelesFormState, 
                     } else null
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.szerzodesSzam
-                        attrs.value = state.megrendeles.szerzodesSzam
+                        attrs.value = tabState.megrendeles.szerzodesSzam
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(szerzodesSzam = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(szerzodesSzam = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -363,7 +441,7 @@ private fun RElementBuilder<PanelProps>.hitelPanel(state: MegrendelesFormState, 
     }
 }
 
-private fun RElementBuilder<PanelProps>.ertesitendoSzemelyPanel(state: MegrendelesFormState, setState: Dispatcher<MegrendelesFormState>) {
+private fun RElementBuilder<PanelProps>.ertesitendoSzemelyPanel(tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     Form {
         Row {
             Col(span = 24) {
@@ -372,9 +450,9 @@ private fun RElementBuilder<PanelProps>.ertesitendoSzemelyPanel(state: Megrendel
                     attrs.wrapperCol = ColProperties { span = 16 }
                     attrs.label = StringOrReactElement.fromString("Értesítendő személy azonos az ügyféllel")
                     Checkbox {
-                        attrs.checked = state.ertesitendoSzemelyAzonos
+                        attrs.checked = tabState.ertesitendoSzemelyAzonos
                         attrs.onChange = { checked ->
-                            setState(state.copy(ertesitendoSzemelyAzonos = checked))
+                            setTabState(tabState.copy(ertesitendoSzemelyAzonos = checked))
                         }
                     }
                 }
@@ -386,10 +464,10 @@ private fun RElementBuilder<PanelProps>.ertesitendoSzemelyPanel(state: Megrendel
                     attrs.label = StringOrReactElement.fromString("Név")
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ertesitendoNev
-                        attrs.disabled = state.ertesitendoSzemelyAzonos
-                        attrs.value = if (state.ertesitendoSzemelyAzonos) state.megrendeles.ugyfelNeve else state.megrendeles.ertesitesiNev
+                        attrs.disabled = tabState.ertesitendoSzemelyAzonos
+                        attrs.value = if (tabState.ertesitendoSzemelyAzonos) tabState.megrendeles.ugyfelNeve else tabState.megrendeles.ertesitesiNev
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(ertesitesiNev = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(ertesitesiNev = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -400,10 +478,10 @@ private fun RElementBuilder<PanelProps>.ertesitendoSzemelyPanel(state: Megrendel
                     attrs.label = StringOrReactElement.fromString("Telefonszám")
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ertesitendoTel
-                        attrs.disabled = state.ertesitendoSzemelyAzonos
-                        attrs.value = if (state.ertesitendoSzemelyAzonos) state.megrendeles.ugyfelTel else state.megrendeles.ertesitesiTel
+                        attrs.disabled = tabState.ertesitendoSzemelyAzonos
+                        attrs.value = if (tabState.ertesitendoSzemelyAzonos) tabState.megrendeles.ugyfelTel else tabState.megrendeles.ertesitesiTel
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(ertesitesiTel = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(ertesitesiTel = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -414,7 +492,7 @@ private fun RElementBuilder<PanelProps>.ertesitendoSzemelyPanel(state: Megrendel
 }
 
 
-private fun RElementBuilder<PanelProps>.ugyfelPanel(state: MegrendelesFormState, setState: Dispatcher<MegrendelesFormState>) {
+private fun RElementBuilder<PanelProps>.ugyfelPanel(tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     Form {
         Row {
             Col(span = 7) {
@@ -423,7 +501,7 @@ private fun RElementBuilder<PanelProps>.ugyfelPanel(state: MegrendelesFormState,
                     val beillesztett = true
                     attrs.label = StringOrReactElement.fromString("Név")
                     attrs.hasFeedback = beillesztett
-                    attrs.validateStatus = if (beillesztett) ValidateStatus.success else if (state.megrendeles.ugyfelNeve.isEmpty()) ValidateStatus.error else null
+                    attrs.validateStatus = if (beillesztett) ValidateStatus.success else if (tabState.megrendeles.ugyfelNeve.isEmpty()) ValidateStatus.error else null
                     attrs.help = if (beillesztett) StringOrReactElement.from {
                         div {
                             attrs.jsStyle = jsStyle { color = "green" }
@@ -432,9 +510,9 @@ private fun RElementBuilder<PanelProps>.ugyfelPanel(state: MegrendelesFormState,
                     } else null
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ugyfelNev
-                        attrs.value = state.megrendeles.ugyfelNeve
+                        attrs.value = tabState.megrendeles.ugyfelNeve
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(ugyfelNeve = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(ugyfelNeve = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -446,7 +524,7 @@ private fun RElementBuilder<PanelProps>.ugyfelPanel(state: MegrendelesFormState,
                     val beillesztett = true
                     attrs.label = StringOrReactElement.fromString("Telefonszám")
                     attrs.hasFeedback = beillesztett
-                    attrs.validateStatus = if (beillesztett) ValidateStatus.success else if (state.megrendeles.ugyfelTel.isEmpty()) ValidateStatus.error else null
+                    attrs.validateStatus = if (beillesztett) ValidateStatus.success else if (tabState.megrendeles.ugyfelTel.isEmpty()) ValidateStatus.error else null
                     attrs.help = if (beillesztett) StringOrReactElement.from {
                         div {
                             attrs.jsStyle = jsStyle { color = "green" }
@@ -455,9 +533,9 @@ private fun RElementBuilder<PanelProps>.ugyfelPanel(state: MegrendelesFormState,
                     } else null
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ugyfelTel
-                        attrs.value = state.megrendeles.ugyfelTel
+                        attrs.value = tabState.megrendeles.ugyfelTel
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(ugyfelTel = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(ugyfelTel = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -477,9 +555,9 @@ private fun RElementBuilder<PanelProps>.ugyfelPanel(state: MegrendelesFormState,
                     } else null
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ugyfelEmail
-                        attrs.value = state.megrendeles.ugyfelEmail
+                        attrs.value = tabState.megrendeles.ugyfelEmail
                         attrs.onChange = { e ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(ugyfelEmail = e.target.asDynamic().value as String?
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(ugyfelEmail = e.target.asDynamic().value as String?
                                     ?: "")))
                         }
                     }
@@ -490,7 +568,7 @@ private fun RElementBuilder<PanelProps>.ugyfelPanel(state: MegrendelesFormState,
     }
 }
 
-private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, state: MegrendelesFormState, setState: Dispatcher<MegrendelesFormState>) {
+private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     Form {
         Row {
             Col(span = 7) {
@@ -498,9 +576,9 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
                     attrs.label = StringOrReactElement.fromString("Megrendelő")
                     Select {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.megrendelo
-                        attrs.value = state.megrendeles.megrendelo
+                        attrs.value = tabState.megrendeles.megrendelo
                         attrs.onSelect = { newMegrendelo: String, option ->
-                            setMegrendelo(appState, state.megrendeles, state, newMegrendelo, setState)
+                            setMegrendelo(appState, tabState.megrendeles, tabState, newMegrendelo, setTabState)
                         }
                         appState.sajatArState.allMegrendelo.forEach { megrendeloName ->
                             Option { attrs.value = megrendeloName; +megrendeloName }
@@ -512,10 +590,10 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Régió")
                     Select {
-                        attrs.value = state.megrendeles.regio
+                        attrs.value = tabState.megrendeles.regio
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.regio
                         attrs.onSelect = { regio: String, option ->
-                            setNewRegio(appState, state, state.megrendeles, regio, setState)
+                            setNewRegio(appState, tabState, tabState.megrendeles, regio, setTabState)
                         }
                         megyek.forEach {
                             Option { attrs.value = it; +it }
@@ -527,12 +605,12 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Munkatípus")
                     Select {
-                        attrs.value = state.megrendeles.munkatipus
+                        attrs.value = tabState.megrendeles.munkatipus
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.munkatipus
                         attrs.onSelect = { munkatipus, option ->
-                            setMunkatipus(appState, state, state.megrendeles, munkatipus, setState)
+                            setMunkatipus(appState, tabState, tabState.megrendeles, munkatipus, setTabState)
                         }
-                        state.selectableMunkatipusok.forEach {
+                        tabState.selectableMunkatipusok.forEach {
                             Option { attrs.value = it; +it }
                         }
                     }
@@ -543,13 +621,14 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
             Col(span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Ingatlan típus (munkadíj meghatározásához)")
-                    val sajatArak = appState.sajatArState.getSajatArakFor(state.megrendeles.megrendelo, state.megrendeles.munkatipus)
+                    val sajatArak = appState.sajatArState.getSajatArakFor(tabState.megrendeles.megrendelo, tabState.megrendeles.munkatipus)
                     Select {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ingatlanTipusMunkadijMeghatarozasahoz
-                        attrs.value = sajatArak.firstOrNull { it.leiras == state.megrendeles.ingatlanTipusMunkadijMeghatarozasahoz }?.id ?: ""
+                        attrs.value = sajatArak.firstOrNull { it.leiras == tabState.megrendeles.ingatlanTipusMunkadijMeghatarozasahoz }?.id
+                                ?: ""
                         attrs.disabled = sajatArak.isEmpty()
                         attrs.onSelect = { sajatArId: Int, option ->
-                            setLeiras(appState, state, state.megrendeles, sajatArId, setState)
+                            setLeiras(appState, tabState, tabState.megrendeles, sajatArId, setTabState)
                         }
                         sajatArak.forEach { sajatAr ->
                             Option { attrs.value = sajatAr.id; +sajatAr.leiras }
@@ -560,13 +639,13 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
             Col(offset = 1, span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Alvállalkozó")
-                    val selectableAlvallalkozok = state.selectableAlvallalkozok
+                    val selectableAlvallalkozok = tabState.selectableAlvallalkozok
                     Select {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.alvallalkozo
-                        attrs.value = if (state.megrendeles.alvallalkozoId == 0) "" else state.megrendeles.alvallalkozoId
+                        attrs.value = if (tabState.megrendeles.alvallalkozoId == 0) "" else tabState.megrendeles.alvallalkozoId
                         attrs.disabled = selectableAlvallalkozok.isEmpty()
                         attrs.onSelect = { avId: Int, option ->
-                            setState(state.copy(megrendeles = setAlvallalkozoId(appState, state.megrendeles, avId)))
+                            setTabState(tabState.copy(megrendeles = setAlvallalkozoId(appState, tabState.megrendeles, avId)))
                         }
                         selectableAlvallalkozok.forEach { alv ->
                             Option { attrs.value = alv.id; +alv.name }
@@ -579,15 +658,15 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
             Col(span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Értékbecslő")
-                    val selectableAlvallalkozok = state.selectableAlvallalkozok
+                    val selectableAlvallalkozok = tabState.selectableAlvallalkozok
                     Select {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ertekbecslo
-                        attrs.value = if (state.megrendeles.ertekbecsloId == 0) "" else state.megrendeles.ertekbecsloId
+                        attrs.value = if (tabState.megrendeles.ertekbecsloId == 0) "" else tabState.megrendeles.ertekbecsloId
                         attrs.disabled = selectableAlvallalkozok.isEmpty()
                         attrs.onSelect = { ebId: Int, option ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(ertekbecsloId = ebId)))
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(ertekbecsloId = ebId)))
                         }
-                        appState.alvallalkozoState.alvallalkozok[state.megrendeles.alvallalkozoId]?.let { alvallalkozo ->
+                        appState.alvallalkozoState.alvallalkozok[tabState.megrendeles.alvallalkozoId]?.let { alvallalkozo ->
                             appState.alvallalkozoState.getErtekbecslokOf(alvallalkozo).filter { !it.disabled }.forEach { eb ->
                                 Option { attrs.value = eb.id; +eb.name }
                             }
@@ -600,8 +679,8 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
                     attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ertekbecsloDija
                     attrs.label = StringOrReactElement.fromString("Értékbecslő díja(Ft)")
                     MyNumberInput {
-                        attrs.number = state.megrendeles.ertekbecsloDija?.toLong()
-                        attrs.onValueChange = { value -> setState(state.copy(megrendeles = state.megrendeles.copy(ertekbecsloDija = value?.toInt()))) }
+                        attrs.number = tabState.megrendeles.ertekbecsloDija?.toLong()
+                        attrs.onValueChange = { value -> setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(ertekbecsloDija = value?.toInt()))) }
                     }
 
                 }
@@ -611,39 +690,41 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
                     attrs.asDynamic().id = MegrendelesScreenIds.modal.input.szamlazhatoDij
                     attrs.label = StringOrReactElement.fromString("Számlázható díj (Ft)")
                     MyNumberInput {
-                        attrs.number = state.megrendeles.szamlazhatoDij?.toLong()
+                        attrs.number = tabState.megrendeles.szamlazhatoDij?.toLong()
                         attrs.addonAfter = StringOrReactElement.from {
-                            val afa = if (state.megrendeles.szamlazhatoDij != null) {
-                                (state.megrendeles.szamlazhatoDij * 1.27).roundToLong()
+                            val afa = if (tabState.megrendeles.szamlazhatoDij != null) {
+                                (tabState.megrendeles.szamlazhatoDij * 1.27).roundToLong()
                             } else 0L
                             +"+ ÁFA(27%) = ${parseGroupedStringToNum(afa.toString()).second}"
                         }
-                        attrs.onValueChange = { value -> setState(state.copy(megrendeles = state.megrendeles.copy(szamlazhatoDij = value?.toInt()))) }
+                        attrs.onValueChange = { value -> setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(szamlazhatoDij = value?.toInt()))) }
                     }
 
                 }
             }
         }
         Row {
-            Col(span = 7) {
-                FormItem {
-                    attrs.required = state.megrendeles.munkatipus.isEnergetika()
-                    val beillesztett = true
-                    attrs.label = StringOrReactElement.fromString("Energetika Azonosító")
-                    attrs.hasFeedback = beillesztett
-                    attrs.validateStatus = if (beillesztett) ValidateStatus.success else if (state.megrendeles.munkatipus.isEnergetika() && state.azonosito2.isEmpty()) ValidateStatus.error else null
-                    attrs.help = if (beillesztett) StringOrReactElement.from {
-                        div {
-                            attrs.jsStyle = jsStyle { color = "green" }
-                            +"Beillesztett szövegből importálva"
-                        }
-                    } else null
-                    Input {
-                        attrs.asDynamic().id = MegrendelesScreenIds.modal.input.etAzonosito
-                        attrs.value = state.azonosito2
-                        attrs.onChange = { e ->
-                            setState(state.copy(azonosito2 = e.target.asDynamic().value as String? ?: ""))
-                        }
+            val eb = tabState.megrendeles.munkatipus.isErtekbecsles()
+            val et = tabState.megrendeles.munkatipus.isEnergetika()
+            if (!eb && !et) {
+                Col(span = 7) {
+                    ebAzon(tabState, setTabState, "Azonosító")
+                }
+            } else {
+                if (eb && et) {
+                    Col(span = 3) {
+                        ebAzon(tabState, setTabState, "Értékbecslés Azonosító")
+                    }
+                    Col(offset = 1, span = 3) {
+                        etAzon(tabState, setTabState)
+                    }
+                } else if (eb) {
+                    Col(span = 7) {
+                        ebAzon(tabState, setTabState, "Értékbecslés Azonosító")
+                    }
+                } else {
+                    Col(span = 7) {
+                        etAzon(tabState, setTabState)
                     }
                 }
             }
@@ -652,9 +733,9 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
                     attrs.label = StringOrReactElement.fromString("Fővállalkozó")
                     Select {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.fovallalkozo
-                        attrs.value = state.megrendeles.foVallalkozo
+                        attrs.value = tabState.megrendeles.foVallalkozo
                         attrs.onSelect = { value: String, option ->
-                            setState(state.copy(megrendeles = state.megrendeles.copy(foVallalkozo = value)))
+                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(foVallalkozo = value)))
                         }
                         arrayOf("", "Presting Zrt.", "Viridis Kft.", "Estating Kft.").forEach {
                             Option { attrs.value = it; +it }
@@ -670,10 +751,10 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
                     DatePicker {
                         attrs.allowClear = false
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.megrendelesDatuma
-                        attrs.value = state.megrendeles.megrendelve?.let { moment(it) } ?: moment()
+                        attrs.value = tabState.megrendeles.megrendelve?.let { moment(it) } ?: moment()
                         attrs.onChange = { date, str ->
                             if (date != null) {
-                                setState(state.copy(megrendeles = state.megrendeles.copy(megrendelve = date)))
+                                setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(megrendelve = date)))
                             }
                         }
                     }
@@ -694,10 +775,10 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
                     DatePicker {
                         attrs.allowClear = false
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.hatarido
-                        attrs.value = state.megrendeles.hatarido?.let { moment(it) } ?: moment()
+                        attrs.value = tabState.megrendeles.hatarido?.let { moment(it) } ?: moment()
                         attrs.onChange = { date, str ->
                             if (date != null) {
-                                setState(state.copy(megrendeles = state.megrendeles.copy(hatarido = date)))
+                                setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(hatarido = date)))
                             }
                         }
                     }
@@ -708,11 +789,67 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, sta
     }
 }
 
+private fun RElementBuilder<ColProps>.etAzon(tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
+    FormItem {
+        attrs.required = tabState.megrendeles.munkatipus.isEnergetika()
+        val beillesztett = true
+        attrs.label = StringOrReactElement.fromString("Energetika Azonosító")
+        attrs.hasFeedback = beillesztett
+        attrs.validateStatus = if (beillesztett) ValidateStatus.success else if (tabState.megrendeles.munkatipus.isEnergetika() && tabState.azonosito2.isEmpty()) ValidateStatus.error else null
+        attrs.help = if (beillesztett) StringOrReactElement.from {
+            div {
+                attrs.jsStyle = jsStyle { color = "green" }
+                +"Beillesztett szövegből importálva"
+            }
+        } else null
+        Input {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.etAzonosito
+            attrs.value = tabState.azonosito2
+            attrs.onChange = { e ->
+                setTabState(tabState.copy(azonosito2 = e.target.asDynamic().value as String? ?: ""))
+            }
+        }
+    }
+}
+
+private fun RElementBuilder<ColProps>.ebAzon(tabState: AlapAdatokTabComponentState,
+                                             setTabState: Dispatcher<AlapAdatokTabComponentState>,
+                                             label: String) {
+    val eb = tabState.megrendeles.munkatipus.isErtekbecsles()
+    val et = tabState.megrendeles.munkatipus.isEnergetika()
+    FormItem {
+        attrs.required = tabState.megrendeles.munkatipus.isErtekbecsles()
+        val beillesztett = true
+        attrs.label = StringOrReactElement.fromString(label)
+        attrs.hasFeedback = beillesztett
+        attrs.validateStatus = if (beillesztett) {
+            ValidateStatus.success
+        } else if (eb || (!eb && !et) && tabState.azonosito1.isEmpty()) {
+            ValidateStatus.error
+        } else {
+            null
+        }
+        attrs.help = if (beillesztett) StringOrReactElement.from {
+            div {
+                attrs.jsStyle = jsStyle { color = "green" }
+                +"Beillesztett szövegből importálva"
+            }
+        } else null
+        Input {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ebAzonosito
+            attrs.value = tabState.azonosito1
+            attrs.onChange = { e ->
+                setTabState(tabState.copy(azonosito1 = e.target.asDynamic().value as String? ?: ""))
+            }
+        }
+    }
+}
+
 private fun setNewRegio(appState: AppState,
-                        oldState: MegrendelesFormState,
+                        oldState: AlapAdatokTabComponentState,
                         megr: Megrendeles,
                         newRegio: String,
-                        setState: Dispatcher<MegrendelesFormState>) {
+                        setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     val newSelectableAlvallalkozok = appState.alvallalkozoState.getSelectableAlvallalkozok(newRegio)
     val defaultSelectedAlvallalkozoId = newSelectableAlvallalkozok.firstOrNull()?.id
     val newMegr = setAlvallalkozoId(appState, megr.copy(regio = newRegio), defaultSelectedAlvallalkozoId)
@@ -730,7 +867,7 @@ private fun setNewRegio(appState: AppState,
     } ?: ""
 
     setMunkatipus(appState, oldState, newMegr, defaultMunkatipus) { newState ->
-        setState(newState.copy(
+        setTabState(newState.copy(
                 selectableAlvallalkozok = newSelectableAlvallalkozok,
                 selectableMunkatipusok = munkatipusok
         ))
@@ -745,15 +882,15 @@ fun munkatipusokForRegio(alvallalkozoState: AlvallalkozoState, regio: String): L
 }
 
 private fun setMunkatipus(appState: AppState,
-                          oldState: MegrendelesFormState,
+                          oldState: AlapAdatokTabComponentState,
                           megr: Megrendeles,
                           newMunkatipus: String,
-                          setState: Dispatcher<MegrendelesFormState>) {
+                          setTabState: Dispatcher<AlapAdatokTabComponentState>) {
 
     val sajatArId = getOnlySajatArOrNull(appState, megr.megrendelo, newMunkatipus)?.id
     setLeiras(appState, oldState, megr.copy(
             munkatipus = newMunkatipus
-    ), sajatArId, setState)
+    ), sajatArId, setTabState)
 }
 
 private fun setAlvallalkozoId(appState: AppState, megr: Megrendeles, alvId: Int?): Megrendeles {
@@ -766,25 +903,25 @@ private fun setAlvallalkozoId(appState: AppState, megr: Megrendeles, alvId: Int?
 }
 
 private fun setMegrendelo(appState: AppState, megrendeles: Megrendeles,
-                          oldState: MegrendelesFormState,
-                          newMegrendelo: String, setState: Dispatcher<MegrendelesFormState>) {
+                          oldState: AlapAdatokTabComponentState,
+                          newMegrendelo: String, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     val sajatArId = getOnlySajatArOrNull(appState, newMegrendelo, megrendeles.munkatipus)?.id
     setLeiras(appState, oldState, megrendeles.copy(
             megrendelo = newMegrendelo
-    ), sajatArId, setState)
+    ), sajatArId, setTabState)
 }
 
-private fun setLeiras(appState: AppState, oldState: MegrendelesFormState,
+private fun setLeiras(appState: AppState, oldState: AlapAdatokTabComponentState,
                       megr: Megrendeles,
                       sajatArId: Int?,
-                      setState: Dispatcher<MegrendelesFormState>) {
+                      setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     val sajatAr = appState.sajatArState.sajatArak[sajatArId]
     val modifiedMegr = megr.copy(
             ingatlanTipusMunkadijMeghatarozasahoz = sajatAr?.leiras ?: "",
             szamlazhatoDij = sajatAr?.nettoAr
     )
 
-    setState(oldState.copy(
+    setTabState(oldState.copy(
             megrendeles = recalcRegioOsszerendeles(modifiedMegr, appState.alvallalkozoState),
             szamlazhatoDijAfa = sajatAr?.afa
     ))
@@ -800,4 +937,14 @@ private fun recalcRegioOsszerendeles(megr: Megrendeles, alvallalkozoState: Alval
 
 private fun getOnlySajatArOrNull(appState: AppState, megrendelo: String, munkatipus: String): SajatAr? {
     return appState.sajatArState.getSajatArakFor(megrendelo, munkatipus).firstOrNull()
+}
+
+private fun createAzonosito(tabState: AlapAdatokTabComponentState): String {
+    return if (tabState.megrendeles.munkatipus == Munkatipusok.EnergetikaAndErtekBecsles.str) {
+        "EB${tabState.azonosito1}_ET${tabState.azonosito2}"
+    } else if (tabState.megrendeles.munkatipus == Munkatipusok.Energetika.str) {
+        tabState.azonosito2
+    } else {
+        tabState.azonosito1
+    }
 }

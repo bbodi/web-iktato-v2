@@ -21,7 +21,7 @@ class Ticker(props: TickerProps) : RComponent<TickerProps, TickerState>(props) {
 
     override fun componentDidMount() {
         timerID = window.setInterval({
-            // actually, the operation is performed on a state's copy, so it stays effectively immutable
+            // actually, the operation is performed on a formState's copy, so it stays effectively immutable
             setState { secondsElapsed += 1 }
         }, 1000)
     }

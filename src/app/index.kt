@@ -214,11 +214,10 @@ fun main(args: Array<String>) {
                                         dispatch
                                 ))
                             } else {
+                                val megr = appState.megrendelesState.megrendelesek[currentScreen.editingMegrendelesId]
                                 MegrendelesFormScreenComponent.createElement(MegrendelesFormScreenParams(
-                                        currentScreen.editingMegrendelesId,
+                                        megr,
                                         appState,
-                                        appState.megrendelesState.megrendelesek[currentScreen.editingMegrendelesId]?.akadalyok
-                                                ?: emptyArray(),
                                         dispatch
                                 ))
                             }

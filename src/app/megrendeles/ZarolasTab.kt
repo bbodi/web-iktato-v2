@@ -3,6 +3,7 @@ package hu.nevermind.utils.app.megrendeles
 import app.Dispatcher
 import app.common.Moment
 import app.common.moment
+import app.megrendeles.MegrendelesFormState
 import app.megrendeles.MegrendelesScreenIds
 import app.useEffect
 import app.useState
@@ -15,17 +16,17 @@ import hu.nevermind.utils.store.Statusz
 import react.RBuilder
 
 
-data class ZarolasTabParams(val megrendeles: Megrendeles,
+data class ZarolasTabParams(val formState: MegrendelesFormState,
+                            val setFormState: Dispatcher<MegrendelesFormState>,
                             val onSaveFunctions: Array<(Megrendeles) -> Megrendeles>)
 
 
 object ZarolasTabComponent : DefinedReactComponent<ZarolasTabParams>() {
     override fun RBuilder.body(props: ZarolasTabParams) {
-        val (tabState, setTabState) = useState(props.megrendeles.copy())
+        val (tabState, setTabState) = useState(props.formState.megrendeles.copy())
         useEffect {
             props.onSaveFunctions[5] = { globalMegrendeles ->
                 globalMegrendeles.copy(
-                        statusz = tabState.statusz,
                         feltoltveMegrendelonek = tabState.feltoltveMegrendelonek,
                         zarolva = tabState.zarolva
                 )
@@ -36,7 +37,7 @@ object ZarolasTabComponent : DefinedReactComponent<ZarolasTabParams>() {
             attrs.defaultActiveKey = arrayOf("Megrendelés", "Dátumok")
             Panel("Megrendelés") {
                 attrs.header = StringOrReactElement.fromString("Megrendelés")
-                megrPanel(tabState, setTabState)
+                megrPanel(tabState, props.formState, props.setFormState)
             }
             Panel("Dátumok") {
                 attrs.header = StringOrReactElement.fromString("Dátumok")
@@ -46,16 +47,20 @@ object ZarolasTabComponent : DefinedReactComponent<ZarolasTabParams>() {
     }
 }
 
-private fun RBuilder.megrPanel(megrendeles: Megrendeles, setState: Dispatcher<Megrendeles>) {
+private fun RBuilder.megrPanel(tabState: Megrendeles,
+                               formState: MegrendelesFormState,
+                               setFormState: Dispatcher<MegrendelesFormState>) {
     Row {
         Col(span = 8) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Státusz")
                 Select {
                     attrs.asDynamic().style = jsStyle { minWidth = 100 }
-                    attrs.value = megrendeles.statusz.name
+                    attrs.value = formState.megrendeles.statusz.name
                     attrs.onSelect = { value, option ->
-                        setState(megrendeles.copy(statusz = Statusz.valueOf(value)))
+                        setFormState(formState.copy(megrendeles = formState.megrendeles.copy(
+                                statusz = Statusz.valueOf(value)
+                        )))
                     }
                     Statusz.values().forEach { status ->
                         Option { attrs.value = status.name; +(status.name) }
@@ -71,7 +76,7 @@ private fun RBuilder.megrPanel(megrendeles: Megrendeles, setState: Dispatcher<Me
                     attrs.disabled = true
                     attrs.placeholder = ""
                     attrs.asDynamic().id = MegrendelesScreenIds.modal.input.megrendelesAtvetelIdeje
-                    attrs.value = megrendeles.megrendelesMegtekint
+                    attrs.value = tabState.megrendelesMegtekint
                 }
             }
         }

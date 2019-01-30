@@ -5,51 +5,81 @@ import app.Dispatcher
 import app.common.moment
 import app.megrendeles.MegrendelesFormState
 import app.megrendeles.MegrendelesScreenIds
+import app.useEffect
+import app.useState
 import hu.nevermind.antd.*
 import hu.nevermind.antd.autocomplete.AutoComplete
+import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.jsStyle
+import hu.nevermind.utils.store.Megrendeles
 import hu.nevermind.utils.store.ingatlanBovebbTipusaArray
 import react.RBuilder
 import react.children
 
+data class IngatlanAdataiTabParams(val formState: MegrendelesFormState,
+                                   val appState: AppState,
+                                   val onSaveFunctions: Array<(Megrendeles) -> Megrendeles>,
+                                   val setState: Dispatcher<MegrendelesFormState>)
 
-fun RBuilder.ingatlanAdataiTab(state: MegrendelesFormState, appState: AppState, setState: Dispatcher<MegrendelesFormState>) {
-    Collapse {
-        attrs.bordered = false
-        attrs.defaultActiveKey = arrayOf("Helyszínelés", "Ingatlan")
-        Panel("Helyszínelés") {
-            attrs.header = StringOrReactElement.fromString("Helyszínelés")
-            helyszinelesPanel(state, appState, setState)
+object IngatlanAdataiTabComponent : DefinedReactComponent<IngatlanAdataiTabParams>() {
+    override fun RBuilder.body(props: IngatlanAdataiTabParams) {
+        val (tabState, setTabState) = useState(props.formState.megrendeles.copy())
+        useEffect {
+            props.onSaveFunctions[1] = { globalMegrendeles ->
+                globalMegrendeles.copy(
+                        szemleIdopontja = tabState.szemleIdopontja,
+                        helyszinelo = tabState.helyszinelo,
+                        ingatlanBovebbTipus = tabState.ingatlanBovebbTipus,
+                        keszultsegiFok = tabState.keszultsegiFok,
+                        lakasTerulet = tabState.lakasTerulet,
+                        telekTerulet = tabState.telekTerulet,
+                        becsultErtek = tabState.becsultErtek,
+                        eladasiAr = tabState.eladasiAr,
+                        fajlagosBecsultAr = tabState.fajlagosBecsultAr,
+                        fajlagosEladAr = tabState.fajlagosEladAr,
+                        adasvetelDatuma = tabState.adasvetelDatuma,
+                        hetKod = tabState.hetKod
+                )
+            }
         }
-        Panel("Ingatlan") {
-            attrs.header = StringOrReactElement.fromString("Ingatlan")
-            ingatlanPanel(state, appState, setState)
+        Collapse {
+            attrs.bordered = false
+            attrs.defaultActiveKey = arrayOf("Helyszínelés", "Ingatlan")
+            Panel("Helyszínelés") {
+                attrs.header = StringOrReactElement.fromString("Helyszínelés")
+                helyszinelesPanel(tabState, props.appState, setTabState)
+            }
+            Panel("Ingatlan") {
+                attrs.header = StringOrReactElement.fromString("Ingatlan")
+                ingatlanPanel(tabState, setTabState)
+            }
         }
     }
 }
 
-private fun RBuilder.helyszinelesPanel(state: MegrendelesFormState, appState: AppState, setState: Dispatcher<MegrendelesFormState>) {
+
+private fun RBuilder.helyszinelesPanel(tabState: Megrendeles, appState: AppState, setTabState: Dispatcher<Megrendeles>) {
     Row {
         Col(span = 8) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Szemle időpontja")
                 Checkbox {
-                    attrs.checked = state.megrendeles.szemleIdopontja != null
+                    attrs.checked = tabState.szemleIdopontja != null
                     attrs.onChange = { checked ->
-                        setState(state.copy(megrendeles = state.megrendeles.copy(
+                        setTabState(tabState.copy(
                                 szemleIdopontja = if (checked) moment() else null
-                        )))
+                        ))
                     }
                 }
                 DatePicker {
                     attrs.allowClear = false
-                    attrs.disabled = state.megrendeles.szemleIdopontja == null
+                    attrs.disabled = tabState.szemleIdopontja == null
                     attrs.asDynamic().id = MegrendelesScreenIds.modal.input.szemleIdopontja
-                    attrs.value = state.megrendeles.szemleIdopontja
+                    attrs.value = tabState.szemleIdopontja
                     attrs.onChange = { date, str ->
                         if (date != null) {
-                            setState(state.copy(megrendeles = state.megrendeles.copy(szemleIdopontja = date)))
+                            setTabState(tabState.copy(szemleIdopontja = date))
                         }
                     }
                 }
@@ -58,7 +88,7 @@ private fun RBuilder.helyszinelesPanel(state: MegrendelesFormState, appState: Ap
         Col(span = 8) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Helyszínelő")
-                val alv = appState.alvallalkozoState.alvallalkozok[state.megrendeles.alvallalkozoId]
+                val alv = appState.alvallalkozoState.alvallalkozok[tabState.alvallalkozoId]
                 val source = (if (alv != null) {
                     appState.alvallalkozoState.getErtekbecslokOf(alv)
                             .filter { !it.disabled }
@@ -68,7 +98,7 @@ private fun RBuilder.helyszinelesPanel(state: MegrendelesFormState, appState: Ap
                 val helpMsg = if (alv != null &&
                         appState.alvallalkozoState.getErtekbecslokOf(alv)
                                 .filter { !it.disabled }
-                                .none { eb -> eb.name == state.megrendeles.helyszinelo })
+                                .none { eb -> eb.name == tabState.helyszinelo })
                     "A megadott név nem szerepel a választható Értékbecslők között"
                 else
                     null
@@ -77,13 +107,13 @@ private fun RBuilder.helyszinelesPanel(state: MegrendelesFormState, appState: Ap
                 attrs.help = if (helpMsg != null) StringOrReactElement.fromString(helpMsg) else null
                 AutoComplete(source) {
                     attrs.asDynamic().id = MegrendelesScreenIds.modal.input.helyszinelo
-                    attrs.value = state.megrendeles.helyszinelo ?: ""
+                    attrs.value = tabState.helyszinelo ?: ""
                     attrs.placeholder = "Helyszínelő"
                     attrs.filterOption = { inputString, optionElement ->
                         (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))
                     }
                     attrs.onChange = { value ->
-                        setState(state.copy(megrendeles = state.megrendeles.copy(helyszinelo = value)))
+                        setTabState(tabState.copy(helyszinelo = value))
                     }
                 }
             }
@@ -91,7 +121,7 @@ private fun RBuilder.helyszinelesPanel(state: MegrendelesFormState, appState: Ap
     }
 }
 
-private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppState, setState: Dispatcher<MegrendelesFormState>) {
+private fun RBuilder.ingatlanPanel(tabState: Megrendeles, setTabState: Dispatcher<Megrendeles>) {
     Row {
         Col(span = 8) {
             FormItem {
@@ -99,11 +129,11 @@ private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppSta
                 Select {
                     attrs.asDynamic().style = jsStyle { minWidth = 300 }
                     attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ingatlanBovebbTipus
-                    attrs.value = state.megrendeles.ingatlanBovebbTipus
+                    attrs.value = tabState.ingatlanBovebbTipus
                     attrs.onSelect = { value, option ->
-                        setState(state.copy(megrendeles = state.megrendeles.copy(
+                        setTabState(tabState.copy(
                                 ingatlanBovebbTipus = value
-                        )))
+                        ))
                     }
                     ingatlanBovebbTipusaArray.forEach { ingatlanBt ->
                         Option { attrs.value = ingatlanBt; +(ingatlanBt) }
@@ -115,11 +145,11 @@ private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppSta
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Ingatlan készültségi foka")
                 MyNumberInput {
-                    attrs.number = state.megrendeles.keszultsegiFok?.toLong()
+                    attrs.number = tabState.keszultsegiFok?.toLong()
                     attrs.onValueChange = { value ->
-                        setState(state.copy(megrendeles = state.megrendeles.copy(
+                        setTabState(tabState.copy(
                                 keszultsegiFok = value?.toInt()
-                        )))
+                        ))
                     }
                 }
             }
@@ -130,27 +160,27 @@ private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppSta
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Lakás terület (m²)")
                 MyNumberInput {
-                    attrs.number = state.megrendeles.lakasTerulet?.toLong()
+                    attrs.number = tabState.lakasTerulet?.toLong()
                     attrs.onValueChange = { value ->
                         val (fajlagosBecsultErtek, fajlagosEladasiAr) =
-                                if (state.megrendeles.ingatlanBovebbTipus != "beépítetlen terület") {
+                                if (tabState.ingatlanBovebbTipus != "beépítetlen terület") {
                                     if (value != null && value > 0) {
-                                        (state.megrendeles.becsultErtek ?: 0).div(value.toInt()) to
-                                                (state.megrendeles.eladasiAr ?: 0).div(value.toInt())
+                                        (tabState.becsultErtek ?: 0).div(value.toInt()) to
+                                                (tabState.eladasiAr ?: 0).div(value.toInt())
                                     } else {
-                                        state.megrendeles.fajlagosBecsultAr to
-                                                state.megrendeles.fajlagosEladAr
+                                        tabState.fajlagosBecsultAr to
+                                                tabState.fajlagosEladAr
                                     }
                                 } else {
-                                    state.megrendeles.fajlagosBecsultAr to
-                                            state.megrendeles.fajlagosEladAr
+                                    tabState.fajlagosBecsultAr to
+                                            tabState.fajlagosEladAr
                                 }
 
-                        setState(state.copy(megrendeles = state.megrendeles.copy(
+                        setTabState(tabState.copy(
                                 lakasTerulet = value?.toInt(),
                                 fajlagosBecsultAr = fajlagosBecsultErtek,
                                 fajlagosEladAr = fajlagosEladasiAr
-                        )))
+                        ))
                     }
                 }
             }
@@ -159,27 +189,27 @@ private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppSta
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Telek terület (m²)")
                 MyNumberInput {
-                    attrs.number = state.megrendeles.telekTerulet?.toLong()
+                    attrs.number = tabState.telekTerulet?.toLong()
                     attrs.onValueChange = { value ->
                         val (fajlagosBecsultErtek, fajlagosEladasiAr) =
-                                if (state.megrendeles.ingatlanBovebbTipus == "beépítetlen terület") {
+                                if (tabState.ingatlanBovebbTipus == "beépítetlen terület") {
                                     if (value != null && value > 0) {
-                                        (state.megrendeles.becsultErtek ?: 0).div(value.toInt()) to
-                                                (state.megrendeles.eladasiAr ?: 0).div(value.toInt())
+                                        (tabState.becsultErtek ?: 0).div(value.toInt()) to
+                                                (tabState.eladasiAr ?: 0).div(value.toInt())
                                     } else {
-                                        state.megrendeles.fajlagosBecsultAr to
-                                                state.megrendeles.fajlagosEladAr
+                                        tabState.fajlagosBecsultAr to
+                                                tabState.fajlagosEladAr
                                     }
                                 } else {
-                                    state.megrendeles.fajlagosBecsultAr to
-                                            state.megrendeles.fajlagosEladAr
+                                    tabState.fajlagosBecsultAr to
+                                            tabState.fajlagosEladAr
                                 }
 
-                        setState(state.copy(megrendeles = state.megrendeles.copy(
+                        setTabState(tabState.copy(
                                 telekTerulet = value?.toInt(),
                                 fajlagosBecsultAr = fajlagosBecsultErtek,
                                 fajlagosEladAr = fajlagosEladasiAr
-                        )))
+                        ))
                     }
                 }
             }
@@ -188,20 +218,20 @@ private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppSta
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Becsült érték (Ft)")
                 MyNumberInput {
-                    attrs.number = state.megrendeles.becsultErtek?.toLong()
+                    attrs.number = tabState.becsultErtek?.toLong()
                     attrs.onValueChange = { becsultErtek ->
-                        val terulet = if (state.megrendeles.ingatlanBovebbTipus == "beépítetlen terület")
-                            state.megrendeles.telekTerulet
+                        val terulet = if (tabState.ingatlanBovebbTipus == "beépítetlen terület")
+                            tabState.telekTerulet
                         else
-                            state.megrendeles.lakasTerulet
+                            tabState.lakasTerulet
                         val fajlagosBecsultErtek = if (terulet != null && terulet > 0) {
                             (becsultErtek ?: 0).div(terulet)
                         } else null
 
-                        setState(state.copy(megrendeles = state.megrendeles.copy(
+                        setTabState(tabState.copy(
                                 becsultErtek = becsultErtek?.toInt(),
                                 fajlagosBecsultAr = fajlagosBecsultErtek?.toInt()
-                        )))
+                        ))
                     }
                 }
             }
@@ -210,19 +240,19 @@ private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppSta
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Eladási ár (Ft)")
                 MyNumberInput {
-                    attrs.number = state.megrendeles.eladasiAr?.toLong()
+                    attrs.number = tabState.eladasiAr?.toLong()
                     attrs.onValueChange = { eladasiAr ->
-                        val terulet = if (state.megrendeles.ingatlanBovebbTipus == "beépítetlen terület")
-                            state.megrendeles.telekTerulet
+                        val terulet = if (tabState.ingatlanBovebbTipus == "beépítetlen terület")
+                            tabState.telekTerulet
                         else
-                            state.megrendeles.lakasTerulet
+                            tabState.lakasTerulet
                         val fajlagosEladasiAr = if (terulet != null && terulet > 0) {
                             (eladasiAr ?: 0).div(terulet)
                         } else null
-                        setState(state.copy(megrendeles = state.megrendeles.copy(
+                        setTabState(tabState.copy(
                                 eladasiAr = eladasiAr?.toInt(),
                                 fajlagosEladAr = fajlagosEladasiAr?.toInt()
-                        )))
+                        ))
                     }
                 }
             }
@@ -231,11 +261,11 @@ private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppSta
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Fajlagos becsült ár (Ft)")
                 MyNumberInput {
-                    attrs.number = state.megrendeles.fajlagosBecsultAr?.toLong()
+                    attrs.number = tabState.fajlagosBecsultAr?.toLong()
                     attrs.onValueChange = { value ->
-                        setState(state.copy(megrendeles = state.megrendeles.copy(
+                        setTabState(tabState.copy(
                                 fajlagosBecsultAr = value?.toInt()
-                        )))
+                        ))
                     }
                 }
             }
@@ -244,11 +274,11 @@ private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppSta
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Fajlagos eladási ár (Ft)")
                 MyNumberInput {
-                    attrs.number = state.megrendeles.fajlagosEladAr?.toLong()
+                    attrs.number = tabState.fajlagosEladAr?.toLong()
                     attrs.onValueChange = { value ->
-                        setState(state.copy(megrendeles = state.megrendeles.copy(
+                        setTabState(tabState.copy(
                                 fajlagosEladAr = value?.toInt()
-                        )))
+                        ))
                     }
                 }
             }
@@ -259,21 +289,21 @@ private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppSta
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Adásvétel dátuma")
                 Checkbox {
-                    attrs.checked = state.megrendeles.adasvetelDatuma != null
+                    attrs.checked = tabState.adasvetelDatuma != null
                     attrs.onChange = { checked ->
-                        setState(state.copy(megrendeles = state.megrendeles.copy(
+                        setTabState(tabState.copy(
                                 adasvetelDatuma = if (checked) moment() else null
-                        )))
+                        ))
                     }
                 }
                 DatePicker {
                     attrs.allowClear = false
-                    attrs.disabled = state.megrendeles.adasvetelDatuma == null
+                    attrs.disabled = tabState.adasvetelDatuma == null
                     attrs.asDynamic().id = MegrendelesScreenIds.modal.input.adasvetelDatuma
-                    attrs.value = state.megrendeles.adasvetelDatuma
+                    attrs.value = tabState.adasvetelDatuma
                     attrs.onChange = { date, str ->
                         if (date != null) {
-                            setState(state.copy(megrendeles = state.megrendeles.copy(adasvetelDatuma = date)))
+                            setTabState(tabState.copy(adasvetelDatuma = date))
                         }
                     }
                 }
@@ -283,11 +313,11 @@ private fun RBuilder.ingatlanPanel(state: MegrendelesFormState, appState: AppSta
             FormItem {
                 attrs.label = StringOrReactElement.fromString("HET kód")
                 Input {
-                    attrs.value = state.megrendeles.hetKod ?: ""
+                    attrs.value = tabState.hetKod ?: ""
                     attrs.onChange = { e ->
-                        setState(state.copy(megrendeles = state.megrendeles.copy(
+                        setTabState(tabState.copy(
                                 hetKod = e.currentTarget.asDynamic().value
-                        )))
+                        ))
                     }
                 }
             }
