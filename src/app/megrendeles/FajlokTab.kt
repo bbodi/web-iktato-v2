@@ -129,15 +129,21 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                     dataIndex = "name"
                     width = 100
                     render = { cell: String, row: OldNewValues ->
-                        val c = if (row.oldValue != row.newValue && row.oldValue.isNotEmpty()) {
-                            "rgb(235, 148, 6)"
-                        } else {
-                            "black"
-                        }
                         buildElement {
-                            span {
-                                attrs.jsStyle = jsStyle { color = c }
-                                +cell
+                            div {
+                                if (row.oldValue != row.newValue && row.oldValue.isNotEmpty()) {
+                                    Tooltip("Jelenlegi érték: ${row.oldValue}") {
+                                        Icon("exclamation-circle", style = jsStyle { color = "black"; cursor="pointer" }) {
+                                            attrs.asDynamic().theme="twoTone"
+                                            attrs.asDynamic().twoToneColor="rgb(235, 148, 6)"
+                                        }
+                                    }
+                                    +" "
+                                }
+                                span {
+                                    attrs.jsStyle = jsStyle { color = "black" }
+                                    +cell
+                                }
                             }
                         }
                     }
@@ -168,7 +174,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                             ?: "", megr.adasvetelDatuma?.format(dateFormat) ?: ""),
                     OldNewValues("Értékbecslő", excel.ertekBecslo
                             ?: "", alvallalkozoStore.ertekbecslok[megr.ertekbecsloId]?.name ?: ""),
-                    oldNewValues("Fajlagos becsült ár", excel.fajlagosAr?.toInt(), megr.fajlagosBecsultAr),
+                    oldNewValues("Fajlagos becsült ár", excel.fajlagosAr?.toInt(), megr.fajlagosEladAr),
                     oldNewValues("Becsült érték", excel.forgalmiErtek?.toInt(), megr.becsultErtek),
                     OldNewValues("Hrsz", excel.hrsz ?: "", megr.hrsz),
                     oldNewValues("Lakás terület", excel.ingatlanTerulet?.toInt(), megr.lakasTerulet),
@@ -239,7 +245,9 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                                         attrs.onClickFunction = {
                                             communicator.parseExcel(megr.azonosito, fileData.name) { excel ->
                                                 props.setFormState(props.formState.copy(
-                                                        megrendeles = setMegrendeloFieldsFromExcel(megr, excel, props),
+                                                        megrendeles = setMegrendeloFieldsFromExcel(megr, excel, props).copy(
+                                                                modified = moment() // so it will trigger a tabState update on the relevant tabs
+                                                        ),
                                                         megrendelesFieldsFromExcel = excel
                                                 ))
                                             }

@@ -8,7 +8,6 @@ import react.RBuilder
 import react.RClass
 import react.RHandler
 import react.RProps
-import react.dom.div
 
 val FormComp: RClass<FormProps> = kotlinext.js.require("antd").Form
 val InputComp: RClass<InputProps> = kotlinext.js.require("antd").Input
@@ -79,14 +78,14 @@ fun RBuilder.MyNumberInput(handler: RHandler<MyNumberInputProps> = {}) {
     Input {
         handler.asDynamic()(this)
         if (attrs.asDynamic().style != null) {
-            attrs.asDynamic().style["textAlign"] = "right"
+//            attrs.asDynamic().style["textAlign"] = "right"
         } else {
-            attrs.asDynamic().style = jsStyle { textAlign = "right" }
+//            attrs.asDynamic().style = jsStyle { textAlign = "right" }
         }
         if (attrs.asDynamic().className != null) {
-            attrs.asDynamic().className += "my-number-input"
+//            attrs.asDynamic().className += "my-number-input"
         } else {
-            attrs.asDynamic().className = "my-number-input"
+//            attrs.asDynamic().className = "my-number-input"
         }
         if (attrs.asDynamic().number) {
             attrs.value = parseGroupedStringToNum((attrs.unsafeCast<MyNumberInputProps>()).number.toString()).second
@@ -105,6 +104,14 @@ fun RBuilder.MyNumberInput(handler: RHandler<MyNumberInputProps> = {}) {
         }
     }
 }
+
+fun Number?.format(): String? = if (this == null) {
+    null
+} else {
+    parseGroupedStringToNum(this.toString()).second
+}
+
+fun Number.format(): String = parseGroupedStringToNum(this.toString()).second
 
 fun parseGroupedStringToNum(value: String): Pair<Long?, String> {
     val onlyDigits = value.filter { it in "0123456789" }

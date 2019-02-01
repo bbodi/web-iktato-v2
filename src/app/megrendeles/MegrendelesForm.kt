@@ -264,7 +264,6 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
             attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Ingatlan adatai", color = "red", icon = "home"))
             IngatlanAdataiTabComponent.insert(this, IngatlanAdataiTabParams(state, appState, onSaveFunctions, setFormState))
         }
-        ha feltöltök egy fájlt majd tabot váltok, a steps component m,egváltozik
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.akadalyok
             val akadalyok = state.megrendeles.akadalyok

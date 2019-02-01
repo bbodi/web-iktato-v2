@@ -13,9 +13,13 @@ import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.Megrendeles
+import hu.nevermind.utils.store.MegrendelesFieldsFromExternalSource
+import hu.nevermind.utils.store.dateFormat
 import hu.nevermind.utils.store.ingatlanBovebbTipusaArray
 import react.RBuilder
+import react.ReactElement
 import react.children
+import react.dom.span
 
 data class IngatlanAdataiTabParams(val formState: MegrendelesFormState,
                                    val appState: AppState,
@@ -25,45 +29,55 @@ data class IngatlanAdataiTabParams(val formState: MegrendelesFormState,
 object IngatlanAdataiTabComponent : DefinedReactComponent<IngatlanAdataiTabParams>() {
     override fun RBuilder.body(props: IngatlanAdataiTabParams) {
         val (tabState, setTabState) = useState(props.formState.megrendeles.copy())
+        val formWasUpdatedByOtherTab = tabState.modified.isBefore(props.formState.megrendeles.modified)
+        if (formWasUpdatedByOtherTab) {
+            setTabState(overwriteTabState(tabState.copy(modified = moment()), props.formState.megrendeles))
+        }
         useEffect {
-            props.onSaveFunctions[1] = { globalMegrendeles ->
-                globalMegrendeles.copy(
-                        szemleIdopontja = tabState.szemleIdopontja,
-                        helyszinelo = tabState.helyszinelo,
-                        ingatlanBovebbTipus = tabState.ingatlanBovebbTipus,
-                        keszultsegiFok = tabState.keszultsegiFok,
-                        lakasTerulet = tabState.lakasTerulet,
-                        telekTerulet = tabState.telekTerulet,
-                        becsultErtek = tabState.becsultErtek,
-                        eladasiAr = tabState.eladasiAr,
-                        fajlagosBecsultAr = tabState.fajlagosBecsultAr,
-                        fajlagosEladAr = tabState.fajlagosEladAr,
-                        adasvetelDatuma = tabState.adasvetelDatuma,
-                        hetKod = tabState.hetKod
-                )
-            }
+            props.onSaveFunctions[1] = { formMegr -> overwriteTabState(formMegr, tabState) }
         }
         Collapse {
             attrs.bordered = false
             attrs.defaultActiveKey = arrayOf("Helyszínelés", "Ingatlan")
             Panel("Helyszínelés") {
                 attrs.header = StringOrReactElement.fromString("Helyszínelés")
-                helyszinelesPanel(tabState, props.appState, setTabState)
+                helyszinelesPanel(tabState, props.appState, setTabState, props.formState.megrendelesFieldsFromExcel)
             }
             Panel("Ingatlan") {
                 attrs.header = StringOrReactElement.fromString("Ingatlan")
-                ingatlanPanel(tabState, setTabState)
+                ingatlanPanel(tabState, setTabState, props.formState.megrendelesFieldsFromExcel)
             }
         }
+    }
+
+    private fun overwriteTabState(base: Megrendeles, overwriteWith: Megrendeles): Megrendeles {
+        return base.copy(
+                szemleIdopontja = overwriteWith.szemleIdopontja,
+                helyszinelo = overwriteWith.helyszinelo,
+                ingatlanBovebbTipus = overwriteWith.ingatlanBovebbTipus,
+                keszultsegiFok = overwriteWith.keszultsegiFok,
+                lakasTerulet = overwriteWith.lakasTerulet,
+                telekTerulet = overwriteWith.telekTerulet,
+                becsultErtek = overwriteWith.becsultErtek,
+                eladasiAr = overwriteWith.eladasiAr,
+                fajlagosBecsultAr = overwriteWith.fajlagosBecsultAr,
+                fajlagosEladAr = overwriteWith.fajlagosEladAr,
+                adasvetelDatuma = overwriteWith.adasvetelDatuma,
+                hetKod = overwriteWith.hetKod
+        )
     }
 }
 
 
-private fun RBuilder.helyszinelesPanel(tabState: Megrendeles, appState: AppState, setTabState: Dispatcher<Megrendeles>) {
+private fun RBuilder.helyszinelesPanel(tabState: Megrendeles,
+                                       appState: AppState,
+                                       setTabState: Dispatcher<Megrendeles>,
+                                       excel: MegrendelesFieldsFromExternalSource?) {
     Row {
         Col(span = 8) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Szemle időpontja")
+                addExcelbolBetoltveMessages(tabState.szemleIdopontja?.format(dateFormat), excel?.szemleIdopontja)
                 Checkbox {
                     attrs.checked = tabState.szemleIdopontja != null
                     attrs.onChange = { checked ->
@@ -102,9 +116,21 @@ private fun RBuilder.helyszinelesPanel(tabState: Megrendeles, appState: AppState
                     "A megadott név nem szerepel a választható Értékbecslők között"
                 else
                     null
-                attrs.validateStatus = if (helpMsg != null) ValidateStatus.warning else null
-                attrs.hasFeedback = helpMsg != null
-                attrs.help = if (helpMsg != null) StringOrReactElement.fromString(helpMsg) else null
+                addExcelbolBetoltveMessages(tabState.helyszinelo, excel?.helyszinelo)
+                if (attrs.hasFeedback) {
+                    attrs.validateStatus = if (helpMsg != null) ValidateStatus.warning else attrs.validateStatus
+                    val reactElement: ReactElement? = attrs.help.unsafeCast<ReactElement?>()
+                    attrs.help = if (helpMsg != null) StringOrReactElement.from {
+                        span {
+                            +helpMsg
+                            child(reactElement!!)
+                        }
+                    } else attrs.help
+                } else {
+                    attrs.validateStatus = if (helpMsg != null) ValidateStatus.warning else null
+                    attrs.hasFeedback = helpMsg != null
+                    attrs.help = if (helpMsg != null) StringOrReactElement.fromString(helpMsg) else null
+                }
                 AutoComplete(source) {
                     attrs.asDynamic().id = MegrendelesScreenIds.modal.input.helyszinelo
                     attrs.value = tabState.helyszinelo ?: ""
@@ -121,11 +147,14 @@ private fun RBuilder.helyszinelesPanel(tabState: Megrendeles, appState: AppState
     }
 }
 
-private fun RBuilder.ingatlanPanel(tabState: Megrendeles, setTabState: Dispatcher<Megrendeles>) {
+private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
+                                   setTabState: Dispatcher<Megrendeles>,
+                                   excel: MegrendelesFieldsFromExternalSource?) {
     Row {
         Col(span = 8) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Ingatlan bővebb típus")
+                addExcelbolBetoltveMessages(tabState.ingatlanBovebbTipus.toLowerCase(), excel?.ingatlanTipusa?.toLowerCase())
                 Select {
                     attrs.asDynamic().style = jsStyle { minWidth = 300 }
                     attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ingatlanBovebbTipus
@@ -144,6 +173,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles, setTabState: Dispatche
         Col(span = 8) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Ingatlan készültségi foka")
+                addExcelbolBetoltveMessages(tabState.keszultsegiFok, excel?.keszultsegiFok?.toInt())
                 MyNumberInput {
                     attrs.number = tabState.keszultsegiFok?.toLong()
                     attrs.onValueChange = { value ->
@@ -159,6 +189,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles, setTabState: Dispatche
         Col(span = 5) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Lakás terület (m²)")
+                addExcelbolBetoltveMessages(tabState.lakasTerulet, excel?.ingatlanTerulet?.toInt())
                 MyNumberInput {
                     attrs.number = tabState.lakasTerulet?.toLong()
                     attrs.onValueChange = { value ->
@@ -188,6 +219,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles, setTabState: Dispatche
         Col(offset = 1, span = 5) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Telek terület (m²)")
+                addExcelbolBetoltveMessages(tabState.telekTerulet, excel?.telekMeret?.toInt())
                 MyNumberInput {
                     attrs.number = tabState.telekTerulet?.toLong()
                     attrs.onValueChange = { value ->
@@ -217,6 +249,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles, setTabState: Dispatche
         Col(offset = 1, span = 5) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Becsült érték (Ft)")
+                addExcelbolBetoltveMessages(tabState.becsultErtek, excel?.forgalmiErtek?.toInt())
                 MyNumberInput {
                     attrs.number = tabState.becsultErtek?.toLong()
                     attrs.onValueChange = { becsultErtek ->
@@ -239,6 +272,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles, setTabState: Dispatche
         Col(offset = 1, span = 5) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Eladási ár (Ft)")
+                addExcelbolBetoltveMessages(tabState.eladasiAr, excel?.adasvetel?.toIntOrNull())
                 MyNumberInput {
                     attrs.number = tabState.eladasiAr?.toLong()
                     attrs.onValueChange = { eladasiAr ->
@@ -257,9 +291,12 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles, setTabState: Dispatche
                 }
             }
         }
+        beillesztett szoveg importálása
+        tabfülek szinezése ha egy field narancs, piros vagy zöld rajta
         Col(span = 8) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Fajlagos becsült ár (Ft)")
+                addExcelbolBetoltveMessages(tabState.fajlagosBecsultAr, excel?.fajlagosAr?.toInt())
                 MyNumberInput {
                     attrs.number = tabState.fajlagosBecsultAr?.toLong()
                     attrs.onValueChange = { value ->
@@ -288,6 +325,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles, setTabState: Dispatche
         Col(span = 8) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Adásvétel dátuma")
+                addExcelbolBetoltveMessages(tabState.adasvetelDatuma?.format(dateFormat), excel?.adasvetelDatuma)
                 Checkbox {
                     attrs.checked = tabState.adasvetelDatuma != null
                     attrs.onChange = { checked ->

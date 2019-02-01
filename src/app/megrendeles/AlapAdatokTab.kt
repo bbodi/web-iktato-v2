@@ -104,11 +104,11 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
             attrs.defaultActiveKey = arrayOf("Megrendelés", "Ügyfél", "Értesítendő személy", "Cím", "Hitel")
             Panel("Megrendelés") {
                 attrs.header = StringOrReactElement.fromString("Megrendelés")
-                megrendelesPanel(props.appState, tabState, setTabState)
+                megrendelesPanel(props.appState, tabState, setTabState, props.formState.megrendelesFieldsFromExcel)
             }
             Panel("Ügyfél") {
                 attrs.header = StringOrReactElement.fromString("Ügyfél")
-                ugyfelPanel(tabState, setTabState)
+                ugyfelPanel(tabState, setTabState, props.formState.megrendelesFieldsFromExcel)
             }
             Panel("Értesítendő személy") {
                 attrs.header = StringOrReactElement.fromString("Értesítendő személy")
@@ -116,7 +116,7 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
             }
             Panel("Cím") {
                 attrs.header = StringOrReactElement.fromString("Cím")
-                cimPanel(props.appState, tabState, setTabState)
+                cimPanel(props.appState, tabState, setTabState, props.formState.megrendelesFieldsFromExcel)
             }
             Panel("Hitel") {
                 attrs.header = StringOrReactElement.fromString("Hitel")
@@ -126,12 +126,17 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
     }
 }
 
-private fun RElementBuilder<PanelProps>.cimPanel(appState: AppState, tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
+private fun RElementBuilder<PanelProps>.cimPanel(
+        appState: AppState,
+        tabState: AlapAdatokTabComponentState,
+        setTabState: Dispatcher<AlapAdatokTabComponentState>,
+        excel: MegrendelesFieldsFromExternalSource?) {
     Form {
         Row {
             Col(span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Helyrajzi szám")
+                    addExcelbolBetoltveMessages(tabState.megrendeles.ugyfelNeve, excel?.ugyfelNeve)
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.helyrajziSzam
                         attrs.value = tabState.megrendeles.hrsz
@@ -492,22 +497,55 @@ private fun RElementBuilder<PanelProps>.ertesitendoSzemelyPanel(tabState: AlapAd
 }
 
 
-private fun RElementBuilder<PanelProps>.ugyfelPanel(tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
+fun RElementBuilder<FormItemProps>.addExcelbolBetoltveMessages(oldValue: String?, newValue: String?) {
+    val excelValueIsNotNull = !newValue.isNullOrEmpty()
+    if (excelValueIsNotNull && (oldValue == newValue)) {
+        attrs.hasFeedback = true
+        attrs.validateStatus = ValidateStatus.success
+        attrs.help = StringOrReactElement.from {
+            div {
+                attrs.jsStyle = jsStyle { color = "green" }
+                +"Excelből betőltve"
+            }
+        }
+    } else if (excelValueIsNotNull && oldValue != newValue) {
+        attrs.hasFeedback = true
+        attrs.validateStatus = ValidateStatus.warning
+        attrs.help = StringOrReactElement.from {
+            div {
+                attrs.jsStyle = jsStyle { color = "rgb(235, 148, 6)" }
+                +"Excelből: ${newValue ?: ""}"
+            }
+        }
+    } else {
+        attrs.hasFeedback = false
+        attrs.validateStatus = null
+        attrs.help = null
+    }
+}
+
+fun RElementBuilder<FormItemProps>.addExcelbolBetoltveMessages(oldValue: Int?, newValue: Int?) {
+    addExcelbolBetoltveMessages(
+            oldValue.format(),
+            newValue.format()
+    )
+}
+
+private fun RElementBuilder<PanelProps>.ugyfelPanel(tabState: AlapAdatokTabComponentState,
+                                                    setTabState: Dispatcher<AlapAdatokTabComponentState>,
+                                                    excel: MegrendelesFieldsFromExternalSource?) {
     Form {
         Row {
             Col(span = 7) {
                 FormItem {
                     attrs.required = true
-                    val beillesztett = true
                     attrs.label = StringOrReactElement.fromString("Név")
-                    attrs.hasFeedback = beillesztett
-                    attrs.validateStatus = if (beillesztett) ValidateStatus.success else if (tabState.megrendeles.ugyfelNeve.isEmpty()) ValidateStatus.error else null
-                    attrs.help = if (beillesztett) StringOrReactElement.from {
-                        div {
-                            attrs.jsStyle = jsStyle { color = "green" }
-                            +"Beillesztett szövegből importálva"
-                        }
-                    } else null
+                    addExcelbolBetoltveMessages(tabState.megrendeles.ugyfelNeve, excel?.ugyfelNeve)
+                    if (attrs.hasFeedback == false) {
+                        attrs.validateStatus = if (tabState.megrendeles.ugyfelNeve.isEmpty()) {
+                            ValidateStatus.error
+                        } else null
+                    }
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ugyfelNev
                         attrs.value = tabState.megrendeles.ugyfelNeve
@@ -568,7 +606,11 @@ private fun RElementBuilder<PanelProps>.ugyfelPanel(tabState: AlapAdatokTabCompo
     }
 }
 
-private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
+private fun RElementBuilder<PanelProps>.megrendelesPanel(
+        appState: AppState,
+        tabState: AlapAdatokTabComponentState,
+        setTabState: Dispatcher<AlapAdatokTabComponentState>,
+        excel: MegrendelesFieldsFromExternalSource?) {
     Form {
         Row {
             Col(span = 7) {
@@ -658,6 +700,8 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(appState: AppState, tab
             Col(span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Értékbecslő")
+                    val ebName = appState.alvallalkozoState.ertekbecslok[tabState.megrendeles.ertekbecsloId]?.name
+                    addExcelbolBetoltveMessages(ebName, excel?.ertekBecslo)
                     val selectableAlvallalkozok = tabState.selectableAlvallalkozok
                     Select {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ertekbecslo

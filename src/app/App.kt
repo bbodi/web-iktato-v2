@@ -46,7 +46,7 @@ val RUN_ONLY_WHEN_MOUNT = emptyArray<Any>()
 fun useEffect(changeSet: Array<Any>? = null, body: () -> Unit) {
     API.useEffect({
         body()
-        js("return null;")
+        js("return;")
     }, changeSet)
 }
 
