@@ -215,39 +215,39 @@ data class Akadaly(val id: Int,
                    val megrendelesId: Int)
 
 class MegrendelesFieldsFromExternalSource {
-    val helyszinelo: String? = null
-    val ingatlanTipusa: String? = null
-    val ertekBecslo: String? = null
-    val telekMeret: Double? = null
-    val keszultsegiFok: Double? = null
-    val ingatlanTerulet: Double? = null
-    val forgalmiErtek: Double? = null
+    var helyszinelo: String? = null
+    var ingatlanTipusa: String? = null
+    var ertekBecslo: String? = null
+    var telekMeret: Double? = null
+    var keszultsegiFok: Double? = null
+    var ingatlanTerulet: Double? = null
+    var forgalmiErtek: Double? = null
 
-    val adasvetel: String? = null
-    val adasvetelDatuma: String? = null
+    var adasvetel: String? = null
+    var adasvetelDatuma: String? = null
 
-    val szemleIdopontja: String? = null
-    val fajlagosAr: Double? = null
-    val kolcsonIgenylo: String? = null
-    val hrsz: String? = null
+    var szemleIdopontja: String? = null
+    var fajlagosAr: Double? = null
+    var kolcsonIgenylo: String? = null
+    var hrsz: String? = null
 
     // import text
-    val ebAzonosito: String? = null
-    val etAzonosito: String? = null
-    val hatarido: Moment? = null
-    val ugyfelNeve: String? = null
-    val ugyfelTelefonszama: String? = null
-    val ertesitesiNev: String? = null
-    val ertesitesiTel: String? = null
-    val lakasCel: String? = null
-    val hitelOsszeg: Int? = null
-    val ajanlatSzam: String? = null
-    val szerzodesSzam: String? = null
-    val energetika = false
-    val ertekbecsles = false
-    val irsz: String? = null
-    val telepules: String? = null
-    val regio: String? = null
+    var ebAzonosito: String? = null
+    var etAzonosito: String? = null
+    var hatarido: Moment? = null
+    var ugyfelNeve: String? = null
+    var ugyfelTelefonszama: String? = null
+    var ertesitesiNev: String? = null
+    var ertesitesiTel: String? = null
+    var lakasCel: String? = null
+    var hitelOsszeg: Int? = null
+    var ajanlatSzam: String? = null
+    var szerzodesSzam: String? = null
+    var energetika = false
+    var ertekbecsles = false
+    var irsz: String? = null
+    var telepules: String? = null
+    var regio: String? = null
 }
 
 

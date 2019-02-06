@@ -155,6 +155,8 @@ private data class SimpleMegrendelesFilter(val label: String, val icon: String? 
     }
 }
 
+// TODO: mentsd el applicationwide az active megrendelesFiltert
+// a filter gombokon az ikonok tünjenek el kis felbontásban
 private val atNemVettFilter = SimpleMegrendelesFilter("Át nem vett") {
     (megrendelesMegtekint == null)
             .and(!alvallalkozoFeltoltotteFajlokat)
@@ -330,8 +332,20 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
         )
         div {
             Row {
+                Button {
+                    attrs.asDynamic().id = MegrendelesScreenIds.addButton
+                    attrs.type = ButtonType.primary
+                    attrs.onClick = {
+                        globalDispatch(Action.ChangeURL(Path.megrendeles.edit(0)))
+                    }
+                    Icon("plus")
+                    +" Hozzáadás"
+                }
+                Divider(type = DividerType.vertical, orientation = Orientation.left)
+                Divider(type = DividerType.vertical, orientation = Orientation.right)
                 simpleFilterButtons(user, state, appState.megrendelesState.megrendelesek, globalDispatch, setState)
-                +"  "
+                Divider(type = DividerType.vertical, orientation = Orientation.left)
+                Divider(type = DividerType.vertical, orientation = Orientation.right)
                 haviTeljesitesFilterButton(state, appState.megrendelesState.megrendelesek, appState.alvallalkozoState.alvallalkozok, setState, globalDispatch)
             }
             Row {

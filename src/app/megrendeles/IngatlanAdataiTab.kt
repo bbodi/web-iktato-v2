@@ -291,8 +291,6 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
                 }
             }
         }
-        beillesztett szoveg importálása
-        tabfülek szinezése ha egy field narancs, piros vagy zöld rajta
         Col(span = 8) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Fajlagos becsült ár (Ft)")

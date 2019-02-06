@@ -22,7 +22,8 @@ import store.kozteruletJellegek
 import store.megyek
 import kotlin.math.roundToLong
 
-data class AlapAdatokTabParams(val formState: MegrendelesFormState,
+data class AlapAdatokTabParams(val megrendeles: Megrendeles,
+                               val megrendelesFieldsFromExcel: MegrendelesFieldsFromExternalSource?,
                                val appState: AppState,
                                val onSaveFunctions: Array<(Megrendeles) -> Megrendeles>,
                                val setState: Dispatcher<MegrendelesFormState>)
@@ -37,10 +38,66 @@ data class AlapAdatokTabComponentState(val megrendeles: Megrendeles,
 
 object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
     override fun RBuilder.body(props: AlapAdatokTabParams) {
-        val megrendeles = props.formState.megrendeles
-        val sameName = !megrendeles.ertesitesiNev.isNullOrEmpty() && megrendeles.ertesitesiNev == megrendeles.ugyfelNeve
-        val sameTel = !megrendeles.ertesitesiTel.isNullOrEmpty() && megrendeles.ertesitesiTel == megrendeles.ugyfelTel
-        val ertesitendoSzemelyAzonos = megrendeles.id == 0 || (sameName && sameTel)
+        val (tabState, setTabState) = useState {
+            val megrendeles = props.megrendeles
+            val sameName = !megrendeles.ertesitesiNev.isNullOrEmpty() && megrendeles.ertesitesiNev == megrendeles.ugyfelNeve
+            val sameTel = !megrendeles.ertesitesiTel.isNullOrEmpty() && megrendeles.ertesitesiTel == megrendeles.ugyfelTel
+            val ertesitendoSzemelyAzonos = megrendeles.id == 0 || (sameName && sameTel)
+            val (azonosito1: String, azonosito2: String) = determineAzonositok(megrendeles)
+            val sajatArak = props.appState.sajatArState.getSajatArakFor(megrendeles.megrendelo, megrendeles.munkatipus)
+            val sajatAr = sajatArak.firstOrNull { it.leiras == megrendeles.ingatlanTipusMunkadijMeghatarozasahoz }
+            AlapAdatokTabComponentState(megrendeles.copy(),
+                    szamlazhatoDijAfa = sajatAr?.afa,
+                    azonosito1 = azonosito1,
+                    azonosito2 = azonosito2,
+                    selectableAlvallalkozok = props.appState.alvallalkozoState.getSelectableAlvallalkozok(megrendeles.regio),
+                    selectableMunkatipusok = munkatipusokForRegio(props.appState.alvallalkozoState, megrendeles.regio),
+                    ertesitendoSzemelyAzonos = ertesitendoSzemelyAzonos
+            )
+        }
+        val formWasUpdatedByOtherTab = tabState.megrendeles.modified.isBefore(props.megrendeles.modified)
+        if (formWasUpdatedByOtherTab) {
+            val (azonosito1: String, azonosito2: String) = determineAzonositok(props.megrendeles)
+            setTabState(tabState.copy(
+                    megrendeles = overwriteTabState(tabState.megrendeles, props.megrendeles).copy(modified = moment()),
+                    azonosito1 = azonosito1.ifEmpty { tabState.azonosito1 },
+                    azonosito2 = azonosito2.ifEmpty { tabState.azonosito2 }
+            ))
+        }
+        useEffect {
+            props.onSaveFunctions[0] = { globalMegrendeles ->
+                overwriteTabState(globalMegrendeles, tabState.megrendeles).copy(
+                        azonosito = createAzonosito(tabState)
+                )
+            }
+        }
+        Collapse {
+            attrs.bordered = false
+            attrs.defaultActiveKey = arrayOf("Megrendelés", "Ügyfél", "Értesítendő személy", "Cím", "Hitel")
+            Panel("Megrendelés") {
+                attrs.header = StringOrReactElement.fromString("Megrendelés")
+                megrendelesPanel(props.appState, tabState, setTabState, props.megrendelesFieldsFromExcel)
+            }
+            Panel("Ügyfél") {
+                attrs.header = StringOrReactElement.fromString("Ügyfél")
+                ugyfelPanel(tabState, setTabState, props.megrendelesFieldsFromExcel)
+            }
+            Panel("Értesítendő személy") {
+                attrs.header = StringOrReactElement.fromString("Értesítendő személy")
+                ertesitendoSzemelyPanel(tabState, setTabState)
+            }
+            Panel("Cím") {
+                attrs.header = StringOrReactElement.fromString("Cím")
+                cimPanel(props.appState, tabState, setTabState, props.megrendelesFieldsFromExcel)
+            }
+            Panel("Hitel") {
+                attrs.header = StringOrReactElement.fromString("Hitel")
+                hitelPanel(tabState, setTabState)
+            }
+        }
+    }
+
+    private fun determineAzonositok(megrendeles: Megrendeles): Pair<String, String> {
         val azonosito1: String
         val azonosito2: String
         if (megrendeles.munkatipus == Munkatipusok.EnergetikaAndErtekBecsles.str) {
@@ -53,78 +110,45 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
             azonosito1 = megrendeles.azonosito
             azonosito2 = ""
         }
-        val sajatArak = props.appState.sajatArState.getSajatArakFor(megrendeles.megrendelo, megrendeles.munkatipus)
-        val sajatAr = sajatArak.firstOrNull { it.leiras == megrendeles.ingatlanTipusMunkadijMeghatarozasahoz }
-        val (tabState, setTabState) = useState(AlapAdatokTabComponentState(megrendeles.copy(),
-                szamlazhatoDijAfa = sajatAr?.afa,
-                azonosito1 = azonosito1,
-                azonosito2 = azonosito2,
-                selectableAlvallalkozok = props.appState.alvallalkozoState.getSelectableAlvallalkozok(megrendeles.regio),
-                selectableMunkatipusok = munkatipusokForRegio(props.appState.alvallalkozoState, megrendeles.regio),
-                ertesitendoSzemelyAzonos = ertesitendoSzemelyAzonos))
-        useEffect {
-            props.onSaveFunctions[0] = { globalMegrendeles ->
-                globalMegrendeles.copy(
-                        megrendelo = tabState.megrendeles.megrendelo,
-                        regio = tabState.megrendeles.regio,
-                        munkatipus = tabState.megrendeles.munkatipus,
-                        ingatlanTipusMunkadijMeghatarozasahoz = tabState.megrendeles.ingatlanTipusMunkadijMeghatarozasahoz,
-                        alvallalkozoId = tabState.megrendeles.alvallalkozoId,
-                        ertekbecsloId = tabState.megrendeles.ertekbecsloId,
-                        ertekbecsloDija = tabState.megrendeles.ertekbecsloDija,
-                        szamlazhatoDij = tabState.megrendeles.szamlazhatoDij,
-                        azonosito = createAzonosito(tabState),
-                        foVallalkozo = tabState.megrendeles.foVallalkozo,
-                        megrendelve = tabState.megrendeles.megrendelve,
-                        hatarido = tabState.megrendeles.hatarido,
-                        ugyfelNeve = tabState.megrendeles.ugyfelNeve,
-                        ugyfelTel = tabState.megrendeles.ugyfelTel,
-                        ugyfelEmail = tabState.megrendeles.ugyfelEmail,
-                        ertesitesiNev = tabState.megrendeles.ertesitesiNev,
-                        ertesitesiTel = tabState.megrendeles.ertesitesiTel,
-                        hrsz = tabState.megrendeles.hrsz,
-                        irsz = tabState.megrendeles.irsz,
-                        telepules = tabState.megrendeles.telepules,
-                        kerulet = tabState.megrendeles.kerulet,
-                        utcaJelleg = tabState.megrendeles.utcaJelleg,
-                        utca = tabState.megrendeles.utca,
-                        hazszam = tabState.megrendeles.hazszam,
-                        lepcsohaz = tabState.megrendeles.lepcsohaz,
-                        emelet = tabState.megrendeles.emelet,
-                        ajto = tabState.megrendeles.ajto,
-                        hitelTipus = tabState.megrendeles.hitelTipus,
-                        hitelOsszeg = tabState.megrendeles.hitelOsszeg,
-                        ajanlatSzam = tabState.megrendeles.ajanlatSzam,
-                        szerzodesSzam = tabState.megrendeles.szerzodesSzam
-                )
-            }
-        }
-        Collapse {
-            attrs.bordered = false
-            attrs.defaultActiveKey = arrayOf("Megrendelés", "Ügyfél", "Értesítendő személy", "Cím", "Hitel")
-            Panel("Megrendelés") {
-                attrs.header = StringOrReactElement.fromString("Megrendelés")
-                megrendelesPanel(props.appState, tabState, setTabState, props.formState.megrendelesFieldsFromExcel)
-            }
-            Panel("Ügyfél") {
-                attrs.header = StringOrReactElement.fromString("Ügyfél")
-                ugyfelPanel(tabState, setTabState, props.formState.megrendelesFieldsFromExcel)
-            }
-            Panel("Értesítendő személy") {
-                attrs.header = StringOrReactElement.fromString("Értesítendő személy")
-                ertesitendoSzemelyPanel(tabState, setTabState)
-            }
-            Panel("Cím") {
-                attrs.header = StringOrReactElement.fromString("Cím")
-                cimPanel(props.appState, tabState, setTabState, props.formState.megrendelesFieldsFromExcel)
-            }
-            Panel("Hitel") {
-                attrs.header = StringOrReactElement.fromString("Hitel")
-                hitelPanel(tabState, setTabState)
-            }
-        }
+        return Pair(azonosito1, azonosito2)
     }
 }
+
+private fun overwriteTabState(base: Megrendeles, overwriteWith: Megrendeles): Megrendeles {
+    return base.copy(
+            megrendelo = overwriteWith.megrendelo,
+            regio = overwriteWith.regio,
+            munkatipus = overwriteWith.munkatipus,
+            ingatlanTipusMunkadijMeghatarozasahoz = overwriteWith.ingatlanTipusMunkadijMeghatarozasahoz,
+            alvallalkozoId = overwriteWith.alvallalkozoId,
+            ertekbecsloId = overwriteWith.ertekbecsloId,
+            ertekbecsloDija = overwriteWith.ertekbecsloDija,
+            szamlazhatoDij = overwriteWith.szamlazhatoDij,
+            foVallalkozo = overwriteWith.foVallalkozo,
+            megrendelve = overwriteWith.megrendelve,
+            hatarido = overwriteWith.hatarido,
+            ugyfelNeve = overwriteWith.ugyfelNeve,
+            ugyfelTel = overwriteWith.ugyfelTel,
+            ugyfelEmail = overwriteWith.ugyfelEmail,
+            ertesitesiNev = overwriteWith.ertesitesiNev,
+            ertesitesiTel = overwriteWith.ertesitesiTel,
+            hrsz = overwriteWith.hrsz,
+            irsz = overwriteWith.irsz,
+            telepules = overwriteWith.telepules,
+            kerulet = overwriteWith.kerulet,
+            utcaJelleg = overwriteWith.utcaJelleg,
+            utca = overwriteWith.utca,
+            hazszam = overwriteWith.hazszam,
+            lepcsohaz = overwriteWith.lepcsohaz,
+            emelet = overwriteWith.emelet,
+            ajto = overwriteWith.ajto,
+            hitelTipus = overwriteWith.hitelTipus,
+            hitelOsszeg = overwriteWith.hitelOsszeg,
+            ajanlatSzam = overwriteWith.ajanlatSzam,
+            szerzodesSzam = overwriteWith.szerzodesSzam
+    )
+}
+
 
 private fun RElementBuilder<PanelProps>.cimPanel(
         appState: AppState,
@@ -678,7 +702,7 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(
                     }
                 }
             }
-            Col(offset = 1, span = 7) {
+            Col(offset = 17, span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Alvállalkozó")
                     val selectableAlvallalkozok = tabState.selectableAlvallalkozok
@@ -889,11 +913,11 @@ private fun RElementBuilder<ColProps>.ebAzon(tabState: AlapAdatokTabComponentSta
     }
 }
 
-private fun setNewRegio(appState: AppState,
-                        oldState: AlapAdatokTabComponentState,
-                        megr: Megrendeles,
-                        newRegio: String,
-                        setTabState: Dispatcher<AlapAdatokTabComponentState>) {
+fun setNewRegio(appState: AppState,
+                oldState: AlapAdatokTabComponentState,
+                megr: Megrendeles,
+                newRegio: String,
+                setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     val newSelectableAlvallalkozok = appState.alvallalkozoState.getSelectableAlvallalkozok(newRegio)
     val defaultSelectedAlvallalkozoId = newSelectableAlvallalkozok.firstOrNull()?.id
     val newMegr = setAlvallalkozoId(appState, megr.copy(regio = newRegio), defaultSelectedAlvallalkozoId)
