@@ -46,7 +46,7 @@ fun sajatArActionHandler(state: SajatArState, action: Action): SajatArState {
         }
         is Action.ChangeURL -> state
         is Action.changeURLSilently -> state
-        is Action.FilterMegrendelesek -> state
+        is Action.SetActiveFilter -> state
         is Action.SajatArFromServer -> {
             val newSajatArak = state.sajatArak + (action.sajatAr.id to jsonToSajatAr(action.sajatAr))
             state.copy(

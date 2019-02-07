@@ -1,10 +1,7 @@
 package app
 
 import app.common.moment
-import app.megrendeles.MegrendelesFormScreenComponent
-import app.megrendeles.MegrendelesFormScreenParams
-import app.megrendeles.MegrendelesScreenComponent
-import app.megrendeles.MegrendelesScreenParams
+import app.megrendeles.*
 import hu.nevermind.antd.*
 import hu.nevermind.iktato.JqueryAjaxPoster
 import hu.nevermind.iktato.Path
@@ -29,6 +26,7 @@ data class Geo(val irszamok: List<Irszam>, val varosok: List<Varos>)
 
 data class AppState(val megrendelesState: MegrendelesState,
                     val alvallalkozoState: AlvallalkozoState,
+                    val megrendelesTableFilterState: MegrendelesTableFilterState,
                     val currentScreen: AppScreen,
                     val urlData: UrlData,
                     val sajatArState: SajatArState,
@@ -68,7 +66,43 @@ fun main(args: Array<String>) {
             is Action.SetLoggedInUser -> action.data
             is Action.ChangeURL -> state
             is Action.changeURLSilently -> state
-            is Action.FilterMegrendelesek -> state
+            is Action.SetActiveFilter -> state
+            is Action.SajatArFromServer -> state
+            is Action.AccountFromServer -> state
+            is Action.AlvallalkozoFromServer -> state
+            is Action.ErtekbecsloFromServer -> state
+            is Action.RegioOsszerendelesFromServer -> state
+            is Action.DeleteRegioOsszerendeles -> state
+        }
+    }
+
+    fun megrendelesTableFilterReducer(state: MegrendelesTableFilterState, action: Action): MegrendelesTableFilterState {
+        return when (action) {
+            is Action.MegrendelesekFromServer -> state
+            is Action.SetLoggedInUser -> state.copy(
+                    haviTeljesites = if (action.data?.isAlvallalkozo ?: false) {
+                        HaviTeljesites(action.data!!.alvallalkozoId, moment())
+                    } else null
+            )
+            is Action.ChangeURL -> state
+            is Action.changeURLSilently -> state
+            is Action.SetActiveFilter -> when (action.payload) {
+                is SetActiveFilterPayload.SimpleFilter -> state.copy(
+                        activeFilter = action.payload.activeFilter
+                )
+                is SetActiveFilterPayload.HaviTeljesites -> state.copy(
+                        activeFilter = MegrendelesScreen.haviTeljesitesFilter,
+                        haviTeljesites = HaviTeljesites(
+                                action.payload.alvallalkozoId,
+                                action.payload.date
+                        )
+                )
+                is SetActiveFilterPayload.MindFilter -> state.copy(
+                        activeFilter = MegrendelesScreen.mindFilter,
+                        mindFilteredMegrendelesIds = action.payload.ids,
+                        szuroMezok = action.payload.szuromezok
+                )
+            }
             is Action.SajatArFromServer -> state
             is Action.AccountFromServer -> state
             is Action.AlvallalkozoFromServer -> state
@@ -112,7 +146,7 @@ fun main(args: Array<String>) {
             )
             is Action.ChangeURL -> state
             is Action.changeURLSilently -> state
-            is Action.FilterMegrendelesek -> state
+            is Action.SetActiveFilter -> state
             is Action.SajatArFromServer -> state
             is Action.AccountFromServer -> state
             is Action.AlvallalkozoFromServer -> state
@@ -130,6 +164,7 @@ fun main(args: Array<String>) {
                     alvallalkozoState = alvallalkozoActionHandler(currentState.alvallalkozoState, action),
                     urlData = routerStoreHandler(currentState.urlData, action),
                     maybeLoggedInUser = appReducer(currentState.maybeLoggedInUser, action),
+                    megrendelesTableFilterState = megrendelesTableFilterReducer(currentState.megrendelesTableFilterState, action),
                     geoData = geoReducer(currentState.geoData, action),
                     sajatArState = sajatArActionHandler(currentState.sajatArState, action),
                     accountStore = accountActionHandler(currentState.accountStore, action)
@@ -140,6 +175,12 @@ fun main(args: Array<String>) {
                 urlData = UrlData(window.location.hash.substring(1), emptyMap()),
                 sajatArState = SajatArState(),
                 geoData = Geo(emptyList(), emptyList()),
+                megrendelesTableFilterState = MegrendelesTableFilterState(
+                        activeFilter = atNemVettFilter,
+                        mindFilteredMegrendelesIds = emptyList(),
+                        szuroMezok = emptyList(),
+                        haviTeljesites = null
+                ),
                 accountStore = AccountStore(emptyArray()))) // TODO: parse current uRL
         useEffect {
             var urlChangeOccurredByDispatchAction = false

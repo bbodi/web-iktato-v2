@@ -26,9 +26,9 @@ import store.diff
 data class MegrendelesFormState(val activeTab: String,
                                 val importTextAreaVisible: Boolean,
                                 val importedText: String,
+                                val importedTextModified: Moment?,
                                 val megrendeles: Megrendeles,
-                                val megrendelesFieldsFromExcel: MegrendelesFieldsFromExternalSource? = null,
-                                val megrendelesFieldsFromImportText: MegrendelesFieldsFromExternalSource? = null
+                                val megrendelesFieldsFromExcel: MegrendelesFieldsFromExternalSource? = null
 )
 
 data class MegrendelesFormScreenParams(val megrendeles: Megrendeles?,
@@ -46,7 +46,7 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
                     munkatipus = Munkatipusok.Ertekbecsles.str,
                     ingatlanTipusMunkadijMeghatarozasahoz = appState.sajatArState.getSajatArakFor("Presting Zrt.", Munkatipusok.Ertekbecsles.str).firstOrNull()?.leiras
                             ?: "",
-                    hitelTipus = "Vásárlás",
+                    hitelTipus = "vásárlás",
                     ingatlanBovebbTipus = "lakás",
                     hatarido = getNextWeekDay(5),
                     ellenorizve = true,
@@ -55,70 +55,28 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
         val (state, setState) = useState(MegrendelesFormState(
                 activeTab = MegrendelesScreenIds.modal.tab.first,
                 importedText = "",
+                importedTextModified = null,
                 importTextAreaVisible = false,
                 megrendeles = megrendeles
         ))
         val (onSaveFunctions, _) = useState(Array<(Megrendeles) -> Megrendeles>(6) { size -> { megr -> megr } })
         div {
             Row {
-                val leftSideSpan = if (state.importTextAreaVisible) 12 else 6
+                val leftSideSpan = if (state.importTextAreaVisible) 9 else 6
                 Col(span = leftSideSpan) {
                     Affix {
                         attrs.offsetTop = 30
                         if (state.megrendeles.id == 0) {
                             Row { Col(span = 24) { br {} }/* empty row so the text area is aligned with the form next to it*/ }
                             Row { Col(span = 24) { br {} }/* empty row so the text area is aligned with the form next to it*/ }
+                            Row { Col(span = 24) { br {} }/* empty row so the text area is aligned with the form next to it*/ }
+                            Row { Col(span = 24) { br {} }/* empty row so the text area is aligned with the form next to it*/ }
                             Row {
                                 Col(span = 24) {
                                     if (state.importTextAreaVisible) {
-                                        FormItem {
-                                            attrs.label = StringOrReactElement.fromString("Importálni kívánt e-mail szövege")
-                                            TextArea {
-                                                attrs.value = state.importedText
-                                                attrs.rows = 30
-                                                attrs.onChange = { e ->
-                                                    val newValue = e.currentTarget.asDynamic().value
-
-                                                    val importedData = parseImportedText(newValue, appState.geoData.irszamok)
-
-                                                    val newState = setImportedMegrendelesFields(
-                                                            state,
-                                                            appState,
-                                                            importedData
-                                                    )
-                                                    val ertesitendoSzemelyAzonos = with(newState.megrendeles) {
-                                                        val sameName = !ertesitesiNev.isNullOrEmpty() && ertesitesiNev == ugyfelNeve
-                                                        val sameTel = !ertesitesiTel.isNullOrEmpty() && ertesitesiTel == ugyfelTel
-                                                        sameName && sameTel
-                                                    }
-
-//                                                val newAzon1 = if (importedData.ebAzonosito != null) importedData.ebAzonosito!! else state.azonosito1
-//                                                val newAzon2 = if (importedData.etAzonosito != null) importedData.etAzonosito!! else state.azonosito2
-                                                    setState(newState.copy(
-//                                                        ertesitendoSzemelyAzonos = ertesitendoSzemelyAzonos,
-//                                                        azonosito1 = newAzon1,
-//                                                        azonosito2 = newAzon2,
-                                                            megrendeles = newState.megrendeles.copy(modified = moment()) /*to trigger tabs to update their state from global*/,
-                                                            importedText = newValue,
-                                                            megrendelesFieldsFromImportText = importedData,
-                                                            megrendelesFieldsFromExcel = MegrendelesFieldsFromExternalSource()
-                                                    ))
-                                                }
-                                            }
-                                        }
-
+                                        importEmailTextArea(state, setState)
                                     } else {
-                                        Button {
-                                            attrs.asDynamic().id = MegrendelesScreenIds.addButton
-                                            attrs.type = ButtonType.default
-                                            attrs.onClick = {
-                                                setState(state.copy(
-                                                        importTextAreaVisible = true
-                                                ))
-                                            }
-                                            Icon("mail")
-                                            +" Importálás szövegből"
-                                        }
+                                        importEmailButton(state, setState)
                                     }
                                 }
                             }
@@ -155,155 +113,36 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
         }
     }
 
-    private fun setImportedMegrendelesFields(state: MegrendelesFormState,
-                                             appState: AppState,
-                                             importedData: MegrendelesFieldsFromExternalSource): MegrendelesFormState {
-        var modifiedState = state
-        if (importedData.regio != null) {
-//            setNewRegio(appState, modifiedState, modifiedState.megrendeles, importedData.regio!!) { newState ->
-//                modifiedState = newState
-//            }
+    private fun RElementBuilder<ColProps>.importEmailButton(state: MegrendelesFormState, setState: Dispatcher<MegrendelesFormState>) {
+        Button {
+            attrs.asDynamic().id = MegrendelesScreenIds.addButton
+            attrs.type = ButtonType.default
+            attrs.onClick = {
+                setState(state.copy(
+                        importTextAreaVisible = true
+                ))
+            }
+            Icon("mail")
+            +" Importálás szövegből"
         }
-        if (importedData.hrsz != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    hrsz = importedData.hrsz!!
-            ))
-        }
-        if (importedData.irsz != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    irsz = importedData.irsz!!
-            ))
-        }
-        if (importedData.telepules != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    telepules = importedData.telepules!!
-            ))
-        }
-//        if (importedData.ertekbecsles && importedData.energetika) {
-//            setMunkatipus(modifiedState, modifiedState.megrendeles, Munkatipusok.EnergetikaAndErtekBecsles.str) { newState ->
-//                modifiedState = newState
-//            }
-//        } else if (importedData.ertekbecsles) {
-//            setMunkatipus(modifiedState, modifiedState.megrendeles, Munkatipusok.Ertekbecsles.str) { newState ->
-//                modifiedState = newState
-//            }
-//        } else if (importedData.energetika) {
-//            setMunkatipus(modifiedState, modifiedState.megrendeles, Munkatipusok.Energetika.str) { newState ->
-//                modifiedState = newState
-//            }
-//        }
-        if (importedData.hatarido != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    hatarido = importedData.hatarido!!
-            ))
-        }
-        if (importedData.ugyfelNeve != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    ugyfelNeve = importedData.ugyfelNeve!!
-            ))
-        }
-        if (importedData.ugyfelTelefonszama != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    ugyfelTel = importedData.ugyfelTelefonszama!!
-            ))
-        }
-        if (importedData.ertesitesiNev != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    ertesitesiNev = importedData.ertesitesiNev!!
-            ))
-        }
-        if (importedData.ertesitesiTel != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    ertesitesiTel = importedData.ertesitesiTel!!
-            ))
-        }
-        if (importedData.lakasCel != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    hitelTipus = importedData.lakasCel!!
-            ))
-        }
-        if (importedData.hitelOsszeg != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    hitelOsszeg = importedData.hitelOsszeg!!
-            ))
-        }
-        if (importedData.ajanlatSzam != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    ajanlatSzam = importedData.ajanlatSzam!!
-            ))
-        }
-        if (importedData.szerzodesSzam != null) {
-            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    szerzodesSzam = importedData.szerzodesSzam!!
-            ))
-        }
-        modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                azonosito = importedData.ebAzonosito ?: importedData.etAzonosito ?: ""
-        ))
-        return modifiedState
     }
 
-    private fun parseImportedText(text: String, irszamok: List<Irszam>): MegrendelesFieldsFromExternalSource {
-        val importedData = MegrendelesFieldsFromExternalSource()
-        var lastAzon = ""
-        text.lines().forEach { line ->
-            if (line.contains("Energetikai tanúsítvány elkészítése")) {
-                importedData.energetika = true
-                lastAzon = "et"
-            } else if (line.contains("Értékbecslés készítése")) {
-                importedData.ertekbecsles = true
-                lastAzon = "eb"
-            } else if (line.contains("Azonosítója: ")) {
-                val startIndex = line.indexOf("Azonosítója") + "Azonosítója: ".length
-                if (lastAzon == "eb") {
-                    importedData.ebAzonosito = line.substring(startIndex)
-                } else {
-                    importedData.etAzonosito = line.substring(startIndex)
+    private fun RElementBuilder<ColProps>.importEmailTextArea(state: MegrendelesFormState,
+                                                              setState: Dispatcher<MegrendelesFormState>) {
+        FormItem {
+            attrs.label = StringOrReactElement.fromString("Importálni kívánt e-mail szövege")
+            TextArea {
+                attrs.value = state.importedText
+                attrs.rows = 30
+                attrs.onChange = { e ->
+                    val newValue = e.currentTarget.asDynamic().value
+                    setState(state.copy(
+                            importedText = newValue,
+                            importedTextModified = moment()
+                    ))
                 }
-            } else if (line.contains("Határideje")) {
-                val startIndex = line.indexOf("Határideje") + "Határideje: ".length
-                val newHatarido = moment(line.substring(startIndex), "YYYY.MM.DD.")
-                if (importedData.hatarido == null || newHatarido.isBefore(importedData.hatarido!!)) {
-                    importedData.hatarido = newHatarido
-                }
-            } else if (line.startsWith("Hiteligénylő neve: ")) {
-                importedData.ugyfelNeve = line.substring("Hiteligénylő neve: ".length)
-            } else if (line.startsWith("Hiteligénylő telefonszáma: ")) {
-                importedData.ugyfelTelefonszama = line.substring("Hiteligénylő telefonszáma: ".length)
-            } else if (line.startsWith("Kapcsolattartó neve: ")) {
-                importedData.ertesitesiNev = line.substring("Kapcsolattartó neve: ".length)
-            } else if (line.startsWith("Kapcsolattartó telefonszáma: ")) {
-                importedData.ertesitesiTel = line.substring("Kapcsolattartó telefonszáma: ".length)
-            } else if (line.startsWith("Lakáscél: ")) {
-                importedData.lakasCel = line.substring("Lakáscél: ".length).split(", ").getOrNull(0)
-            } else if (line.startsWith("Felvenni kívánt hitel összege: ")) {
-                importedData.hitelOsszeg = line.substring("Felvenni kívánt hitel összege: ".length).toIntOrNull()
-            } else if (line.startsWith("Ajánlatszám: ")) {
-                val ajanlatSzamFromText = line.substring("Ajánlatszám: ".length)
-                importedData.ajanlatSzam = if (importedData.ajanlatSzam == null) {
-                    ajanlatSzamFromText
-                } else {
-                    "${importedData.ajanlatSzam};$ajanlatSzamFromText"
-                }
-            } else if (line.startsWith("Szerződésszám: ")) {
-                val szerzodesSzamFromText = line.substring("Szerződésszám: ".length)
-                importedData.szerzodesSzam = if (importedData.szerzodesSzam == null) {
-                    szerzodesSzamFromText
-                } else {
-                    "${importedData.szerzodesSzam};$szerzodesSzamFromText"
-                }
-            } else if (line.startsWith("Ezúton küldjük Önnek megrendelésünket")) {
-                // Ezúton küldjük Önnek megrendelésünket, 950/2 HRSZ számú, természetben 8181 Berhida, Kálvin tér 7. sz. alatt található ingatlannal kapcsolatban az alábbi feladat(ok) elvégzésére. A teljesítéshez szükséges dokumentumokat kérje az ügyféltől.
-                val splittedLine = line.split(",")
-                val splittedHrsz = splittedLine.getOrNull(1)?.split(" ")
-                importedData.hrsz = splittedHrsz?.getOrNull(1)
-                val splittedIrszTelepules = splittedLine.getOrNull(2)?.split(" ")
-                importedData.irsz = splittedIrszTelepules?.getOrNull(2)
-                importedData.telepules = splittedIrszTelepules?.getOrNull(3)
-                importedData.regio = irszamok.firstOrNull { it.irszam == importedData.irsz }?.megye
             }
         }
-        return importedData
     }
 
     private fun RElementBuilder<ColProps>.ellenorizveCheckbox(state: MegrendelesFormState, setState: Dispatcher<MegrendelesFormState>) {
@@ -476,6 +315,8 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
             attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Alap adatok", color = "black", icon = "list-alt"))
             AlapAdatokTabComponent.insert(this, AlapAdatokTabParams(
                     state.megrendeles,
+                    state.importedTextModified,
+                    state.importedText,
                     state.megrendelesFieldsFromExcel,
                     appState,
                     onSaveFunctions,

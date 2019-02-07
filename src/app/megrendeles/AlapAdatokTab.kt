@@ -2,6 +2,8 @@ package hu.nevermind.utils.app.megrendeles
 
 import app.AppState
 import app.Dispatcher
+import app.common.Granularity
+import app.common.Moment
 import app.common.moment
 import app.megrendeles.MegrendelesFormState
 import app.megrendeles.MegrendelesScreenIds
@@ -23,17 +25,21 @@ import store.megyek
 import kotlin.math.roundToLong
 
 data class AlapAdatokTabParams(val megrendeles: Megrendeles,
+                               val importedTextChanged: Moment?,
+                               val importedText: String,
                                val megrendelesFieldsFromExcel: MegrendelesFieldsFromExternalSource?,
                                val appState: AppState,
                                val onSaveFunctions: Array<(Megrendeles) -> Megrendeles>,
                                val setState: Dispatcher<MegrendelesFormState>)
 
 data class AlapAdatokTabComponentState(val megrendeles: Megrendeles,
+                                       val importedTextChanged: Moment,
                                        val szamlazhatoDijAfa: Int?,
                                        val azonosito1: String,
                                        val azonosito2: String,
                                        val selectableMunkatipusok: Collection<String>,
                                        val selectableAlvallalkozok: Collection<Alvallalkozo>,
+                                       val megrendelesFieldsFromImportText: MegrendelesFieldsFromExternalSource? = null,
                                        val ertesitendoSzemelyAzonos: Boolean)
 
 object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
@@ -52,7 +58,8 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
                     azonosito2 = azonosito2,
                     selectableAlvallalkozok = props.appState.alvallalkozoState.getSelectableAlvallalkozok(megrendeles.regio),
                     selectableMunkatipusok = munkatipusokForRegio(props.appState.alvallalkozoState, megrendeles.regio),
-                    ertesitendoSzemelyAzonos = ertesitendoSzemelyAzonos
+                    ertesitendoSzemelyAzonos = ertesitendoSzemelyAzonos,
+                    importedTextChanged = moment()
             )
         }
         val formWasUpdatedByOtherTab = tabState.megrendeles.modified.isBefore(props.megrendeles.modified)
@@ -63,6 +70,33 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
                     azonosito1 = azonosito1.ifEmpty { tabState.azonosito1 },
                     azonosito2 = azonosito2.ifEmpty { tabState.azonosito2 }
             ))
+        }
+        if (props.importedTextChanged != null) {
+            val importEmailTextChanged = tabState.importedTextChanged.isBefore(props.importedTextChanged)
+            if (importEmailTextChanged) {
+                val importedData = parseImportedText(props.importedText, props.appState.geoData.irszamok)
+
+                val newState = setImportedMegrendelesFields(
+                        tabState,
+                        props.appState,
+                        importedData
+                )
+                val ertesitendoSzemelyAzonos = with(newState.megrendeles) {
+                    val sameName = !ertesitesiNev.isNullOrEmpty() && ertesitesiNev == ugyfelNeve
+                    val sameTel = !ertesitesiTel.isNullOrEmpty() && ertesitesiTel == ugyfelTel
+                    sameName && sameTel
+                }
+
+                val newAzon1 = if (importedData.ebAzonosito != null) importedData.ebAzonosito!! else newState.azonosito1
+                val newAzon2 = if (importedData.etAzonosito != null) importedData.etAzonosito!! else newState.azonosito2
+                setTabState(newState.copy(
+                        ertesitendoSzemelyAzonos = ertesitendoSzemelyAzonos,
+                        importedTextChanged = moment(),
+                        azonosito1 = newAzon1,
+                        azonosito2 = newAzon2,
+                        megrendelesFieldsFromImportText = importedData
+                ))
+            }
         }
         useEffect {
             props.onSaveFunctions[0] = { globalMegrendeles ->
@@ -95,6 +129,157 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
                 hitelPanel(tabState, setTabState)
             }
         }
+    }
+
+    private fun setImportedMegrendelesFields(state: AlapAdatokTabComponentState,
+                                             appState: AppState,
+                                             importedData: MegrendelesFieldsFromExternalSource): AlapAdatokTabComponentState {
+        var modifiedState = state
+        if (importedData.regio != null) {
+            setNewRegio(appState, modifiedState, modifiedState.megrendeles, importedData.regio!!) { newState ->
+                modifiedState = newState
+            }
+        }
+        if (importedData.hrsz != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    hrsz = importedData.hrsz!!
+            ))
+        }
+        if (importedData.irsz != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    irsz = importedData.irsz!!
+            ))
+        }
+        if (importedData.telepules != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    telepules = importedData.telepules!!
+            ))
+        }
+        if (importedData.ertekbecsles && importedData.energetika) {
+            setMunkatipus(appState, modifiedState, modifiedState.megrendeles, Munkatipusok.EnergetikaAndErtekBecsles.str) { newState ->
+                modifiedState = newState
+            }
+        } else if (importedData.ertekbecsles) {
+            setMunkatipus(appState, modifiedState, modifiedState.megrendeles, Munkatipusok.Ertekbecsles.str) { newState ->
+                modifiedState = newState
+            }
+        } else if (importedData.energetika) {
+            setMunkatipus(appState, modifiedState, modifiedState.megrendeles, Munkatipusok.Energetika.str) { newState ->
+                modifiedState = newState
+            }
+        }
+        if (importedData.hatarido != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    hatarido = importedData.hatarido!!
+            ))
+        }
+        if (importedData.ugyfelNeve != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    ugyfelNeve = importedData.ugyfelNeve!!
+            ))
+        }
+        if (importedData.ugyfelTelefonszama != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    ugyfelTel = importedData.ugyfelTelefonszama!!
+            ))
+        }
+        if (importedData.ertesitesiNev != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    ertesitesiNev = importedData.ertesitesiNev!!
+            ))
+        }
+        if (importedData.ertesitesiTel != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    ertesitesiTel = importedData.ertesitesiTel!!
+            ))
+        }
+        if (importedData.lakasCel != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    hitelTipus = importedData.lakasCel!!
+            ))
+        }
+        if (importedData.hitelOsszeg != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    hitelOsszeg = importedData.hitelOsszeg
+            ))
+        }
+        if (importedData.ajanlatSzam != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    ajanlatSzam = importedData.ajanlatSzam!!
+            ))
+        }
+        if (importedData.szerzodesSzam != null) {
+            modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                    szerzodesSzam = importedData.szerzodesSzam!!
+            ))
+        }
+        modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
+                azonosito = importedData.ebAzonosito ?: importedData.etAzonosito ?: ""
+        ))
+        return modifiedState
+    }
+
+    private fun parseImportedText(text: String, irszamok: List<Irszam>): MegrendelesFieldsFromExternalSource {
+        val importedData = MegrendelesFieldsFromExternalSource()
+        var lastAzon = ""
+        text.lines().forEach { line ->
+            if (line.contains("Energetikai tanúsítvány elkészítése")) {
+                importedData.energetika = true
+                lastAzon = "et"
+            } else if (line.contains("Értékbecslés készítése")) {
+                importedData.ertekbecsles = true
+                lastAzon = "eb"
+            } else if (line.contains("Azonosítója: ")) {
+                val startIndex = line.indexOf("Azonosítója") + "Azonosítója: ".length
+                if (lastAzon == "eb") {
+                    importedData.ebAzonosito = line.substring(startIndex)
+                } else {
+                    importedData.etAzonosito = line.substring(startIndex)
+                }
+            } else if (line.contains("Határideje")) {
+                val startIndex = line.indexOf("Határideje") + "Határideje: ".length
+                val newHatarido = moment(line.substring(startIndex), "YYYY.MM.DD.")
+                if (importedData.hatarido == null || newHatarido.isBefore(importedData.hatarido!!)) {
+                    importedData.hatarido = newHatarido
+                }
+            } else if (line.startsWith("Hiteligénylő neve: ")) {
+                importedData.ugyfelNeve = line.substring("Hiteligénylő neve: ".length)
+            } else if (line.startsWith("Hiteligénylő telefonszáma: ")) {
+                importedData.ugyfelTelefonszama = line.substring("Hiteligénylő telefonszáma: ".length)
+            } else if (line.startsWith("Kapcsolattartó neve: ")) {
+                importedData.ertesitesiNev = line.substring("Kapcsolattartó neve: ".length)
+            } else if (line.startsWith("Kapcsolattartó telefonszáma: ")) {
+                importedData.ertesitesiTel = line.substring("Kapcsolattartó telefonszáma: ".length)
+            } else if (line.startsWith("Lakáscél: ")) {
+                importedData.lakasCel = line.substring("Lakáscél: ".length).split(", ").getOrNull(0)
+            } else if (line.startsWith("Felvenni kívánt hitel összege: ")) {
+                importedData.hitelOsszeg = line.substring("Felvenni kívánt hitel összege: ".length).toIntOrNull()
+            } else if (line.startsWith("Ajánlatszám: ")) {
+                val ajanlatSzamFromText = line.substring("Ajánlatszám: ".length)
+                importedData.ajanlatSzam = if (importedData.ajanlatSzam == null) {
+                    ajanlatSzamFromText
+                } else {
+                    "${importedData.ajanlatSzam};$ajanlatSzamFromText"
+                }
+            } else if (line.startsWith("Szerződésszám: ")) {
+                val szerzodesSzamFromText = line.substring("Szerződésszám: ".length)
+                importedData.szerzodesSzam = if (importedData.szerzodesSzam == null) {
+                    szerzodesSzamFromText
+                } else {
+                    "${importedData.szerzodesSzam};$szerzodesSzamFromText"
+                }
+            } else if (line.startsWith("Ezúton küldjük Önnek megrendelésünket")) {
+                // Ezúton küldjük Önnek megrendelésünket, 950/2 HRSZ számú, természetben 8181 Berhida, Kálvin tér 7. sz. alatt található ingatlannal kapcsolatban az alábbi feladat(ok) elvégzésére. A teljesítéshez szükséges dokumentumokat kérje az ügyféltől.
+                val splittedLine = line.split(",")
+                val splittedHrsz = splittedLine.getOrNull(1)?.split(" ")
+                importedData.hrsz = splittedHrsz?.getOrNull(1)
+                val splittedIrszTelepules = splittedLine.getOrNull(2)?.split(" ")
+                importedData.irsz = splittedIrszTelepules?.getOrNull(2)
+                importedData.telepules = splittedIrszTelepules?.getOrNull(3)
+                importedData.regio = irszamok.firstOrNull { it.irszam == importedData.irsz }?.megye
+            }
+        }
+        return importedData
     }
 
     private fun determineAzonositok(megrendeles: Megrendeles): Pair<String, String> {
@@ -160,7 +345,14 @@ private fun RElementBuilder<PanelProps>.cimPanel(
             Col(span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Helyrajzi szám")
-                    addExcelbolBetoltveMessages(tabState.megrendeles.ugyfelNeve, excel?.ugyfelNeve)
+                    val beillesztett = beilesztettSzovegbolImportalva(
+                            tabState.megrendelesFieldsFromImportText?.hrsz?.let {
+                                it == tabState.megrendeles.hrsz
+                            } ?: false
+                    )
+                    if (!beillesztett) {
+                        addExcelbolBetoltveMessages(tabState.megrendeles.ugyfelNeve, excel?.ugyfelNeve)
+                    }
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.helyrajziSzam
                         attrs.value = tabState.megrendeles.hrsz
@@ -193,6 +385,13 @@ private fun RElementBuilder<PanelProps>.cimPanel(
                     attrs.validateStatus = if (helpMsg != null) ValidateStatus.warning else null
                     attrs.hasFeedback = helpMsg != null
                     attrs.help = if (helpMsg != null) StringOrReactElement.fromString(helpMsg) else null
+                    if (helpMsg == null) {
+                        beilesztettSzovegbolImportalva(
+                                tabState.megrendelesFieldsFromImportText?.irsz?.let {
+                                    it == tabState.megrendeles.irsz
+                                } ?: false
+                        )
+                    }
                     val source: Array<Any> = appState.geoData.irszamok.let { irszamok ->
                         val unknownRegio = tabState.megrendeles.regio !in megyek
                         if (unknownRegio) {
@@ -245,6 +444,13 @@ private fun RElementBuilder<PanelProps>.cimPanel(
                     attrs.validateStatus = if (helpMsg != null) ValidateStatus.warning else null
                     attrs.hasFeedback = helpMsg != null
                     attrs.help = if (helpMsg != null) StringOrReactElement.fromString(helpMsg) else null
+                    if (helpMsg == null) {
+                        beilesztettSzovegbolImportalva(
+                                tabState.megrendelesFieldsFromImportText?.telepules?.let {
+                                    it == tabState.megrendeles.telepules
+                                } ?: false
+                        )
+                    }
                     val source: Array<Any> = appState.geoData.irszamok.let { irszamok ->
                         if (tabState.megrendeles.irsz.isNullOrEmpty()) {
                             irszamok
@@ -420,19 +626,52 @@ private fun RElementBuilder<PanelProps>.cimPanel(
 
 private fun RElementBuilder<PanelProps>.hitelPanel(tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     Form {
+        if (tabState.megrendeles.munkatipus.isErtekbecsles()) {
+            Row {
+                Col(span = 10) {
+                    FormItem {
+                        attrs.label = StringOrReactElement.fromString("Hitel típus")
+                        beilesztettSzovegbolImportalva(tabState.megrendelesFieldsFromImportText?.lakasCel?.let { it == tabState.megrendeles.hitelTipus }
+                                ?: false)
+                        Select {
+                            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.hitelTipus
+                            attrs.value = tabState.megrendeles.hitelTipus
+                            attrs.onSelect = { newValue: String, option ->
+                                setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(
+                                        hitelTipus = newValue
+                                )))
+                            }
+                            arrayOf("vásárlás", "építés", "hitelkiváltás", "felújítás", "bővítés", "közművesítés").forEach {
+                                Option { attrs.value = it; +it }
+                            }
+                        }
+                    }
+                }
+                Col(offset = 2, span = 10) {
+                    FormItem {
+                        attrs.asDynamic().id = MegrendelesScreenIds.modal.input.hitelOsszege
+                        beilesztettSzovegbolImportalva(tabState.megrendelesFieldsFromImportText?.hitelOsszeg?.let { it == tabState.megrendeles.hitelOsszeg }
+                                ?: false)
+                        attrs.label = StringOrReactElement.fromString("Hitel összege")
+                        MyNumberInput {
+                            attrs.number = tabState.megrendeles.hitelOsszeg?.toLong()
+                            attrs.onValueChange = { value ->
+                                setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(
+                                        hitelOsszeg = value?.toInt()
+                                )))
+                            }
+                        }
+
+                    }
+                }
+            }
+        }
         Row {
             Col(span = 10) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Ajánlatszám")
-                    val beillesztett = true
-                    attrs.hasFeedback = beillesztett
-                    attrs.validateStatus = if (beillesztett) ValidateStatus.success else null
-                    attrs.help = if (beillesztett) StringOrReactElement.from {
-                        div {
-                            attrs.jsStyle = jsStyle { color = "green" }
-                            +"Beillesztett szövegből importálva"
-                        }
-                    } else null
+                    beilesztettSzovegbolImportalva(tabState.megrendelesFieldsFromImportText?.ajanlatSzam?.let { it == tabState.megrendeles.ajanlatSzam }
+                            ?: false)
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ajanlatSzam
                         attrs.value = tabState.megrendeles.ajanlatSzam
@@ -446,15 +685,8 @@ private fun RElementBuilder<PanelProps>.hitelPanel(tabState: AlapAdatokTabCompon
             Col(offset = 2, span = 10) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Szerződésszám")
-                    val beillesztett = true
-                    attrs.hasFeedback = beillesztett
-                    attrs.validateStatus = if (beillesztett) ValidateStatus.success else null
-                    attrs.help = if (beillesztett) StringOrReactElement.from {
-                        div {
-                            attrs.jsStyle = jsStyle { color = "green" }
-                            +"Beillesztett szövegből importálva"
-                        }
-                    } else null
+                    beilesztettSzovegbolImportalva(tabState.megrendelesFieldsFromImportText?.szerzodesSzam?.let { it == tabState.megrendeles.szerzodesSzam }
+                            ?: false)
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.szerzodesSzam
                         attrs.value = tabState.megrendeles.szerzodesSzam
@@ -468,6 +700,18 @@ private fun RElementBuilder<PanelProps>.hitelPanel(tabState: AlapAdatokTabCompon
 
         }
     }
+}
+
+private fun RElementBuilder<FormItemProps>.beilesztettSzovegbolImportalva(beillesztett: Boolean): Boolean {
+    attrs.hasFeedback = beillesztett
+    attrs.validateStatus = if (beillesztett) ValidateStatus.success else null
+    attrs.help = if (beillesztett) StringOrReactElement.from {
+        div {
+            attrs.jsStyle = jsStyle { color = "green" }
+            +"Beillesztett szövegből importálva"
+        }
+    } else null
+    return beillesztett
 }
 
 private fun RElementBuilder<PanelProps>.ertesitendoSzemelyPanel(tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
@@ -491,6 +735,8 @@ private fun RElementBuilder<PanelProps>.ertesitendoSzemelyPanel(tabState: AlapAd
             Col(span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Név")
+                    beilesztettSzovegbolImportalva(tabState.megrendelesFieldsFromImportText?.ertesitesiNev?.let { it == tabState.megrendeles.ertesitesiNev }
+                            ?: false)
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ertesitendoNev
                         attrs.disabled = tabState.ertesitendoSzemelyAzonos
@@ -505,6 +751,8 @@ private fun RElementBuilder<PanelProps>.ertesitendoSzemelyPanel(tabState: AlapAd
             Col(offset = 1, span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Telefonszám")
+                    beilesztettSzovegbolImportalva(tabState.megrendelesFieldsFromImportText?.ertesitesiTel?.let { it == tabState.megrendeles.ertesitesiTel }
+                            ?: false)
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ertesitendoTel
                         attrs.disabled = tabState.ertesitendoSzemelyAzonos
@@ -564,7 +812,11 @@ private fun RElementBuilder<PanelProps>.ugyfelPanel(tabState: AlapAdatokTabCompo
                 FormItem {
                     attrs.required = true
                     attrs.label = StringOrReactElement.fromString("Név")
-                    addExcelbolBetoltveMessages(tabState.megrendeles.ugyfelNeve, excel?.ugyfelNeve)
+                    val beillesztett = beilesztettSzovegbolImportalva(tabState.megrendelesFieldsFromImportText?.ugyfelNeve?.let { it == tabState.megrendeles.ugyfelNeve }
+                            ?: false)
+                    if (!beillesztett) {
+                        addExcelbolBetoltveMessages(tabState.megrendeles.ugyfelNeve, excel?.ugyfelNeve)
+                    }
                     if (attrs.hasFeedback == false) {
                         attrs.validateStatus = if (tabState.megrendeles.ugyfelNeve.isEmpty()) {
                             ValidateStatus.error
@@ -583,16 +835,9 @@ private fun RElementBuilder<PanelProps>.ugyfelPanel(tabState: AlapAdatokTabCompo
             Col(offset = 1, span = 7) {
                 FormItem {
                     attrs.required = true
-                    val beillesztett = true
+                    beilesztettSzovegbolImportalva(tabState.megrendelesFieldsFromImportText?.ugyfelTelefonszama?.let { it == tabState.megrendeles.ugyfelTel }
+                            ?: false)
                     attrs.label = StringOrReactElement.fromString("Telefonszám")
-                    attrs.hasFeedback = beillesztett
-                    attrs.validateStatus = if (beillesztett) ValidateStatus.success else if (tabState.megrendeles.ugyfelTel.isEmpty()) ValidateStatus.error else null
-                    attrs.help = if (beillesztett) StringOrReactElement.from {
-                        div {
-                            attrs.jsStyle = jsStyle { color = "green" }
-                            +"Beillesztett szövegből importálva"
-                        }
-                    } else null
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ugyfelTel
                         attrs.value = tabState.megrendeles.ugyfelTel
@@ -605,16 +850,7 @@ private fun RElementBuilder<PanelProps>.ugyfelPanel(tabState: AlapAdatokTabCompo
             }
             Col(offset = 1, span = 7) {
                 FormItem {
-                    val beillesztett = true
                     attrs.label = StringOrReactElement.fromString("Email cím")
-                    attrs.hasFeedback = beillesztett
-                    attrs.validateStatus = if (beillesztett) ValidateStatus.success else null
-                    attrs.help = if (beillesztett) StringOrReactElement.from {
-                        div {
-                            attrs.jsStyle = jsStyle { color = "green" }
-                            +"Beillesztett szövegből importálva"
-                        }
-                    } else null
                     Input {
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ugyfelEmail
                         attrs.value = tabState.megrendeles.ugyfelEmail
@@ -625,7 +861,6 @@ private fun RElementBuilder<PanelProps>.ugyfelPanel(tabState: AlapAdatokTabCompo
                     }
                 }
             }
-
         }
     }
 }
@@ -702,7 +937,7 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(
                     }
                 }
             }
-            Col(offset = 17, span = 7) {
+            Col(offset = 1, span = 7) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Alvállalkozó")
                     val selectableAlvallalkozok = tabState.selectableAlvallalkozok
@@ -831,19 +1066,13 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(
             Col(span = 8) {
                 FormItem {
                     attrs.label = StringOrReactElement.fromString("Határidő")
-                    val beillesztett = true
-                    attrs.hasFeedback = beillesztett
-                    attrs.validateStatus = if (beillesztett) ValidateStatus.success else null
-                    attrs.help = if (beillesztett) StringOrReactElement.from {
-                        div {
-                            attrs.jsStyle = jsStyle { color = "green" }
-                            +"Beillesztett szövegből importálva"
-                        }
-                    } else null
+                    beilesztettSzovegbolImportalva((tabState.megrendelesFieldsFromImportText?.hatarido to tabState.megrendeles.hatarido).let { (a, b) ->
+                        a != null && b != null && a.isSame(b, Granularity.Day)
+                    })
                     DatePicker {
                         attrs.allowClear = false
                         attrs.asDynamic().id = MegrendelesScreenIds.modal.input.hatarido
-                        attrs.value = tabState.megrendeles.hatarido?.let { moment(it) } ?: moment()
+                        attrs.value = tabState.megrendeles.hatarido ?: moment()
                         attrs.onChange = { date, str ->
                             if (date != null) {
                                 setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(hatarido = date)))
@@ -860,16 +1089,9 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(
 private fun RElementBuilder<ColProps>.etAzon(tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     FormItem {
         attrs.required = tabState.megrendeles.munkatipus.isEnergetika()
-        val beillesztett = true
+        beilesztettSzovegbolImportalva(tabState.megrendelesFieldsFromImportText?.etAzonosito?.let { it == tabState.azonosito2 }
+                ?: false)
         attrs.label = StringOrReactElement.fromString("Energetika Azonosító")
-        attrs.hasFeedback = beillesztett
-        attrs.validateStatus = if (beillesztett) ValidateStatus.success else if (tabState.megrendeles.munkatipus.isEnergetika() && tabState.azonosito2.isEmpty()) ValidateStatus.error else null
-        attrs.help = if (beillesztett) StringOrReactElement.from {
-            div {
-                attrs.jsStyle = jsStyle { color = "green" }
-                +"Beillesztett szövegből importálva"
-            }
-        } else null
         Input {
             attrs.asDynamic().id = MegrendelesScreenIds.modal.input.etAzonosito
             attrs.value = tabState.azonosito2
@@ -887,22 +1109,16 @@ private fun RElementBuilder<ColProps>.ebAzon(tabState: AlapAdatokTabComponentSta
     val et = tabState.megrendeles.munkatipus.isEnergetika()
     FormItem {
         attrs.required = tabState.megrendeles.munkatipus.isErtekbecsles()
-        val beillesztett = true
         attrs.label = StringOrReactElement.fromString(label)
-        attrs.hasFeedback = beillesztett
+        val beillesztett = beilesztettSzovegbolImportalva(tabState.megrendelesFieldsFromImportText?.ebAzonosito?.let { it == tabState.azonosito1 }
+                ?: false)
         attrs.validateStatus = if (beillesztett) {
             ValidateStatus.success
-        } else if (eb || (!eb && !et) && tabState.azonosito1.isEmpty()) {
+        } else if ((eb || (!eb && !et)) && tabState.azonosito1.isEmpty()) {
             ValidateStatus.error
         } else {
             null
         }
-        attrs.help = if (beillesztett) StringOrReactElement.from {
-            div {
-                attrs.jsStyle = jsStyle { color = "green" }
-                +"Beillesztett szövegből importálva"
-            }
-        } else null
         Input {
             attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ebAzonosito
             attrs.value = tabState.azonosito1

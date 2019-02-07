@@ -85,7 +85,7 @@ fun alvallalkozoActionHandler(state: AlvallalkozoState, action: Action): Alvalla
         }
         is Action.ChangeURL -> state
         is Action.changeURLSilently -> state
-        is Action.FilterMegrendelesek -> state
+        is Action.SetActiveFilter -> state
         is Action.SajatArFromServer -> state
         is Action.AccountFromServer -> state
         is Action.DeleteRegioOsszerendeles -> {

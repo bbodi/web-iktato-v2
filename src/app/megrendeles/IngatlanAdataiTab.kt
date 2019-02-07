@@ -151,7 +151,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
                                    setTabState: Dispatcher<Megrendeles>,
                                    excel: MegrendelesFieldsFromExternalSource?) {
     Row {
-        Col(span = 8) {
+        Col(span = 7) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Ingatlan bővebb típus")
                 addExcelbolBetoltveMessages(tabState.ingatlanBovebbTipus.toLowerCase(), excel?.ingatlanTipusa?.toLowerCase())
@@ -170,7 +170,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
                 }
             }
         }
-        Col(span = 8) {
+        Col(offset = 1, span = 7) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Ingatlan készültségi foka")
                 addExcelbolBetoltveMessages(tabState.keszultsegiFok, excel?.keszultsegiFok?.toInt())
@@ -291,7 +291,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
                 }
             }
         }
-        Col(span = 8) {
+        Col(span = 7) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Fajlagos becsült ár (Ft)")
                 addExcelbolBetoltveMessages(tabState.fajlagosBecsultAr, excel?.fajlagosAr?.toInt())
@@ -320,7 +320,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
         }
     }
     Row {
-        Col(span = 8) {
+        Col(span = 7) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("Adásvétel dátuma")
                 addExcelbolBetoltveMessages(tabState.adasvetelDatuma?.format(dateFormat), excel?.adasvetelDatuma)
@@ -345,7 +345,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
                 }
             }
         }
-        Col(span = 8) {
+        Col(offset = 1, span = 7) {
             FormItem {
                 attrs.label = StringOrReactElement.fromString("HET kód")
                 Input {

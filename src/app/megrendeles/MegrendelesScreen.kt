@@ -139,25 +139,25 @@ object MegrendelesScreenIds {
 }
 
 
-private interface MegrendelesFilter {
-    fun label(state: MegrendelesScreenState, appState: AppState): String
-    fun predicate(state: MegrendelesScreenState, megr: Megrendeles): Boolean
+interface MegrendelesFilter {
+    fun label(state: MegrendelesTableFilterState, appState: AppState): String
+    fun predicate(state: MegrendelesTableFilterState, megr: Megrendeles): Boolean
 }
 
-private data class SimpleMegrendelesFilter(val label: String, val icon: String? = null, private val predicate: Megrendeles.() -> Boolean) : MegrendelesFilter {
+data class SimpleMegrendelesFilter(val label: String, val icon: String? = null, private val predicate: Megrendeles.() -> Boolean) : MegrendelesFilter {
 
-    override fun label(state: MegrendelesScreenState, appState: AppState): String {
+    override fun label(state: MegrendelesTableFilterState, appState: AppState): String {
         return label
     }
 
-    override fun predicate(state: MegrendelesScreenState, megr: Megrendeles): Boolean {
+    override fun predicate(state: MegrendelesTableFilterState, megr: Megrendeles): Boolean {
         return megr.predicate()
     }
 }
 
 // TODO: mentsd el applicationwide az active megrendelesFiltert
 // a filter gombokon az ikonok tünjenek el kis felbontásban
-private val atNemVettFilter = SimpleMegrendelesFilter("Át nem vett") {
+val atNemVettFilter = SimpleMegrendelesFilter("Át nem vett") {
     (megrendelesMegtekint == null)
             .and(!alvallalkozoFeltoltotteFajlokat)
             //.and(ellenorizve == false) // ???
@@ -251,7 +251,7 @@ private val archivalasraVarFilter = SimpleMegrendelesFilter("Archiválásra vár
 }
 
 
-private data class HaviTeljesites(val alvallalkozoId: Int, val date: Moment)
+data class HaviTeljesites(val alvallalkozoId: Int, val date: Moment)
 
 data class SzuroMezo(val columnData: MegrendelesColumnData, val operator: String, val operand: String) {
     fun toSqlWhereClause(): String {
@@ -303,13 +303,14 @@ data class SzuroMezo(val columnData: MegrendelesColumnData, val operator: String
     }
 }
 
-private data class MegrendelesScreenState(
+data class MegrendelesTableFilterState(val activeFilter: MegrendelesFilter,
+                                       val mindFilteredMegrendelesIds: List<Int>,
+                                       val szuroMezok: List<SzuroMezo>,
+                                       val haviTeljesites: HaviTeljesites?)
+
+data class MegrendelesScreenState(
         val showMindFilterModal: Boolean,
-        val activeFilter: MegrendelesFilter,
-        val haviTeljesites: HaviTeljesites?,
-        val haviTeljesitesModalOpen: Boolean,
-        val mindFilteredMegrendelesIds: List<Int>,
-        val szuroMezok: List<SzuroMezo>
+        val haviTeljesitesModalOpen: Boolean
 )
 
 data class MegrendelesScreenParams(val appState: AppState,
@@ -321,13 +322,7 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
         val globalDispatch: (Action) -> Unit = props.globalDispatch
         val user = props.appState.maybeLoggedInUser!!
         val (state, setState) = useState(MegrendelesScreenState(
-                activeFilter = atNemVettFilter,
-                haviTeljesites = if (user.isAlvallalkozo) {
-                    HaviTeljesites(user.alvallalkozoId, moment())
-                } else null,
                 haviTeljesitesModalOpen = false,
-                mindFilteredMegrendelesIds = emptyList(),
-                szuroMezok = emptyList(),
                 showMindFilterModal = false)
         )
         div {
@@ -343,20 +338,34 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
                 }
                 Divider(type = DividerType.vertical, orientation = Orientation.left)
                 Divider(type = DividerType.vertical, orientation = Orientation.right)
-                simpleFilterButtons(user, state, appState.megrendelesState.megrendelesek, globalDispatch, setState)
+                simpleFilterButtons(
+                        user,
+                        state,
+                        appState.megrendelesTableFilterState,
+                        appState.megrendelesState.megrendelesek,
+                        globalDispatch,
+                        setState
+                )
                 Divider(type = DividerType.vertical, orientation = Orientation.left)
                 Divider(type = DividerType.vertical, orientation = Orientation.right)
-                haviTeljesitesFilterButton(state, appState.megrendelesState.megrendelesek, appState.alvallalkozoState.alvallalkozok, setState, globalDispatch)
+                haviTeljesitesFilterButton(
+                        appState.megrendelesTableFilterState,
+                        state,
+                        appState.megrendelesState.megrendelesek,
+                        appState.alvallalkozoState.alvallalkozok,
+                        setState,
+                        globalDispatch
+                )
             }
             Row {
                 Col(span = 24) {
-                    megrendelesekTable(user, state, appState, globalDispatch)
+                    megrendelesekTable(user, appState, globalDispatch)
                 }
             }
-            if (haviTeljesitesFilter == state.activeFilter && user.isAdmin) {
+            if (haviTeljesitesFilter == appState.megrendelesTableFilterState.activeFilter && user.isAdmin) {
                 Row {
-                    val avId = state.haviTeljesites!!.alvallalkozoId
-                    val dateStr = state.haviTeljesites.date.format(monthFormat)
+                    val avId = appState.megrendelesTableFilterState.haviTeljesites!!.alvallalkozoId
+                    val dateStr = appState.megrendelesTableFilterState.haviTeljesites.date.format(monthFormat)
                     Button {
                         attrs.onClick = {
                             val x = XMLHttpRequest()
@@ -376,6 +385,7 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
                 }
             }
             child(haviTeljesitesModal(state,
+                    appState.megrendelesTableFilterState,
                     appState.alvallalkozoState.alvallalkozok,
                     setState,
                     globalDispatch
@@ -386,11 +396,10 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
 }
 
 private fun RBuilder.megrendelesekTable(user: LoggedInUser,
-                                        screenState: MegrendelesScreenState,
                                         appState: AppState,
                                         globalDispatch: (Action) -> Unit) {
     val filteredMegrendelesek = appState.megrendelesState.megrendelesek.values.filter {
-        screenState.activeFilter.predicate(screenState, it)
+        appState.megrendelesTableFilterState.activeFilter.predicate(appState.megrendelesTableFilterState, it)
     }.toTypedArray()
     val onClick = { megr: Megrendeles ->
         if (user.isAlvallalkozo && megr.atNemVett) {
@@ -486,7 +495,7 @@ private fun RBuilder.mindFilterModal(
         globalDispatch: (Action) -> Unit,
         state: MegrendelesScreenState,
         setState: Dispatcher<MegrendelesScreenState>) {
-    child(customSearchModal(appState, state.szuroMezok, visible = state.showMindFilterModal, onClose = { ok, szuroMezok ->
+    child(customSearchModal(appState, appState.megrendelesTableFilterState.szuroMezok, visible = state.showMindFilterModal, onClose = { ok, szuroMezok ->
         if (!ok) {
             setState(state.copy(
                     showMindFilterModal = false
@@ -500,10 +509,10 @@ private fun RBuilder.mindFilterModal(
             }) { response: Array<dynamic> ->
                 val ids = response.map { it.id as Int }
                 setState(state.copy(
-                        activeFilter = MegrendelesScreen.mindFilter,
-                        mindFilteredMegrendelesIds = ids,
-                        showMindFilterModal = false,
-                        szuroMezok = szuroMezok
+                        showMindFilterModal = false
+                ))
+                globalDispatch(Action.SetActiveFilter(
+                        SetActiveFilterPayload.MindFilter(ids, szuroMezok)
                 ))
                 globalDispatch(Action.MegrendelesekFromServer(response))
                 globalDispatch(Action.ChangeURL(Path.megrendeles.root))
@@ -513,7 +522,7 @@ private fun RBuilder.mindFilterModal(
 }
 
 
-private object MegrendelesScreen {
+object MegrendelesScreen {
 //    val component: ReactStatefulComponent<MegrendelesScreenProps, MegrendelesScreenState> = StatefulReactBuilder<MegrendelesScreenProps, MegrendelesScreenState>().apply {
 //
 //
@@ -545,11 +554,11 @@ private object MegrendelesScreen {
 
 
     val haviTeljesitesFilter = object : MegrendelesFilter {
-        override fun label(state: MegrendelesScreenState, appState: AppState): String {
+        override fun label(state: MegrendelesTableFilterState, appState: AppState): String {
             return ""
         }
 
-        override fun predicate(state: MegrendelesScreenState,
+        override fun predicate(state: MegrendelesTableFilterState,
                                megr: Megrendeles): Boolean {
             val props = state.haviTeljesites
             return if (props == null) false else
@@ -558,9 +567,9 @@ private object MegrendelesScreen {
     }
 
     val mindFilter = object : MegrendelesFilter {
-        override fun label(state: MegrendelesScreenState, appState: AppState): String = "Szűrés"
+        override fun label(state: MegrendelesTableFilterState, appState: AppState): String = "Szűrés"
 
-        override fun predicate(state: MegrendelesScreenState, megr: Megrendeles): Boolean = megr.id in state.mindFilteredMegrendelesIds
+        override fun predicate(state: MegrendelesTableFilterState, megr: Megrendeles): Boolean = megr.id in state.mindFilteredMegrendelesIds
     }
 
     //
@@ -588,22 +597,21 @@ private object MegrendelesScreen {
 //
 //
 
-    fun RBuilder.haviTeljesitesFilterButton(state: MegrendelesScreenState,
+    fun RBuilder.haviTeljesitesFilterButton(filterState: MegrendelesTableFilterState,
+                                            state: MegrendelesScreenState,
                                             megrendelesek: Map<Int, Megrendeles>,
                                             alvallalkozok: Map<Int, Alvallalkozo>,
                                             screenDispatch: Dispatcher<MegrendelesScreenState>,
                                             globalDispatch: (Action) -> Unit) {
         ButtonGroup {
-            Button(disabled = state.haviTeljesites == null,
-                    type = if (state.activeFilter == haviTeljesitesFilter) ButtonType.primary else ButtonType.default,
+            Button(disabled = filterState.haviTeljesites == null,
+                    type = if (filterState.activeFilter == haviTeljesitesFilter) ButtonType.primary else ButtonType.default,
                     onClick = {
-                        screenDispatch(state.copy(activeFilter = haviTeljesitesFilter))
-//                        globalDispatch(Action.FilterMegrendelesek(MegrendelesFilter(
-//                                formState.haviTeljesites!!.alvallalkozoId,
-//                                formState.haviTeljesites.date
-//                        )))
+                        globalDispatch(Action.SetActiveFilter(
+                                SetActiveFilterPayload.HaviTeljesites(filterState.haviTeljesites!!.alvallalkozoId, filterState.haviTeljesites.date)
+                        ))
                     }) {
-                val filteredMegrendelesek = megrendelesek.values.filter { haviTeljesitesFilter.predicate(state, it) }
+                val filteredMegrendelesek = megrendelesek.values.filter { haviTeljesitesFilter.predicate(filterState, it) }
                 Badge(filteredMegrendelesek.count()) {
                     attrs.asDynamic().style = jsStyle {
                         backgroundColor = "#1890ff"
@@ -612,7 +620,7 @@ private object MegrendelesScreen {
                         attrs.jsStyle {
                             marginRight = "15px"
                         }
-                        val props = state.haviTeljesites
+                        val props = filterState.haviTeljesites
                         val label = if (props == null) "Havi teljesítés" else {
                             val alv = alvallalkozok[props.alvallalkozoId]!!
                             "${alv.name}: ${props.date.format(monthFormat)}"
@@ -738,14 +746,20 @@ private object MegrendelesScreen {
 //
     fun RBuilder.simpleFilterButtons(loggedInUser: LoggedInUser,
                                      state: MegrendelesScreenState,
+                                     filterState: MegrendelesTableFilterState,
                                      megrendelesek: Map<Int, Megrendeles>,
                                      globalDispatch: (Action) -> Unit,
                                      setState: Dispatcher<MegrendelesScreenState>) {
-        createSimpleFilterButtons(state, megrendelesek, getSimpleFilters(loggedInUser), setState)
+        createSimpleFilterButtons(
+                filterState,
+                megrendelesek,
+                getSimpleFilters(loggedInUser),
+                globalDispatch
+        )
 
         if (loggedInUser.isAdmin) {
             Button(icon = "search",
-                    type = if (state.activeFilter == mindFilter) ButtonType.primary else ButtonType.default) {
+                    type = if (filterState.activeFilter == mindFilter) ButtonType.primary else ButtonType.default) {
                 attrs.onClick = {
                     setState(state.copy(
                             showMindFilterModal = true
@@ -780,19 +794,17 @@ private object MegrendelesScreen {
         }
     }
 
-    private fun RBuilder.createSimpleFilterButtons(state: MegrendelesScreenState,
+    private fun RBuilder.createSimpleFilterButtons(filterState: MegrendelesTableFilterState,
                                                    megrendelesek: Map<Int, Megrendeles>,
                                                    simpleFilters: Array<SimpleMegrendelesFilter>,
-                                                   screenDispatch: Dispatcher<MegrendelesScreenState>) {
+                                                   globalDispatch: (Action) -> Unit) {
         simpleFilters.forEach { filter ->
-            val megrendelesek = megrendelesek.values.filter { filter.predicate(state, it) }
+            val megrendelesek = megrendelesek.values.filter { filter.predicate(filterState, it) }
             val count = megrendelesek.count()
-            Button(type = if (filter === state.activeFilter) ButtonType.primary else ButtonType.default,
+            Button(type = if (filter === filterState.activeFilter) ButtonType.primary else ButtonType.default,
                     icon = filter.icon,
                     onClick = {
-                        screenDispatch(state.copy(
-                                activeFilter = filter
-                        ))
+                        globalDispatch(Action.SetActiveFilter(SetActiveFilterPayload.SimpleFilter(filter)))
                     }) {
                 if (count > 0) {
                     filterButtonCountBadge(count, filter)
@@ -828,6 +840,7 @@ private object MegrendelesScreen {
 }
 
 private fun haviTeljesitesModal(state: MegrendelesScreenState,
+                                filterState: MegrendelesTableFilterState,
                                 osszesAlvallalkozo: Map<Int, Alvallalkozo>,
                                 screenDispatch: Dispatcher<MegrendelesScreenState>,
                                 globalDispatch: (Action) -> Unit): ReactElement {
@@ -838,7 +851,7 @@ private fun haviTeljesitesModal(state: MegrendelesScreenState,
         val globalDispatch: (Action) -> Unit = props.globalDispatch
 
         val alvallalkozok = osszesAlvallalkozo.getEnabledAlvallalkozok()
-        val haviTeljesites = state.haviTeljesites ?: HaviTeljesites(0, moment())
+        val haviTeljesites = filterState.haviTeljesites ?: HaviTeljesites(0, moment())
         val (modalState, modalDispatch) = useState(haviTeljesites)
         buildElement {
             Modal {
@@ -849,11 +862,11 @@ private fun haviTeljesitesModal(state: MegrendelesScreenState,
                 }
                 attrs.onOk = {
                     screenDispatch(state.copy(
-                            haviTeljesitesModalOpen = false,
-                            haviTeljesites = modalState,
-                            activeFilter = haviTeljesitesFilter
+                            haviTeljesitesModalOpen = false
                     ))
-                    globalDispatch(Action.FilterMegrendelesek(MegrendelesFilter(modalState.alvallalkozoId, modalState.date)))
+                    globalDispatch(Action.SetActiveFilter(SetActiveFilterPayload.HaviTeljesites(
+                            modalState.alvallalkozoId, modalState.date
+                    )))
                 }
                 attrs.onCancel = {
                     screenDispatch(state.copy(haviTeljesitesModalOpen = false))

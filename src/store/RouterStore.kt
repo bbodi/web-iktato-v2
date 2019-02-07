@@ -16,7 +16,7 @@ fun routerStoreHandler(state: UrlData, action: Action): UrlData {
         is Action.MegrendelesekFromServer -> state
         is Action.SetLoggedInUser -> state
         is Action.changeURLSilently -> state
-        is Action.FilterMegrendelesek -> state
+        is Action.SetActiveFilter -> state
         is Action.SajatArFromServer -> state
         is Action.AccountFromServer -> state
         is Action.AlvallalkozoFromServer -> state

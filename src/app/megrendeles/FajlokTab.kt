@@ -77,7 +77,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                 attrs.defaultActiveKey = arrayOf("Fájl feltöltés", "Feltöltött fájlok")
                 Panel("Fájl feltöltés") {
                     attrs.header = StringOrReactElement.fromString("Fájl feltöltés")
-                    feltoltesPanel(tabState, setTabState)
+                    feltoltesPanel(props.formState.megrendeles.id == 0, tabState, setTabState)
                 }
                 Panel("Feltöltött fájlok") {
                     attrs.header = StringOrReactElement.fromString("Feltöltött fájlok")
@@ -447,8 +447,10 @@ private fun ifExcelIsFilledButMegrIsNot(newValue: Int?, oldValue: Int?, callIfEq
     }
 }
 
-private fun RBuilder.feltoltesPanel(state: FajlokTabComponentState, setTabState: Dispatcher<FajlokTabComponentState>) {
+private fun RBuilder.feltoltesPanel(disabled: Boolean, state: FajlokTabComponentState,
+                                    setTabState: Dispatcher<FajlokTabComponentState>) {
     Button {
+        attrs.disabled = disabled
         attrs.type = ButtonType.default
         attrs.onClick = {
             setTabState(state.copy(uploadModalVisible = true))

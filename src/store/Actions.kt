@@ -1,6 +1,8 @@
 package store
 
 import app.common.Moment
+import app.megrendeles.MegrendelesFilter
+import app.megrendeles.SzuroMezo
 import hu.nevermind.utils.store.LoggedInUser
 import hu.nevermind.utils.store.Megrendeles
 import hu.nevermind.utils.store.RegioOsszerendeles
@@ -17,14 +19,18 @@ data class UploadData(val megr: Megrendeles,
                       val ertekbecslestTartalmazza: Boolean,
                       val energetikatTartalmazza: Boolean)
 
-data class MegrendelesFilter(val alvallalkozoId: Int, val date: Moment)
+sealed class SetActiveFilterPayload {
+    data class SimpleFilter(val activeFilter: MegrendelesFilter) : SetActiveFilterPayload()
+    data class HaviTeljesites(val alvallalkozoId: Int, val date: Moment) : SetActiveFilterPayload()
+    data class MindFilter(val ids: List<Int>, val szuromezok: List<SzuroMezo>) : SetActiveFilterPayload()
+}
 
 sealed class Action {
     data class MegrendelesekFromServer(val data: Array<dynamic>) : Action()
     data class SetLoggedInUser(val data: LoggedInUser?) : Action()
     data class ChangeURL(val url: String) : Action()
     data class changeURLSilently(val url: String) : Action()
-    data class FilterMegrendelesek(val megrendelesFilter: MegrendelesFilter) : Action()
+    data class SetActiveFilter(val payload: SetActiveFilterPayload) : Action()
     data class SajatArFromServer(val sajatAr: SajatAr) : Action()
     data class AccountFromServer(val response: dynamic) : Action()
     data class AlvallalkozoFromServer(val response: dynamic) : Action()

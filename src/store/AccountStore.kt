@@ -32,7 +32,7 @@ fun accountActionHandler(state: AccountStore, action: Action): AccountStore {
         }
         is Action.ChangeURL -> state
         is Action.changeURLSilently -> state
-        is Action.FilterMegrendelesek -> state
+        is Action.SetActiveFilter -> state
         is Action.SajatArFromServer -> state
         is Action.AccountFromServer -> {
             val accountFromServer = jsonToAccount(action.response)

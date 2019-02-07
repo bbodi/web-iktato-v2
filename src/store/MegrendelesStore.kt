@@ -73,10 +73,11 @@ fun megrendelesekFromServer(state: MegrendelesState, action: Action): Megrendele
         is Action.SetLoggedInUser -> state
         is Action.ChangeURL -> state
         is Action.changeURLSilently -> state
-        is Action.FilterMegrendelesek -> state.copy(megrendelesek = state.megrendelesek + filterMegrendelesek(
-                action.megrendelesFilter.alvallalkozoId,
-                action.megrendelesFilter.date
-        ))
+        is Action.SetActiveFilter -> if (action.payload is SetActiveFilterPayload.HaviTeljesites) state.copy(
+                megrendelesek = state.megrendelesek + filterMegrendelesek(
+                        action.payload.alvallalkozoId,
+                        action.payload.date
+                )) else state
         is Action.SajatArFromServer -> state
         is Action.AccountFromServer -> state
         is Action.AlvallalkozoFromServer -> state

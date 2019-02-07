@@ -150,7 +150,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
         Button {
             attrs.asDynamic().id = MegrendelesScreenIds.modal.button.akadalyFeltoltes
             attrs.type = ButtonType.primary
-            attrs.disabled = tabState.akadalyReason == null
+            attrs.disabled = tabState.akadalyReason == null || props.formState.megrendeles.id == 0
             attrs.onClick = {
                 setTabState(tabState.copy(
                         szovegesMagyarazat = "",
