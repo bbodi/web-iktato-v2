@@ -109,18 +109,21 @@ private fun RElementBuilder<ColProps>.addNewButton(globalDispatch: (Action) -> U
 fun <T> StringFilteringColumnProps(searchText: String,
                                    setState: Dispatcher<String>,
                                    fieldGetter: (T) -> String,
+                                   id: String? = null,
                                    body: ColumnProps.() -> Unit): ColumnProps {
     return ColumnProps {
         filterIcon = { filtered ->
             StringOrReactElement.from {
-                Icon(type = "search", style = jsStyle { color = if (filtered) "#1890ff" else "" })
+                Icon(type = "search", style = jsStyle { color = if (filtered) "#1890ff" else "" }) {
+                    attrs.asDynamic().id = id
+                }
             }
         }
         var searchInput: Any? = null
 
         onFilterDropdownVisibleChange = { visible ->
             if (visible) {
-                window.setTimeout({ searchInput.asDynamic().select() }, 0)
+                window.setTimeout({ searchInput.asDynamic()?.select() }, 0)
             }
         }
         filterDropdown = { filterDropdownData ->
@@ -136,6 +139,7 @@ fun <T> StringFilteringColumnProps(searchText: String,
                 }
                 div("custom-filter-dropdown") {
                     Input {
+                        attrs.asDynamic().id = if (id != null) "${id}_input" else null
                         attrs.asDynamic().ref = { node: Any -> searchInput = node }
                         attrs.placeholder = "Gépeljen be egy kifejezést majd nyomjon entert"
                         attrs.value = filterDropdownData.selectedKeys[0]
@@ -150,6 +154,7 @@ fun <T> StringFilteringColumnProps(searchText: String,
                         jsStyle { width = 188; marginBottom = 8; display = "block" }
                     }
                     Button {
+                        attrs.asDynamic().id = if (id != null) "${id}_search_button" else null
                         attrs.type = ButtonType.primary
                         attrs.onClick = { handleSearch() }
                         attrs.icon = "search"
@@ -169,7 +174,7 @@ fun <T> StringFilteringColumnProps(searchText: String,
         onFilter = { value, record ->
             fieldGetter(record as T).toUpperCase().replace(" ", "").contains((value as String).toUpperCase().replace(" ", ""))
         }
-        render = { text: String, _ ->
+        render = { text: String, _, _ ->
             buildElement {
                 Highlighter {
                     attrs.asDynamic().highlightStyle = jsStyle { backgroundColor = "#ffc069"; padding = 0 }
@@ -203,7 +208,7 @@ private fun RBuilder.accountTable(appState: AppState,
             },
             ColumnProps {
                 title = "Állapot"; key = "formState"; width = 100
-                render = { account: Account, _ ->
+                render = { account: Account, _, _ ->
                     buildElement {
                         Tag {
                             attrs.color = if (account.disabled) "red" else "green"

@@ -7,6 +7,7 @@ import hu.nevermind.iktato.JqueryAjaxPoster
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
 import hu.nevermind.iktato.Result
+import hu.nevermind.utils.app.runIntegrationTests
 import hu.nevermind.utils.hu.nevermind.antd.Menu
 import hu.nevermind.utils.hu.nevermind.antd.MenuItem
 import hu.nevermind.utils.hu.nevermind.antd.MenuMode
@@ -48,6 +49,8 @@ data class AppState(val megrendelesState: MegrendelesState,
 interface IdProps : RProps {
     var id: Int
 }
+
+val globalEventListeners: MutableList<(AppState)->Unit> = arrayListOf()
 
 fun main(args: Array<String>) {
     // HACK: operator invoke is translated as `invoke()` function call in Javascript -_-'
@@ -168,7 +171,9 @@ fun main(args: Array<String>) {
                     geoData = geoReducer(currentState.geoData, action),
                     sajatArState = sajatArActionHandler(currentState.sajatArState, action),
                     accountStore = accountActionHandler(currentState.accountStore, action)
-            )
+            ).also { state ->
+                globalEventListeners.forEach { it(state) }
+            }
         }, AppState(MegrendelesState(emptyMap()), AlvallalkozoState(),
                 maybeLoggedInUser = null,
                 currentScreen = AppScreen.LoginAppScreen(),
@@ -343,6 +348,13 @@ fun main(args: Array<String>) {
                     }
                     Footer {
                         +"Presting Iktató ©2019 Created by NeverMind Software Kft"
+                        Button {
+                            attrs.type = ButtonType.primary
+                            attrs.onClick = {
+                                runIntegrationTests(dispatch, appState)
+                            }
+                            +"Tests"
+                        }
                     }
                 }
             }

@@ -39,7 +39,7 @@ sealed class Action {
     data class DeleteRegioOsszerendeles(val regioOsszerendeles: RegioOsszerendeles) : Action()
 }
 
-object Actions {
+//object Actions {
 
 //    val notification = ActionDef<Notification>()
 //
@@ -50,7 +50,7 @@ object Actions {
 //    val megrendelesekFromServer = ActionDef<Array<dynamic>>()
 //    class MegrendelesekFromServer(val data: Array<dynamic>): RAction {
 //    }
-}
+//}
 
 //    val regioOsszerendelesFromServer = ActionDef<dynamic>()
 

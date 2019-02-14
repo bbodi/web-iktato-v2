@@ -128,7 +128,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                     title = "Név"
                     dataIndex = "name"
                     width = 100
-                    render = { cell: String, row: OldNewValues ->
+                    render = { cell: String, row: OldNewValues, _ ->
                         buildElement {
                             div {
                                 if (row.oldValue != row.newValue && row.oldValue.isNotEmpty()) {
@@ -153,7 +153,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                     dataIndex = "newValue"
                     align = ColumnAlign.right
                     width = 50
-                    render = { cell: String, _ ->
+                    render = { cell: String, _, _ ->
                         buildElement {
                             span {
                                 attrs.jsStyle = jsStyle {
@@ -205,7 +205,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                     dataIndex = "humanReadableSize"
                     align = ColumnAlign.right
                     width = 50
-                    render = { cell: String, _ ->
+                    render = { cell: String, _, _ ->
                         buildElement {
                             span {
                                 attrs.jsStyle = jsStyle {
@@ -221,7 +221,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                     key = "action"
                     align = ColumnAlign.right
                     width = 150
-                    render = { _, fileData: FileData ->
+                    render = { _, fileData: FileData, _ ->
                         buildElement {
                             span {
                                 a(href = null) {

@@ -43,7 +43,7 @@ external interface ColumnProps {
     var align: ColumnAlign
     var key: String
     //                  render: (RBuilder.(text: String, record: dynamic, Int) -> ReactElement?)? = null) {
-    var render: (cell: dynamic, row: dynamic) -> ReactElement?
+    var render: (cell: dynamic, row: dynamic, rowIndex: Int) -> ReactElement?
     var filters: Any?
     var onFilter: (value: dynamic, record: dynamic) -> Boolean
 //    val render: (String, Any, Int) -> ReactElement? = render?.let { render ->

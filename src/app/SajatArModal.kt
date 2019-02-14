@@ -41,6 +41,7 @@ fun sajatArModal(
                     onClose(false, null)
                 }
                 Form {
+                    attrs.asDynamic().id = SajatArScreenIds.modal.id
                     Row {
                         Col(span = 11) {
                             FormItem {
@@ -48,6 +49,7 @@ fun sajatArModal(
                                 attrs.help = StringOrReactElement.fromString("Meglévő vagy új Megrendelő")
                                 attrs.label = StringOrReactElement.fromString("Megrendelő")
                                 AutoComplete(appState.sajatArState.allMegrendelo) {
+                                    attrs.asDynamic().id = SajatArScreenIds.modal.input.megrendelo
                                     attrs.value = sajatAr.megrendelo
                                     attrs.placeholder = "Megrendelő"
                                     attrs.filterOption = { inputString, optionElement ->
@@ -58,7 +60,6 @@ fun sajatArModal(
                                     }
                                 }
                             }
-
                         }
                         Col(span = 11, offset = 2) {
                             FormItem {
@@ -66,6 +67,7 @@ fun sajatArModal(
                                 attrs.help = StringOrReactElement.fromString("Meglévő vagy új Munkatípus")
                                 attrs.label = StringOrReactElement.fromString("Munkatípus")
                                 AutoComplete(appState.sajatArState.getMunkatipusokForMegrendelo(sajatAr.megrendelo).toTypedArray()) {
+                                    attrs.asDynamic().id = SajatArScreenIds.modal.input.munkatipus
                                     attrs.value = sajatAr.munkatipus
                                     attrs.placeholder = "Munkatípus"
                                     attrs.filterOption = { inputString, optionElement ->
@@ -84,6 +86,7 @@ fun sajatArModal(
                                 attrs.required = true
                                 attrs.label = StringOrReactElement.fromString("Leírás")
                                 Input {
+                                    attrs.asDynamic().id = SajatArScreenIds.modal.input.leiras
                                     attrs.value = sajatAr.leiras
                                     attrs.onChange = { e -> setComponentState(sajatAr.copy(leiras = e.currentTarget.asDynamic().value)) }
                                 }
@@ -96,6 +99,7 @@ fun sajatArModal(
                                 attrs.required = true
                                 attrs.label = StringOrReactElement.fromString("Nettó ár")
                                 MyNumberInput {
+                                    attrs.asDynamic().id = SajatArScreenIds.modal.input.nettoAr
                                     attrs.number = sajatAr.nettoAr.toLong()
                                     attrs.addonAfter = StringOrReactElement.from { +"Ft" }
                                     attrs.onValueChange = { value ->
@@ -109,6 +113,7 @@ fun sajatArModal(
                                 attrs.required = true
                                 attrs.label = StringOrReactElement.fromString("ÁFA")
                                 MyNumberInput {
+                                    attrs.asDynamic().id = SajatArScreenIds.modal.input.afa
                                     attrs.number = sajatAr.afa.toLong()
                                     attrs.addonAfter = StringOrReactElement.from { +"%" }
                                     attrs.onValueChange = { value ->

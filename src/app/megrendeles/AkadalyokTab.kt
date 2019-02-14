@@ -256,7 +256,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                     title = "Rögzítve"
                     dataIndex = "rogzitve"
                     width = 75
-                    render = { cell: Moment?, _ ->
+                    render = { cell: Moment?, _, _ ->
                         buildElement {
                             +(cell?.format(dateTimeFormat) ?: "")
                         }
@@ -265,7 +265,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                 ColumnProps {
                     title = "Új határidő"
                     dataIndex = "ujHatarido"
-                    render = { cell: Moment?, _ ->
+                    render = { cell: Moment?, _, _ ->
                         buildElement {
                             +(cell?.format(dateFormat) ?: "")
                         }
@@ -276,7 +276,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                     title = "Státusz"
                     dataIndex = "statusz"
                     width = 75
-                    render = { cell: Statusz, _ ->
+                    render = { cell: Statusz, _, _ ->
                         buildElement {
                             +cell.text
                         }
@@ -286,7 +286,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                     title = "Leírás"
                     dataIndex = "leiras"
                     width = 175
-                    render = { cell: String, record: Akadaly ->
+                    render = { cell: String, record: Akadaly, _ ->
                         buildElement {
                             if (cell.length > 50) {
                                 a(href = null) {

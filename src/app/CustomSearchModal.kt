@@ -140,7 +140,6 @@ private fun RBuilder.ebOperatorAndOperand(appState: AppState,
                                           index: Int,
                                           szuroMezo: SzuroMezo) {
     Col(span = 6) {
-        // TODO: Halmaz
         operatorSelect(arrayOf("="), szuroMezo) { operator, operand ->
             szuroMezoChanged(state, setState, index, operand, operator)
         }
@@ -158,7 +157,6 @@ private fun RBuilder.avOperatorAndOperand(appState: AppState,
                                           index: Int,
                                           szuroMezo: SzuroMezo) {
     Col(span = 6) {
-        // TODO: Halmaz
         operatorSelect(arrayOf("="), szuroMezo) { operator, operand ->
             szuroMezoChanged(state, setState, index, operand, operator)
         }

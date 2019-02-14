@@ -340,6 +340,7 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
                             setFormState))
         }
         TabPane {
+            attrs.key = MegrendelesScreenIds.modal.tab.files
             attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Fájlok", color = "black", icon = "upload", badgeNum = state.megrendeles.files.size))
             FajlokTabComponent.insert(this, FajlokTabParams(state,
                     onSaveFunctions,

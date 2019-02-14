@@ -181,7 +181,7 @@ private fun RBuilder.regioTable(alvallalkozoId: Int,
             },
             ColumnProps {
                 title = "Nettó ár (Ft)"; dataIndex = "nettoAr"; width = 100; align = ColumnAlign.right
-                render = { num: Int, _ ->
+                render = { num: Int, _, _ ->
                     buildElement {
                         +parseGroupedStringToNum(num.toString()).second
                     }
@@ -189,7 +189,7 @@ private fun RBuilder.regioTable(alvallalkozoId: Int,
             },
             ColumnProps {
                 title = "Jutalék (Ft)"; dataIndex = "jutalek"; width = 100; align = ColumnAlign.right
-                render = { num: Int, _ ->
+                render = { num: Int, _, _ ->
                     buildElement {
                         +parseGroupedStringToNum(num.toString()).second
                     }
@@ -200,7 +200,7 @@ private fun RBuilder.regioTable(alvallalkozoId: Int,
             },
             ColumnProps {
                 title = ""; key = "action"; width = 100
-                render = { row: RegioOsszerendeles, _ ->
+                render = { row: RegioOsszerendeles, _, _ ->
                     buildElement {
                         Row {
                             Col(span = 12) {

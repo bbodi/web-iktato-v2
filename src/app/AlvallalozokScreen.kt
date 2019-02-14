@@ -98,6 +98,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                                        setState: Dispatcher<AlvallalkozoScreenState>) {
     val columns = arrayOf(
             StringFilteringColumnProps<Alvallalkozo>(state.nameSarchText,
+                    id = AlvallalkozoScreenIds.table.nameSearchButton,
                     setState = { changedSearchText -> setState(state.copy(nameSarchText = changedSearchText)) },
                     fieldGetter = { alvallalkozo -> alvallalkozo.name }
             ) {
@@ -105,7 +106,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
             },
             ColumnProps {
                 title = "Telefon"; dataIndex = "phone"; width = 130
-                render = { phones: String, _ ->
+                render = { phones: String, _, _ ->
                     buildElement {
                         val phoneArr = phones.split("[^\\d\\+\\-\\/]+".toRegex())
                         if (phoneArr.size > 1) {
@@ -138,7 +139,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
             },
             ColumnProps {
                 title = "Állapot"; key = "formState"; width = 50
-                render = { alvallalkozo: Alvallalkozo, _ ->
+                render = { alvallalkozo: Alvallalkozo, _, _ ->
                     buildElement {
                         Tag {
                             attrs.color = if (alvallalkozo.disabled) "red" else "green"
@@ -156,11 +157,12 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
             },
             ColumnProps {
                 title = ""; key = "action"; width = 120
-                render = { row: Alvallalkozo, _ ->
+                render = { row: Alvallalkozo, _, rowIndex ->
                     buildElement {
                         div {
                             Tooltip("Szerkesztés") {
                                 Button {
+                                    attrs.asDynamic().id = AlvallalkozoScreenIds.table.row.editButton(rowIndex)
                                     attrs.icon = "edit"
                                     attrs.onClick = {
                                         globalDispatch(Action.ChangeURL(Path.alvallalkozo.withOpenedAlvallalkozoEditorModal(row.id)))
@@ -170,6 +172,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                             +" "
                             Tooltip("Értékbecslők") {
                                 Button {
+                                    attrs.asDynamic().id = AlvallalkozoScreenIds.table.row.ertekbecslok(rowIndex)
                                     attrs.icon = "usergroup-add"
                                     attrs.onClick = {
                                         globalDispatch(Action.ChangeURL(Path.ertekbecslo.root(row.id)))
@@ -178,6 +181,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                             }
                             Tooltip("Régió összerendelések") {
                                 Button {
+                                    attrs.asDynamic().id = AlvallalkozoScreenIds.table.row.regioButton(rowIndex)
                                     attrs.icon = "picture"
                                     attrs.onClick = {
                                         globalDispatch(Action.ChangeURL(Path.alvallalkozo.regio(row.id)))
@@ -203,9 +207,11 @@ object AlvallalkozoScreenIds {
 
     object table {
         val id = "${screenId}_table"
+        val nameSearchButton = "${id}_name_search_button"
 
         object row {
             val editButton: (Int) -> String = { rowIndex -> "${id}_editButton_$rowIndex" }
+            val ertekbecslok: (Int) -> String = { rowIndex -> "${id}_ebs$rowIndex" }
             val regioButton: (Int) -> String = { rowIndex -> "${id}_regioButton_$rowIndex" }
         }
     }

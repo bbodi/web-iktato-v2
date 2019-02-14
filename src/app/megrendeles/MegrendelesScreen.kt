@@ -48,6 +48,7 @@ object MegrendelesScreenIds {
             val first = "${prefix}first"
             val feltoltesZarolas = "${prefix}second"
             val ingatlanAdatai = "${prefix}ingatlanAdatai"
+            val files = "${prefix}files"
             val akadalyok = "${prefix}akadalyok"
             val penzBeerkezett = "${prefix}penzBeerkezett"
         }
@@ -155,8 +156,7 @@ data class SimpleMegrendelesFilter(val label: String, val icon: String? = null, 
     }
 }
 
-// TODO: mentsd el applicationwide az active megrendelesFiltert
-// a filter gombokon az ikonok tünjenek el kis felbontásban
+// TODO: a filter gombokon az ikonok tünjenek el kis felbontásban
 val atNemVettFilter = SimpleMegrendelesFilter("Át nem vett") {
     (megrendelesMegtekint == null)
             .and(!alvallalkozoFeltoltotteFajlokat)

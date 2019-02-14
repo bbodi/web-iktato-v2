@@ -114,12 +114,13 @@ private fun RBuilder.megrendeloSelect(appState: AppState,
                                       state: ComponentState,
                                       componentDispatch: Dispatcher<ComponentState>) {
     Select {
+        attrs.asDynamic().id = SajatArScreenIds.megrendeloSelect
         attrs.value = state.selectedMegrendelo
         attrs.onSelect = { value, option ->
             componentDispatch(
                     state.copy(
-                            selectedMegrendelo = value.asDynamic(),
-                            selectedMunkatipus = appState.sajatArState.getMunkatipusokForMegrendelo(value.asDynamic()).first()
+                            selectedMegrendelo = value,
+                            selectedMunkatipus = appState.sajatArState.getMunkatipusokForMegrendelo(value).first()
                     )
             )
         }
@@ -134,9 +135,10 @@ private fun RBuilder.munkatipusSelect(appState: AppState,
                                       componentDispatch: Dispatcher<ComponentState>) {
     Select {
         attrs.value = state.selectedMunkatipus
+        attrs.asDynamic().id = SajatArScreenIds.munkatipusSelect
         attrs.onSelect = { value, option ->
             componentDispatch(
-                    state.copy(selectedMunkatipus = value.asDynamic())
+                    state.copy(selectedMunkatipus = value)
             )
         }
         appState.sajatArState.getMunkatipusokForMegrendelo(state.selectedMegrendelo).forEach { munkaTipus ->
@@ -158,7 +160,7 @@ private fun RBuilder.table(appState: AppState,
             ColumnProps { title = "Leírás"; dataIndex = "leiras"; width = 300 },
             ColumnProps {
                 title = "Nettó ár (Ft)"; dataIndex = "nettoAr"; align = ColumnAlign.right; width = 100
-                render = { nettoAr: Int, _ ->
+                render = { nettoAr: Int, _, _ ->
                     buildElement {
                         +parseGroupedStringToNum(nettoAr.toString()).second
                     }
@@ -183,6 +185,8 @@ object SajatArScreenIds {
     val screenId = "sajatArScreen"
 
     val addButton = "${screenId}add"
+    val megrendeloSelect = "${screenId}megrendelo"
+    val munkatipusSelect = "${screenId}munkatipus"
 
     object modal {
         private val prefix = "${screenId}_modal_"
