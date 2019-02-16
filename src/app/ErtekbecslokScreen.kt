@@ -25,6 +25,36 @@ data class ErtekbecsloScreenParams(val alvallalkozoId: Int,
                                    val appState: AppState,
                                    val globalDispatch: (Action) -> Unit)
 
+object ErtekbecslokScreenIds {
+    val screenId = "ertekbecsloScreen"
+    val addButton = "${screenId}_addButton"
+    val alvallalkozoSelect = "${screenId}_alvId"
+
+    object table {
+        val id = "${screenId}_table"
+        val editButton: (Int) -> String = { rowIndex -> "${id}_editButton_$rowIndex" }
+
+    }
+
+    object modal {
+        val id = "${screenId}_modal"
+
+        object inputs {
+            val name = "${id}_name"
+            val phone = "${id}_phone"
+            val email = "${id}_email"
+            val disabled = "${id}_disabled"
+            val comment = "${id}_comment"
+        }
+
+        object buttons {
+            val save = "${id}_saveButton"
+            val close = "${id}_closeButton"
+        }
+    }
+}
+
+
 object ErtekbecsloScreenComponent : DefinedReactComponent<ErtekbecsloScreenParams>() {
     override fun RBuilder.body(props: ErtekbecsloScreenParams) {
         val appState: AppState = props.appState
@@ -35,6 +65,7 @@ object ErtekbecsloScreenComponent : DefinedReactComponent<ErtekbecsloScreenParam
             Breadcrumb {
                 BreadcrumbItem {
                     Select {
+                        attrs.asDynamic().id = ErtekbecslokScreenIds.alvallalkozoSelect
                         attrs.asDynamic().style = jsStyle { minWidth = 300 }
                         attrs.showSearch = true
                         attrs.filterOption = { inputString, optionElement ->
@@ -104,7 +135,7 @@ private fun RBuilder.ertekbecsloEditingModal(alvallalkozoId: Int, editingErtekbe
 
 private fun RElementBuilder<ColProps>.addNewButton(alvallalkozoId: Int, globalDispatch: (Action) -> Unit) {
     Button {
-        attrs.asDynamic().id = AlvallalkozoScreenIds.addButton
+        attrs.asDynamic().id = ErtekbecslokScreenIds.addButton
         attrs.type = ButtonType.primary
         attrs.onClick = {
             globalDispatch(Action.ChangeURL(Path.ertekbecslo.withOpenedErtekbecsloEditorModal(alvallalkozoId, 0)))
@@ -148,11 +179,12 @@ private fun RBuilder.ertekbecsloTable(alvallalkozoId: Int,
             },
             ColumnProps {
                 title = ""; key = "action"; width = 100
-                render = { row: Ertekbecslo, _, _ ->
+                render = { row: Ertekbecslo, _, rowIndex ->
                     buildElement {
                         div {
                             Tooltip("Szerkesztés") {
                                 Button {
+                                    attrs.asDynamic().id = ErtekbecslokScreenIds.table.editButton(rowIndex)
                                     attrs.icon = "edit"
                                     attrs.onClick = {
                                         globalDispatch(Action.ChangeURL(Path.ertekbecslo.withOpenedErtekbecsloEditorModal(alvallalkozoId, row.id)))

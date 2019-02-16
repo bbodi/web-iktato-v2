@@ -39,6 +39,17 @@ object MegrendelesScreenIds {
 
     val addButton = "${screenId}_addButton"
 
+    object menu {
+        private val prefix = "${screenId}_menu_"
+
+        val megrendelesek = "${prefix}megr"
+        val sajatar = "${prefix}sajatAr"
+        val alvallalkozok = "${prefix}alv"
+        val ertekbecslok = "${prefix}eb"
+        val felhasznalok = "${prefix}users"
+        val regiok = "${prefix}regiok"
+    }
+
     object modal {
         private val prefix = "${screenId}_modal_"
         val id = "${prefix}root"

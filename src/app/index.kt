@@ -313,7 +313,7 @@ fun main(args: Array<String>) {
                             attrs.mode = MenuMode.horizontal
                             attrs.theme = Theme.dark
                             attrs.selectedKeys = arrayOf(currentScreen::class.simpleName!!)
-                            attrs.onSelect = { event ->
+                            attrs.onClick = { event ->
                                 when (event.key) {
                                     AppScreen.MegrendelesAppScreen::class.simpleName -> dispatch(Action.ChangeURL(Path.megrendeles.root))
                                     AppScreen.SajatArAppScreen::class.simpleName -> dispatch(Action.ChangeURL(Path.sajatAr.root))
@@ -329,12 +329,30 @@ fun main(args: Array<String>) {
                                     }
                                 }
                             }
-                            MenuItem(AppScreen.MegrendelesAppScreen::class.simpleName!!) { +"Megrendelések" }
-                            MenuItem(AppScreen.SajatArAppScreen::class.simpleName!!) { +"Sajár ár" }
-                            MenuItem(AppScreen.AlvallalkozoAppScreen::class.simpleName!!) { +"Alvállalkozó/Régió" }
-                            MenuItem(AppScreen.ErtekbecsloAppScreen::class.simpleName!!) { +"Értékbecslők" }
-                            MenuItem(AppScreen.AccountAppScreen::class.simpleName!!) { +"Felhasználók" }
-                            MenuItem(AppScreen.RegioAppScreen::class.simpleName!!) { +"Régiók" }
+                            MenuItem(AppScreen.MegrendelesAppScreen::class.simpleName!!) {
+                                attrs.asDynamic().id = MegrendelesScreenIds.menu.megrendelesek
+                                +"Megrendelések"
+                            }
+                            MenuItem(AppScreen.SajatArAppScreen::class.simpleName!!) {
+                                attrs.asDynamic().id = MegrendelesScreenIds.menu.sajatar
+                                +"Sajár ár"
+                            }
+                            MenuItem(AppScreen.AlvallalkozoAppScreen::class.simpleName!!) {
+                                attrs.asDynamic().id = MegrendelesScreenIds.menu.alvallalkozok
+                                +"Alvállalkozók"
+                            }
+                            MenuItem(AppScreen.ErtekbecsloAppScreen::class.simpleName!!) {
+                                attrs.asDynamic().id = MegrendelesScreenIds.menu.ertekbecslok
+                                +"Értékbecslők"
+                            }
+                            MenuItem(AppScreen.AccountAppScreen::class.simpleName!!) {
+                                attrs.asDynamic().id = MegrendelesScreenIds.menu.felhasznalok
+                                +"Felhasználók"
+                            }
+                            MenuItem(AppScreen.RegioAppScreen::class.simpleName!!) {
+                                attrs.asDynamic().id = MegrendelesScreenIds.menu.regiok
+                                +"Régiók"
+                            }
                         }
                     }
                     Content {

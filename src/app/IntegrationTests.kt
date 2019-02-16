@@ -196,7 +196,7 @@ fun simulateChangeInput(id: String, body: (Element?) -> String = { "" }) {
         val input: Element = document.getElementById(id)!!.let { element ->
             if (element !is HTMLInputElement && element !is HTMLTextAreaElement) {
                 val autoCompletionInput = element.getElementsByTagName("input")[0]
-                if (autoCompletionInput != null && autoCompletionInput != undefined) {
+                if (element.hasClass("ant-select-auto-complete") && autoCompletionInput != null && autoCompletionInput != undefined) {
                     autoCompletionInput as HTMLInputElement
                 } else {
                     // Select
@@ -294,10 +294,12 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
     val testMegrendelo = "TestMegrendelő"
     val testMunkatipus = "TestMunkatipus"
     val testAlvallalkozName = "TestAlvállalkozó"
+    val testErtekbecsloName = "Test Értékbecslő"
     var testLeiras = "Test leírás"
     var testNettoAr = 10000
     var testAfa = 20
     var sajatArId = 0
+    var ertekbecsloId = 0
     var alvallalkozId = 0
     var regioId = 0
     var regioId2 = 0
@@ -664,26 +666,96 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
         }
     }
 
-    runFirstGiven(onFinally = {
-//        if (sajatArId != 0) {
-//            communicator.deleteEntity("SajatAr", sajatArId)
-//        }
-//        if (newMegrendelesId != 0) {
-//            communicator.deleteEntity("Megrendeles", newMegrendelesId)
-//        }
-//        if (regioId != 0) {
-//            communicator.deleteEntity("RegioOsszerendeles", regioId)
-//        }
-//        if (regioId2 != 0) {
-//            communicator.deleteEntity("RegioOsszerendeles", regioId2)
-//        }
-//        if (alvallalkozId != 0) {
-//            communicator.deleteEntity("Alvallalkozo", alvallalkozId)
-//        }
-    })
-    if (true) {
-        return
+    given("Értékbecslők screen is open") {
+        MegrendelesScreenIds.menu.ertekbecslok.simulateClick()
+
+        on("opening the screen") {
+            it("By default '3 V Ingatlan Holding Kft.' is selected, which has 4 rows") {
+                assertEquals(4, tableRows().length)
+            }
+        }
+
+        on("selecting our test alvallalkozo") {
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect) { testAlvallalkozName }
+            it("the table is empty for it by default") {
+                assertEquals(0, tableRows().length)
+            }
+        }
+
+
+        on("Clicking on 'Add' button") {
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect) { testAlvallalkozName }
+            ErtekbecslokScreenIds.addButton.simulateClick()
+
+            it("should open the Modal") {
+                assertTrue(ErtekbecslokScreenIds.modal.id.appearOnScreen())
+            }
+        }
+
+        on("Create new Értékbecslő") {
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect) { testAlvallalkozName }
+            ErtekbecslokScreenIds.addButton.simulateClick()
+
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.name) { testErtekbecsloName + "asd" }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.email) { "test@email.com" }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.phone) { "443 650" }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.comment) { "teszt comment" }
+//            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.disabled) { testErtekbecsloName }
+
+            it("The server should send back the modified entity") {
+                globalEventListeners.add { appState ->
+                    ertekbecsloId = appState.alvallalkozoState.ertekbecslok.keys.sortedDescending().first()
+                    val ertekbecslo = appState.alvallalkozoState.ertekbecslok[ertekbecsloId]!!
+                    assertEquals(alvallalkozId, ertekbecslo.alvallalkozoId)
+                    assertEquals(testErtekbecsloName + "asd", ertekbecslo.name)
+                    assertEquals("test@email.com", ertekbecslo.email)
+                    assertEquals("443 650", ertekbecslo.phone)
+                    assertEquals("teszt comment", ertekbecslo.comment)
+                    assertFalse(ertekbecslo.disabled)
+
+                    globalEventListeners.removeAt(globalEventListeners.lastIndex)
+                    testDone()
+                }
+                haltTestingUntilExternalEvent()
+                ErtekbecslokScreenIds.modal.buttons.save.simulateClick()
+            }
+            it("The modal should be closed") {
+                assertFalse(ErtekbecslokScreenIds.modal.id.appearOnScreen())
+            }
+            it("The created Értékbecslő appears in the table") {
+                assertEquals(1, tableRows().length)
+                assertEquals(testErtekbecsloName + "asd", tableCellValue(0, 0))
+                assertEquals("443 650", tableCellValue(0, 1))
+                assertEquals("test@email.com", tableCellValue(0, 2))
+            }
+        }
+        on("Modifying Értékbecslő") {
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect) { testAlvallalkozName }
+            ErtekbecslokScreenIds.table.editButton(0).simulateClick()
+
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.name) { testErtekbecsloName }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.email) { "test@email2.com" }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.phone) { "443 6502" }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.comment) { "teszt comment2" }
+
+            it("The server should send back the modified entity") {
+                globalEventListeners.add { appState ->
+                    val ertekbecslo = appState.alvallalkozoState.ertekbecslok[ertekbecsloId]!!
+                    assertEquals(alvallalkozId, ertekbecslo.alvallalkozoId)
+                    assertEquals(testErtekbecsloName, ertekbecslo.name)
+                    assertEquals("test@email2.com", ertekbecslo.email)
+                    assertEquals("443 6502", ertekbecslo.phone)
+                    assertEquals("teszt comment2", ertekbecslo.comment)
+                    assertFalse(ertekbecslo.disabled)
+                    globalEventListeners.removeAt(globalEventListeners.lastIndex)
+                    testDone()
+                }
+                haltTestingUntilExternalEvent()
+                ErtekbecslokScreenIds.modal.buttons.save.simulateClick()
+            }
+        }
     }
+
     given("test creating NEW Megrendeles with only the mandatory fields") {
         globalDispatcher(Action.ChangeURL(Path.megrendeles.edit(0)))
 
@@ -1341,6 +1413,26 @@ Fundamenta-Lakáskassza Zrt."""
             }
         }
     }
+    runFirstGiven(onFinally = {
+        //        if (sajatArId != 0) {
+//            communicator.deleteEntity("SajatAr", sajatArId)
+//        }
+//        if (regioId != 0) {
+//            communicator.deleteEntity("RegioOsszerendeles", regioId)
+//        }
+//        if (regioId2 != 0) {
+//            communicator.deleteEntity("RegioOsszerendeles", regioId2)
+//        }
+//                if (ertekbecsloId != 0) {
+//            communicator.deleteEntity("Ertekbecslo", ertekbecsloId)
+//        }
+//        if (alvallalkozId != 0) {
+//            communicator.deleteEntity("Alvallalkozo", alvallalkozId)
+//        }
+        //        if (newMegrendelesId != 0) {
+//            communicator.deleteEntity("Megrendeles", newMegrendelesId)
+//        }
+    })
 }
 
 private fun TestBuilder.assertHasAttribute(id: String, attrName: String) {
