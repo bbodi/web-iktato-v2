@@ -20,6 +20,7 @@ import react.RElementBuilder
 import react.children
 import react.dom.div
 import react.dom.jsStyle
+import react.dom.span
 import store.kozteruletJellegek
 import store.megyek
 import kotlin.math.roundToLong
@@ -998,7 +999,20 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(
                             val afa = if (tabState.megrendeles.szamlazhatoDij != null) {
                                 (tabState.megrendeles.szamlazhatoDij * 1.27).roundToLong()
                             } else 0L
-                            +"+ ÁFA(27%) = ${parseGroupedStringToNum(afa.toString()).second}"
+                            div {
+                                span {
+                                    attrs.jsStyle = jsStyle {
+                                        fontSize = "10px"
+                                    }
+                                    +"+ ÁFA(27%) = "
+                                }
+                                span {
+                                    attrs.jsStyle = jsStyle {
+                                        fontSize = "14px"
+                                    }
+                                    +parseGroupedStringToNum(afa.toString()).second
+                                }
+                            }
                         }
                         attrs.onValueChange = { value -> setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(szamlazhatoDij = value?.toInt()))) }
                     }

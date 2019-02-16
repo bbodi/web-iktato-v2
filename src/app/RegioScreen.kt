@@ -28,6 +28,37 @@ import store.megyek
 
 private data class RegioScreenState(val selectedMegye: String)
 
+object RegioScreenIds {
+    val screenId = "regioScreen"
+    val addButton = "${screenId}_addButton"
+
+    object table {
+        val id = "${screenId}_table"
+
+        object row {
+            val editButton: (Int) -> String = { rowIndex -> "${id}_editButton_$rowIndex" }
+            val deleteButton: (Int) -> String = { rowIndex -> "${id}_deleteButton_$rowIndex" }
+        }
+    }
+
+    object modal {
+        val id = "${screenId}_modal"
+
+        object inputs {
+            val nettoAr = "${id}_nettoAr"
+            val afa = "${id}_afa"
+            val jutalek = "${id}_jutalek"
+            val leiras = "${id}_leiras"
+            val munkatipus = "${id}_munkatipus"
+        }
+
+        object buttons {
+            val save = "${id}_saveButton"
+            val close = "${id}_closeButton"
+        }
+    }
+}
+
 data class RegioScreenParams(val alvallalkozoId: Int,
                              val editingRegioId: Int?,
                              val appState: AppState,
@@ -157,7 +188,7 @@ private fun RBuilder.regioEditingModal(alvallalkozoId: Int,
 
 private fun RElementBuilder<ColProps>.addNewButton(alvallalkozoId: Int, globalDispatch: (Action) -> Unit) {
     Button {
-        attrs.asDynamic().id = AlvallalkozoScreenIds.addButton
+        attrs.asDynamic().id = RegioScreenIds.addButton
         attrs.type = ButtonType.primary
         attrs.onClick = {
             globalDispatch(Action.ChangeURL(Path.alvallalkozo.withOpenedRegioOsszerendelesModal(alvallalkozoId, 0)))
@@ -200,12 +231,13 @@ private fun RBuilder.regioTable(alvallalkozoId: Int,
             },
             ColumnProps {
                 title = ""; key = "action"; width = 100
-                render = { row: RegioOsszerendeles, _, _ ->
+                render = { row: RegioOsszerendeles, _, rowIndex ->
                     buildElement {
                         Row {
                             Col(span = 12) {
                                 Tooltip("Szerkesztés") {
                                     Button {
+                                        attrs.asDynamic().id = RegioScreenIds.table.row.editButton(rowIndex)
                                         attrs.icon = "edit"
                                         attrs.onClick = {
                                             globalDispatch(Action.ChangeURL(Path.alvallalkozo.withOpenedRegioOsszerendelesModal(alvallalkozoId, row.id)))
@@ -216,6 +248,7 @@ private fun RBuilder.regioTable(alvallalkozoId: Int,
                             Col(span = 12) {
                                 Tooltip("Törlés") {
                                     Button {
+                                        attrs.asDynamic().id = RegioScreenIds.table.row.deleteButton(rowIndex)
                                         attrs.icon = "delete"
                                         attrs.type = ButtonType.danger
                                         attrs.onClick = {

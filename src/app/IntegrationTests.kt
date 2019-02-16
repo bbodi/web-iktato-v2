@@ -7,6 +7,7 @@ import app.common.moment
 import app.megrendeles.MegrendelesScreenIds
 import app.megrendeles.getNextWeekDay
 import hu.nevermind.iktato.Path
+import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.store.*
 import jquery.jq
 import org.w3c.dom.*
@@ -14,7 +15,7 @@ import store.Action
 import kotlin.browser.document
 import kotlin.browser.window
 import kotlin.dom.hasClass
-import kotlin.js.Date
+import kotlin.js.*
 
 private val ReactTestUtils = kotlinext.js.require("react-dom/test-utils")
 
@@ -69,20 +70,24 @@ class GivenBuilder(val body: GivenBuilder.() -> Unit, val delayAfterGivenBody: I
         ons.add(OnDef(onDescr, delayAfterOn, body))
     }
 
-    fun runFirstOn(afterNoMoreOnToRun: () -> Unit) {
+    fun runFirstOn(afterNoMoreOnToRun: () -> Unit, onFinally: () -> Unit) {
         val onDef = ons.firstOrNull()
         if (onDef == null) {
             afterNoMoreOnToRun()
             return
         }
         val afterNoMoreItToRun = {
-            runFirstOn(afterNoMoreOnToRun)
+            runFirstOn(afterNoMoreOnToRun, onFinally)
         }
         var afterItFinished: (OnBuilder) -> Unit = {}
         afterItFinished = { on: OnBuilder ->
             console.info("[TEST] ---> SUCCEED")
             on.removeFirstIt()
-            on.runFirstIt(afterItFinished, afterNoMoreItToRun)
+            try {
+                on.runFirstIt(afterItFinished, afterNoMoreItToRun)
+            } catch (e: Throwable) {
+                onFinally()
+            }
         }
         ons.removeAt(0)
         val on = OnBuilder(description.copy(on = onDef.descr))
@@ -130,16 +135,18 @@ class OnBuilder(val description: TestDescription) {
             }
         } catch (e: dynamic) {
             console.error("[TEST] Error during test: ${it.description}", e)
+            throw e;
         }
     }
 }
 
 data class TestDescription(val given: String, val on: String?, val it: String?)
 
-fun runFirstGiven(onFinally: () -> Unit = {}) {
+fun runFirstGiven(onFinally: () -> Unit) {
     val givenDef = givens.firstOrNull()
     if (givenDef == null) {
         console.log("[TEST] ALL TESTS SUCCEED")
+        message.success("[TEST] ALL TESTS SUCCEED")
         onFinally()
         return
     }
@@ -148,7 +155,8 @@ fun runFirstGiven(onFinally: () -> Unit = {}) {
     val given = GivenBuilder(body, givenDef.delayAfterGivenBody, TestDescription(givenDef.descr, null, null))
     try {
         given.body()
-        given.runFirstOn(afterNoMoreOnToRun = { runFirstGiven(onFinally) })
+        given.runFirstOn(afterNoMoreOnToRun = { runFirstGiven(onFinally) },
+                onFinally = onFinally)
     } catch (e: Throwable) {
         onFinally()
     }
@@ -171,9 +179,16 @@ fun later(delay: Int = 100, body: () -> Unit) {
 fun simulateChangeAndSetValue(id: String, body: () -> String = { "" }) {
     simulateChangeInput(id) { input ->
         val str = body()
-        input?.asDynamic().value = str
+        if (input != null) {
+            input.asDynamic().value = str
+        }
         str
     }
+}
+
+fun htmlEncode(html: String): String {
+    return document.createElement("a").appendChild(
+            document.createTextNode(html)).parentNode.asDynamic().innerHTML;
 }
 
 fun simulateChangeInput(id: String, body: (Element?) -> String = { "" }) {
@@ -186,14 +201,22 @@ fun simulateChangeInput(id: String, body: (Element?) -> String = { "" }) {
                 } else {
                     // Select
                     ReactTestUtils.Simulate.click(element);
-                    val dropDownItem = document.getElementsByTagName("li").asList()
+                    val options = document.getElementsByTagName("li").asList()
                             .filter { it is Element }
                             .map { it as Element }
                             .filter { it.hasClass("ant-select-dropdown-menu-item") }
-                            .filter { it.innerHTML == body(null) }
-                            .first()
-                    js("debugger")
-                    ReactTestUtils.Simulate.click(dropDownItem);
+                    val dropDownItem = options
+                            .filter { it.innerHTML == htmlEncode(body(null)) }
+                            .firstOrNull()
+                    if (dropDownItem == null) {
+                        val liElements = options.map { it.innerHTML }
+                        val expectedId = id
+                        val expectedElement = element
+                        val expectedItemNotFound = htmlEncode(body(null))
+                        js("debugger")
+                    } else {
+                        ReactTestUtils.Simulate.click(dropDownItem);
+                    }
                     return
                 }
             } else element
@@ -276,6 +299,8 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
     var testAfa = 20
     var sajatArId = 0
     var alvallalkozId = 0
+    var regioId = 0
+    var regioId2 = 0
     var newMegrendelesId = 0
     val azonosito = Date().getTime().toString()
     given("SajatÁr is open") {
@@ -454,16 +479,207 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
         }
     }
 
+    given("Régió screen is open for the created Alvállalkozó") {
+        globalDispatcher(Action.ChangeURL(Path.alvallalkozo.regio(alvallalkozId)))
+
+        on("Clicking on Add button") {
+            RegioScreenIds.addButton.simulateClick()
+            it("should show the modal window") {
+                assertTrue(RegioScreenIds.modal.id.appearOnScreen())
+            }
+            it("The Save button is disabled by default") {
+                assertHasAttribute(RegioScreenIds.modal.buttons.save, "disabled")
+            }
+        }
+
+        on("Creating a new Régió") {
+            RegioScreenIds.addButton.simulateClick()
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.munkatipus) { Munkatipusok.Ertekbecsles.str }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.leiras) { "test leírás" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.nettoAr) { "10000" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.jutalek) { "20000" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa) { "27" }
+
+            it("The server should send back the created entity") {
+                globalEventListeners.add { appState ->
+                    assertEquals(1, appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozId).size)
+
+                    val regio = appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozId).first()
+                    regioId = regio.id
+                    assertEquals("Baranya", regio.megye)
+                    assertEquals("Értékbecslés", regio.munkatipus)
+                    assertEquals("test leírás", regio.leiras)
+                    assertEquals(10000, regio.nettoAr)
+                    assertEquals(20000, regio.jutalek)
+                    assertEquals(27, regio.afa)
+
+                    globalEventListeners.removeAt(globalEventListeners.lastIndex)
+                    testDone()
+                }
+                haltTestingUntilExternalEvent()
+                RegioScreenIds.modal.buttons.save.simulateClick()
+            }
+            it("The created entity should appear in the table") {
+                assertEquals(1, tableRows().length)
+                assertEquals("Értékbecslés", tableCellValue(0, 0))
+                assertEquals("test leírás", tableCellValue(0, 1))
+                assertEquals("10 000", tableCellValue(0, 2))
+                assertEquals("20 000", tableCellValue(0, 3))
+                assertEquals("27", tableCellValue(0, 4))
+            }
+        }
+        on("Creating a second new Régió") {
+            RegioScreenIds.addButton.simulateClick()
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.munkatipus) { Munkatipusok.Energetika.str }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.leiras) { "test másik leírás" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.nettoAr) { "90000" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.jutalek) { "80000" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa) { "72" }
+
+            it("The server should send back the created entity") {
+                globalEventListeners.add { appState ->
+                    assertEquals(2, appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozId).size)
+
+                    val regio = appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozId)[1]
+                    regioId2 = regio.id
+                    assertEquals("Baranya", regio.megye)
+                    assertEquals("Energetika", regio.munkatipus)
+                    assertEquals("test másik leírás", regio.leiras)
+                    assertEquals(90000, regio.nettoAr)
+                    assertEquals(80000, regio.jutalek)
+                    assertEquals(72, regio.afa)
+
+                    globalEventListeners.removeAt(globalEventListeners.lastIndex)
+                    testDone()
+                }
+                haltTestingUntilExternalEvent()
+                RegioScreenIds.modal.buttons.save.simulateClick()
+            }
+            it("The table has to contain two rows") {
+                assertEquals(2, tableRows().length)
+            }
+            it("The already existing regio should not change") {
+                assertEquals("Értékbecslés", tableCellValue(0, 0))
+                assertEquals("test leírás", tableCellValue(0, 1))
+                assertEquals("10 000", tableCellValue(0, 2))
+                assertEquals("20 000", tableCellValue(0, 3))
+                assertEquals("27", tableCellValue(0, 4))
+            }
+            it("The created entity should appear in the table") {
+                assertEquals("Energetika", tableCellValue(1, 0))
+                assertEquals("test másik leírás", tableCellValue(1, 1))
+                assertEquals("90 000", tableCellValue(1, 2))
+                assertEquals("80 000", tableCellValue(1, 3))
+                assertEquals("72", tableCellValue(1, 4))
+            }
+        }
+        on("Modifying existing Régió") {
+            RegioScreenIds.table.row.editButton(0).simulateClick()
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.munkatipus) { Munkatipusok.EnergetikaAndErtekBecsles.str }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.leiras) { "test leírás - mod" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.nettoAr) { "120000" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.jutalek) { "230000" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa) { "27" }
+
+            it("The server should send back the modified entity") {
+                globalEventListeners.add { appState ->
+                    val regio = appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozId).first()
+                    assertEquals("Baranya", regio.megye)
+                    assertEquals("Energetika&Értékbecslés", regio.munkatipus)
+                    assertEquals("test leírás - mod", regio.leiras)
+                    assertEquals(120000, regio.nettoAr)
+                    assertEquals(230000, regio.jutalek)
+                    assertEquals(27, regio.afa)
+
+                    globalEventListeners.removeAt(globalEventListeners.lastIndex)
+                    testDone()
+                }
+                haltTestingUntilExternalEvent()
+                RegioScreenIds.modal.buttons.save.simulateClick()
+            }
+            it("The modified entity should appear in the table") {
+                assertEquals("Energetika&Értékbecslés", tableCellValue(0, 0))
+                assertEquals("test leírás - mod", tableCellValue(0, 1))
+                assertEquals("120 000", tableCellValue(0, 2))
+                assertEquals("230 000", tableCellValue(0, 3))
+                assertEquals("27", tableCellValue(0, 4))
+            }
+            it("The unmodified entity (second row) should not change") {
+                assertEquals("Energetika", tableCellValue(1, 0))
+                assertEquals("test másik leírás", tableCellValue(1, 1))
+                assertEquals("90 000", tableCellValue(1, 2))
+                assertEquals("80 000", tableCellValue(1, 3))
+                assertEquals("72", tableCellValue(1, 4))
+            }
+        }
+        on("Modifying existing Régió, afa cannot be greater than 100") {
+            RegioScreenIds.table.row.editButton(0).simulateClick()
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa) { "340000" }
+
+            it("The server should send back the modified entity") {
+                globalEventListeners.add { appState ->
+                    val regio = appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozId).first()
+                    assertEquals(100, regio.afa)
+
+                    globalEventListeners.removeAt(globalEventListeners.lastIndex)
+                    testDone()
+                }
+                haltTestingUntilExternalEvent()
+                RegioScreenIds.modal.buttons.save.simulateClick()
+            }
+            it("The modified entity should appear in the table") {
+                assertEquals("100", tableCellValue(0, 4))
+            }
+        }
+        on("Deleting a Regio") {
+            RegioScreenIds.table.row.deleteButton(1).simulateClick()
+            it("The delete modal should pop up") {
+                val confirmYesButton = document.getElementsByClassName("ant-modal-confirm-btns").get(0)?.children?.get(1)
+                assertTrue(confirmYesButton != null)
+            }
+        }
+        on("Deleting clicking the Yes button e.g. deleting a regio") {
+            val confirmYesButton = document.getElementsByClassName("ant-modal-confirm-btns").get(0)?.children?.get(1)
+
+            it("The server should send back the modified entity") {
+                globalEventListeners.add { appState ->
+                    assertEquals(1, appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozId).size)
+
+                    globalEventListeners.removeAt(globalEventListeners.lastIndex)
+                    testDone()
+                }
+                haltTestingUntilExternalEvent()
+                confirmYesButton.simulateClick()
+            }
+            it("The deleted entity must be removed from the table") {
+                assertEquals(1, tableRows().length)
+            }
+            it("The other regio should stay in the table") {
+                assertEquals("Energetika&Értékbecslés", tableCellValue(0, 0))
+                assertEquals("test leírás - mod", tableCellValue(0, 1))
+                assertEquals("120 000", tableCellValue(0, 2))
+                assertEquals("230 000", tableCellValue(0, 3))
+                assertEquals("100", tableCellValue(0, 4))
+            }
+        }
+    }
+
     runFirstGiven(onFinally = {
-        if (sajatArId != 0) {
-            communicator.deleteEntity("SajatAr", sajatArId)
-        }
-        if (newMegrendelesId != 0) {
-            communicator.deleteEntity("Megrendeles", newMegrendelesId)
-        }
-        if (alvallalkozId != 0) {
-            communicator.deleteEntity("Alvallalkozo", alvallalkozId)
-        }
+//        if (sajatArId != 0) {
+//            communicator.deleteEntity("SajatAr", sajatArId)
+//        }
+//        if (newMegrendelesId != 0) {
+//            communicator.deleteEntity("Megrendeles", newMegrendelesId)
+//        }
+//        if (regioId != 0) {
+//            communicator.deleteEntity("RegioOsszerendeles", regioId)
+//        }
+//        if (regioId2 != 0) {
+//            communicator.deleteEntity("RegioOsszerendeles", regioId2)
+//        }
+//        if (alvallalkozId != 0) {
+//            communicator.deleteEntity("Alvallalkozo", alvallalkozId)
+//        }
     })
     if (true) {
         return

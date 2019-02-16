@@ -1,7 +1,9 @@
 package hu.nevermind.utils.store
 
 import hu.nevermind.iktato.RestUrl
+import hu.nevermind.utils.hu.nevermind.antd.message
 import store.Action
+
 
 data class AlvallalkozoState(
         val allMunkatipus: Array<String> = emptyArray(),
@@ -35,7 +37,7 @@ data class AlvallalkozoState(
         return getRegioOsszerendelesek(av.id)
     }
 
-    fun getRegioOsszerendelesek(avId: Int): Collection<RegioOsszerendeles> {
+    fun getRegioOsszerendelesek(avId: Int): List<RegioOsszerendeles> {
         return regioOsszerendelesek.values.filter { it.alvallalkozoId == avId }
     }
 
@@ -90,6 +92,7 @@ fun alvallalkozoActionHandler(state: AlvallalkozoState, action: Action): Alvalla
         is Action.AccountFromServer -> state
         is Action.DeleteRegioOsszerendeles -> {
             communicator.deleteEntity("RegioOsszerendeles", action.regioOsszerendeles.id)
+            message.success("Régió összerendelés törölve")
             state.copy(regioOsszerendelesek = state.regioOsszerendelesek - action.regioOsszerendeles.id)
         }
         is Action.RegioOsszerendelesFromServer -> {
