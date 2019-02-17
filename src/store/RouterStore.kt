@@ -1,6 +1,6 @@
 package store
 
-import hu.nevermind.iktato.Path
+import app.AppScreen
 import kotlin.browser.window
 
 data class UrlData(val path: String, val params: Map<String, String>)
@@ -49,17 +49,16 @@ object RouterStore {
 //        }
     }
 
-    fun match(path: String, vararg patterns: Pair<String, (Map<String, String>) -> Unit>, otherwise: () -> Unit = {}) {
-        val pattern = patterns.firstOrNull { patternPair ->
+    fun match(path: String, vararg patterns: Pair<String, (Map<String, String>) -> AppScreen>): AppScreen? {
+        val screen = patterns.map { patternPair ->
             val (pattern, predicate) = patternPair
-            match(path, pattern, predicate)
-        }
-        if (pattern == null) {
-            otherwise()
-        }
+            val screen = match(path, pattern, predicate)
+            screen
+        }.filterNotNull().firstOrNull()
+        return screen;
     }
 
-    fun match(path: String, pattern: String, body: (Map<String, String>) -> Unit): Boolean {
+    fun match(path: String, pattern: String, body: (Map<String, String>) -> AppScreen): AppScreen? {
         val patternParts = pattern.split("/")
         val pathParts = path.split("/")
         val params = hashMapOf<String, String>()
@@ -75,14 +74,13 @@ object RouterStore {
             } else {
                 if (pathParts.size <= index || part != value) {
                     ok = false
-                    return false // KotlinJS sucks: it does nothing more than a simple continue...
+                    return null // KotlinJS sucks: it does nothing more than a simple continue...
                 }
             }
         }
-        if (ok) {
+        return if (ok) {
             body(params)
-        }
-        return ok
+        } else null
     }
 
 }
@@ -90,32 +88,32 @@ object RouterStore {
 class RouterStoreTest {
 
     fun tests() {
-        var matchResult = ""
-        val runMatcher = { path: String ->
-            RouterStore.match(path,
-                    Path.login to { params ->
-                        matchResult = "login"
-                    },
-                    "${Path.account.root}?id" to { params ->
-                        matchResult = "account with modal"
-                    },
-                    "${Path.alvallalkozo.root}regio/?alvallalkozoId/?regioOsszerendelesId" to { params ->
-                        matchResult = "regio av ossz"
-                    },
-                    "${Path.alvallalkozo.root}:alvallalkozoId/:ertekbecsloId" to { params ->
-                        matchResult = "av + eb"
-                    },
-                    "${Path.alvallalkozo.root}:alvallalkozoId" to { params ->
-                        matchResult = "av with modal"
-                    },
-                    Path.alvallalkozo.root to { params ->
-                        matchResult = "av"
-                    },
-                    otherwise = {
-                        matchResult = "other"
-                    }
-            )
-        }
+//        var matchResult = ""
+//        val runMatcher = { path: String ->
+//            RouterStore.match(path,
+//                    Path.login to { params ->
+//                        matchResult = "login"
+//                    },
+//                    "${Path.account.root}?id" to { params ->
+//                        matchResult = "account with modal"
+//                    },
+//                    "${Path.alvallalkozo.root}regio/?alvallalkozoId/?regioOsszerendelesId" to { params ->
+//                        matchResult = "regio av ossz"
+//                    },
+//                    "${Path.alvallalkozo.root}:alvallalkozoId/:ertekbecsloId" to { params ->
+//                        matchResult = "av + eb"
+//                    },
+//                    "${Path.alvallalkozo.root}:alvallalkozoId" to { params ->
+//                        matchResult = "av with modal"
+//                    },
+//                    Path.alvallalkozo.root to { params ->
+//                        matchResult = "av"
+//                    },
+//                    otherwise = {
+//                        matchResult = "other"
+//                    }
+//            )
+//        }
         // TODO: tests
 //        given("the URL = root") {
 //            on("routing to the main screen") {

@@ -9,13 +9,14 @@ import app.megrendeles.getNextWeekDay
 import hu.nevermind.iktato.Path
 import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.store.*
-import jquery.jq
 import org.w3c.dom.*
 import store.Action
 import kotlin.browser.document
 import kotlin.browser.window
 import kotlin.dom.hasClass
 import kotlin.js.*
+
+// TODO: néhány screenen nincs a table-knek háttérszinük
 
 private val ReactTestUtils = kotlinext.js.require("react-dom/test-utils")
 
@@ -176,9 +177,8 @@ fun later(delay: Int = 100, body: () -> Unit) {
     }, delay)
 }
 
-fun simulateChangeAndSetValue(id: String, body: () -> String = { "" }) {
+fun simulateChangeAndSetValue(id: String, str: String) {
     simulateChangeInput(id) { input ->
-        val str = body()
         if (input != null) {
             input.asDynamic().value = str
         }
@@ -196,7 +196,30 @@ fun simulateChangeInput(id: String, body: (Element?) -> String = { "" }) {
         val input: Element = document.getElementById(id)!!.let { element ->
             if (element !is HTMLInputElement && element !is HTMLTextAreaElement) {
                 val autoCompletionInput = element.getElementsByTagName("input")[0]
-                if (element.hasClass("ant-select-auto-complete") && autoCompletionInput != null && autoCompletionInput != undefined) {
+                if (element.hasClass("ant-calendar-picker")) {
+                    val date = moment(body(null), dateFormat)
+
+                    element.children.get(0)!!.simulateClick()
+                    document.getElementsByClassName("ant-calendar-year-select").asList().last().simulateClick()
+                    document.getElementsByClassName("ant-calendar-year-panel-year").asList()
+                            .filter { it.innerHTML == date.format("YYYY") }
+                            .last()
+                            .simulateClick()
+
+                    document.getElementsByClassName("ant-calendar-month-select").asList().last().simulateClick()
+                    document.getElementsByClassName("ant-calendar-month-panel-month").asList()
+                            .filter { it.innerHTML == date.format("MMM") }
+                            .last()
+                            .simulateClick()
+
+                    document.getElementsByClassName("ant-calendar-date").asList()
+                            .filter { it.innerHTML == date.format("D") }
+                            .last()
+                            .simulateClick()
+                    return
+                } else if (element.hasClass("ant-select-auto-complete")
+                        && autoCompletionInput != null &&
+                        autoCompletionInput != undefined) {
                     autoCompletionInput as HTMLInputElement
                 } else {
                     // Select
@@ -254,10 +277,14 @@ fun String.checkboxClick() {
 fun String.inputElementValue(): String? {
     try {
         val element = document.getElementById(this)!!
-        if (element.hasClass("ant-select")) {
-            return element.children.get(0)!!.children.get(0)!!.children.get(0)!!.innerHTML
+        return if (element.hasClass("ant-select-auto-complete")) {
+            element.getElementsByClassName("ant-select-search__field").get(0)!!.asDynamic().value
+        } else if (element.hasClass("ant-select")) {
+            element.children.get(0)!!.children.get(0)!!.children.get(0)!!.innerHTML
+        } else if (element.hasClass("ant-calendar-picker")) {
+            element.children.get(0)!!.children.get(0)!!.asDynamic().value
         } else {
-            error(element)
+            element.asDynamic().value
         }
     } catch (e: Throwable) {
         js("debugger")
@@ -286,7 +313,7 @@ private fun tableCell(row: Int, column: Int): Element {
 private fun tableRows() = document.getElementsByTagName("tbody").get(0)!!
         .getElementsByTagName("tr")
 
-fun Element?.simulateClick() {
+fun Element.simulateClick() {
     ReactTestUtils.Simulate.click(this)
 }
 
@@ -319,11 +346,11 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
         on("Create new Megrendelő, Munkatipus, SajatAr") {
             SajatArScreenIds.addButton.simulateClick()
 
-            simulateChangeAndSetValue(SajatArScreenIds.modal.input.megrendelo) { testMegrendelo }
-            simulateChangeAndSetValue(SajatArScreenIds.modal.input.munkatipus) { testMunkatipus }
-            simulateChangeAndSetValue(SajatArScreenIds.modal.input.leiras) { testLeiras }
-            simulateChangeAndSetValue(SajatArScreenIds.modal.input.nettoAr) { testNettoAr.toString() }
-            simulateChangeAndSetValue(SajatArScreenIds.modal.input.afa) { testAfa.toString() }
+            simulateChangeAndSetValue(SajatArScreenIds.modal.input.megrendelo, testMegrendelo)
+            simulateChangeAndSetValue(SajatArScreenIds.modal.input.munkatipus, testMunkatipus)
+            simulateChangeAndSetValue(SajatArScreenIds.modal.input.leiras, testLeiras)
+            simulateChangeAndSetValue(SajatArScreenIds.modal.input.nettoAr, testNettoAr.toString())
+            simulateChangeAndSetValue(SajatArScreenIds.modal.input.afa, testAfa.toString())
 
             it("The server should send back the modified entity") {
                 globalEventListeners.add { appState ->
@@ -360,15 +387,15 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
                         "delete from sajat_arak where leiras like 'Test le%'!")
 
             }
-            tableRows().get(0).simulateClick()
+            SajatArScreenIds.rowEdit(0).simulateClick()
 
             testLeiras += "_modified"
             testNettoAr += 1000
             testAfa += 10
 
-            simulateChangeAndSetValue(SajatArScreenIds.modal.input.leiras) { testLeiras }
-            simulateChangeAndSetValue(SajatArScreenIds.modal.input.nettoAr) { testNettoAr.toString() }
-            simulateChangeAndSetValue(SajatArScreenIds.modal.input.afa) { testAfa.toString() }
+            simulateChangeAndSetValue(SajatArScreenIds.modal.input.leiras, testLeiras)
+            simulateChangeAndSetValue(SajatArScreenIds.modal.input.nettoAr, testNettoAr.toString())
+            simulateChangeAndSetValue(SajatArScreenIds.modal.input.afa, testAfa.toString())
 
             it("The server should send back the modified entity") {
                 globalEventListeners.add { appState ->
@@ -386,6 +413,16 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
                 SajatArScreenIds.modal.button.save.simulateClick()
             }
         }
+
+        on("Modifying Fundamenta afa for Panel lakás") {
+            simulateChangeAndSetValue(SajatArScreenIds.megrendeloSelect, "Fundamenta Zrt.")
+
+            // edit Panel lakás
+            SajatArScreenIds.rowEdit(0).simulateClick()
+
+            simulateChangeAndSetValue(SajatArScreenIds.modal.input.afa, "30")
+            SajatArScreenIds.modal.button.save.simulateClick()
+        }
     }
     given("Alvállalkozó screen is open") {
         globalDispatcher(Action.ChangeURL(Path.alvallalkozo.root))
@@ -402,14 +439,14 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
 
         on("Creating a new alvállalkozó") {
             AlvallalkozoScreenIds.addButton.simulateClick()
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.name) { testAlvallalkozName }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.phone) { "443650" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.szamlaszam) { "1234" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.adoszam) { "4321" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.kapcsolatTarto) { "Kapcsolattartó" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.email) { "email@asd.com" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.cim) { "Cím" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.tagsagiSzam) { "6789" }
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.name, testAlvallalkozName)
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.phone, "443650")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.szamlaszam, "1234")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.adoszam, "4321")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.kapcsolatTarto, "Kapcsolattartó")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.email, "email@asd.com")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.cim, "Cím")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.tagsagiSzam, "6789")
 
             it("The server should send back the modified entity") {
                 globalEventListeners.add { appState ->
@@ -434,7 +471,7 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
             it("The created entity should appear in the table") {
                 val id = AlvallalkozoScreenIds.table.nameSearchButton
                 id.simulateClick()
-                simulateChangeAndSetValue("${id}_input") { testAlvallalkozName }
+                simulateChangeAndSetValue("${id}_input", testAlvallalkozName)
                 "${id}_search_button".simulateClick()
                 assertEquals(testAlvallalkozName, tableCellValue(0, 0))
                 assertEquals("443650", tableCellValue(0, 1))
@@ -448,15 +485,14 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
                 error("Ezen teszt működéséhez csak 1 sor lehet a Test táblázatban, töröld a többit manuálisan DB-ből. Ezzel: " +
                         "delete from alvallalkozo where cegnev like '%TestAlvállalkozó%' !")
             }
-            tableRows().get(0).simulateClick()
             AlvallalkozoScreenIds.table.row.editButton(0).simulateClick()
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.phone) { "11443650" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.szamlaszam) { "111234" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.adoszam) { "114321" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.kapcsolatTarto) { "11Kapcsolattartó" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.email) { "11email@asd.com" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.cim) { "11Cím" }
-            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.tagsagiSzam) { "116789" }
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.phone, "11443650")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.szamlaszam, "111234")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.adoszam, "114321")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.kapcsolatTarto, "11Kapcsolattartó")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.email, "11email@asd.com")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.cim, "11Cím")
+            simulateChangeAndSetValue(AlvallalkozoScreenIds.modal.inputs.tagsagiSzam, "116789")
             AlvallalkozoScreenIds.modal.inputs.keszpenzes.checkboxClick()
 
             it("The server should send back the modified entity") {
@@ -496,11 +532,11 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
 
         on("Creating a new Régió") {
             RegioScreenIds.addButton.simulateClick()
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.munkatipus) { Munkatipusok.Ertekbecsles.str }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.leiras) { "test leírás" }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.nettoAr) { "10000" }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.jutalek) { "20000" }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa) { "27" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.munkatipus, Munkatipusok.Ertekbecsles.str)
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.leiras, "Panel lakás")
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.nettoAr, "10000")
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.jutalek, "20000")
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa, "27")
 
             it("The server should send back the created entity") {
                 globalEventListeners.add { appState ->
@@ -510,7 +546,7 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
                     regioId = regio.id
                     assertEquals("Baranya", regio.megye)
                     assertEquals("Értékbecslés", regio.munkatipus)
-                    assertEquals("test leírás", regio.leiras)
+                    assertEquals("Panel lakás", regio.leiras)
                     assertEquals(10000, regio.nettoAr)
                     assertEquals(20000, regio.jutalek)
                     assertEquals(27, regio.afa)
@@ -524,7 +560,7 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
             it("The created entity should appear in the table") {
                 assertEquals(1, tableRows().length)
                 assertEquals("Értékbecslés", tableCellValue(0, 0))
-                assertEquals("test leírás", tableCellValue(0, 1))
+                assertEquals("Panel lakás", tableCellValue(0, 1))
                 assertEquals("10 000", tableCellValue(0, 2))
                 assertEquals("20 000", tableCellValue(0, 3))
                 assertEquals("27", tableCellValue(0, 4))
@@ -532,11 +568,11 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
         }
         on("Creating a second new Régió") {
             RegioScreenIds.addButton.simulateClick()
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.munkatipus) { Munkatipusok.Energetika.str }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.leiras) { "test másik leírás" }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.nettoAr) { "90000" }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.jutalek) { "80000" }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa) { "72" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.munkatipus, Munkatipusok.Energetika.str)
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.leiras, "Lakás")
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.nettoAr, "90000")
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.jutalek, "80000")
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa, "72")
 
             it("The server should send back the created entity") {
                 globalEventListeners.add { appState ->
@@ -546,7 +582,7 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
                     regioId2 = regio.id
                     assertEquals("Baranya", regio.megye)
                     assertEquals("Energetika", regio.munkatipus)
-                    assertEquals("test másik leírás", regio.leiras)
+                    assertEquals("Lakás", regio.leiras)
                     assertEquals(90000, regio.nettoAr)
                     assertEquals(80000, regio.jutalek)
                     assertEquals(72, regio.afa)
@@ -562,14 +598,14 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
             }
             it("The already existing regio should not change") {
                 assertEquals("Értékbecslés", tableCellValue(0, 0))
-                assertEquals("test leírás", tableCellValue(0, 1))
+                assertEquals("Panel lakás", tableCellValue(0, 1))
                 assertEquals("10 000", tableCellValue(0, 2))
                 assertEquals("20 000", tableCellValue(0, 3))
                 assertEquals("27", tableCellValue(0, 4))
             }
             it("The created entity should appear in the table") {
                 assertEquals("Energetika", tableCellValue(1, 0))
-                assertEquals("test másik leírás", tableCellValue(1, 1))
+                assertEquals("Lakás", tableCellValue(1, 1))
                 assertEquals("90 000", tableCellValue(1, 2))
                 assertEquals("80 000", tableCellValue(1, 3))
                 assertEquals("72", tableCellValue(1, 4))
@@ -577,18 +613,18 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
         }
         on("Modifying existing Régió") {
             RegioScreenIds.table.row.editButton(0).simulateClick()
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.munkatipus) { Munkatipusok.EnergetikaAndErtekBecsles.str }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.leiras) { "test leírás - mod" }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.nettoAr) { "120000" }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.jutalek) { "230000" }
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa) { "27" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.munkatipus, Munkatipusok.EnergetikaAndErtekBecsles.str)
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.leiras, "Családi ház 150")
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.nettoAr, "120000")
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.jutalek, "230000")
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa, "27")
 
             it("The server should send back the modified entity") {
                 globalEventListeners.add { appState ->
                     val regio = appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozId).first()
                     assertEquals("Baranya", regio.megye)
                     assertEquals("Energetika&Értékbecslés", regio.munkatipus)
-                    assertEquals("test leírás - mod", regio.leiras)
+                    assertEquals("Családi ház 150", regio.leiras)
                     assertEquals(120000, regio.nettoAr)
                     assertEquals(230000, regio.jutalek)
                     assertEquals(27, regio.afa)
@@ -601,14 +637,14 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
             }
             it("The modified entity should appear in the table") {
                 assertEquals("Energetika&Értékbecslés", tableCellValue(0, 0))
-                assertEquals("test leírás - mod", tableCellValue(0, 1))
+                assertEquals("Családi ház 150", tableCellValue(0, 1))
                 assertEquals("120 000", tableCellValue(0, 2))
                 assertEquals("230 000", tableCellValue(0, 3))
                 assertEquals("27", tableCellValue(0, 4))
             }
             it("The unmodified entity (second row) should not change") {
                 assertEquals("Energetika", tableCellValue(1, 0))
-                assertEquals("test másik leírás", tableCellValue(1, 1))
+                assertEquals("Lakás", tableCellValue(1, 1))
                 assertEquals("90 000", tableCellValue(1, 2))
                 assertEquals("80 000", tableCellValue(1, 3))
                 assertEquals("72", tableCellValue(1, 4))
@@ -616,7 +652,7 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
         }
         on("Modifying existing Régió, afa cannot be greater than 100") {
             RegioScreenIds.table.row.editButton(0).simulateClick()
-            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa) { "340000" }
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa, "340000")
 
             it("The server should send back the modified entity") {
                 globalEventListeners.add { appState ->
@@ -641,7 +677,7 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
             }
         }
         on("Deleting clicking the Yes button e.g. deleting a regio") {
-            val confirmYesButton = document.getElementsByClassName("ant-modal-confirm-btns").get(0)?.children?.get(1)
+            val confirmYesButton = document.getElementsByClassName("ant-modal-confirm-btns").get(0)!!.children!!.get(1)!!
 
             it("The server should send back the modified entity") {
                 globalEventListeners.add { appState ->
@@ -658,10 +694,31 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
             }
             it("The other regio should stay in the table") {
                 assertEquals("Energetika&Értékbecslés", tableCellValue(0, 0))
-                assertEquals("test leírás - mod", tableCellValue(0, 1))
+                assertEquals("Családi ház 150", tableCellValue(0, 1))
                 assertEquals("120 000", tableCellValue(0, 2))
                 assertEquals("230 000", tableCellValue(0, 3))
                 assertEquals("100", tableCellValue(0, 4))
+            }
+        }
+        on("Creating again second new Régió") {
+            RegioScreenIds.addButton.simulateClick()
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.munkatipus, testMunkatipus)
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.leiras, testLeiras)
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.nettoAr, "90000")
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.jutalek, "80000")
+            simulateChangeAndSetValue(RegioScreenIds.modal.inputs.afa, "72")
+
+            it("The server should send back the created entity") {
+                globalEventListeners.add { appState ->
+                    val regio = appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozId)[1]
+                    regioId2 = regio.id
+
+
+                    globalEventListeners.removeAt(globalEventListeners.lastIndex)
+                    testDone()
+                }
+                haltTestingUntilExternalEvent()
+                RegioScreenIds.modal.buttons.save.simulateClick()
             }
         }
     }
@@ -676,7 +733,7 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
         }
 
         on("selecting our test alvallalkozo") {
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect) { testAlvallalkozName }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect, testAlvallalkozName)
             it("the table is empty for it by default") {
                 assertEquals(0, tableRows().length)
             }
@@ -684,7 +741,7 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
 
 
         on("Clicking on 'Add' button") {
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect) { testAlvallalkozName }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect, testAlvallalkozName)
             ErtekbecslokScreenIds.addButton.simulateClick()
 
             it("should open the Modal") {
@@ -693,14 +750,14 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
         }
 
         on("Create new Értékbecslő") {
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect) { testAlvallalkozName }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect, testAlvallalkozName)
             ErtekbecslokScreenIds.addButton.simulateClick()
 
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.name) { testErtekbecsloName + "asd" }
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.email) { "test@email.com" }
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.phone) { "443 650" }
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.comment) { "teszt comment" }
-//            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.disabled) { testErtekbecsloName }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.name, testErtekbecsloName + "asd")
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.email, "test@email.com")
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.phone, "443 650")
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.comment, "teszt comment")
+//            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.disabled,  testErtekbecsloName )
 
             it("The server should send back the modified entity") {
                 globalEventListeners.add { appState ->
@@ -730,13 +787,13 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
             }
         }
         on("Modifying Értékbecslő") {
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect) { testAlvallalkozName }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.alvallalkozoSelect, testAlvallalkozName)
             ErtekbecslokScreenIds.table.editButton(0).simulateClick()
 
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.name) { testErtekbecsloName }
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.email) { "test@email2.com" }
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.phone) { "443 6502" }
-            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.comment) { "teszt comment2" }
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.name, testErtekbecsloName)
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.email, "test@email2.com")
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.phone, "443 6502")
+            simulateChangeAndSetValue(ErtekbecslokScreenIds.modal.inputs.comment, "teszt comment2")
 
             it("The server should send back the modified entity") {
                 globalEventListeners.add { appState ->
@@ -760,22 +817,25 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
         globalDispatcher(Action.ChangeURL(Path.megrendeles.edit(0)))
 
         on("Click on Save button after fields were modified") {
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.megrendelo) { "Fundamenta Zrt." }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.regio) { "Baranya" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus) { Munkatipusok.Ertekbecsles.str }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.alvallalkozo) { "24" } // Test Kft.
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ingatlanTipusMunkadijMeghatarozasahoz) { "1" } // Panel lakás
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.fovallalkozo) { "Presting Zrt." }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hitelTipus) { "vásárlás" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.helyrajziSzam) { "1234" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.iranyitoszam) { "7636" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.telepules) { "Pécs" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.kozteruletNeve) { "Illyés Gy." }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hitelOsszege) { "12000000" }
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.megrendelo, "Fundamenta Zrt.")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.regio, "Baranya")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus, Munkatipusok.Ertekbecsles.str)
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.alvallalkozo, testAlvallalkozName)
+            // Panel lakás is selected by default
+//            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ingatlanTipusMunkadijMeghatarozasahoz,  "Panel lakás" )
+            // Selected by default
+//            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.fovallalkozo,  "Presting Zrt." )
+            // Selected by default
+//            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hitelTipus,  "vásárlás" )
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.helyrajziSzam, "1234")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.iranyitoszam, "7636")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.telepules, "Pécs")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.kozteruletNeve, "Illyés Gy.")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hitelOsszege, "12000000")
 
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ugyfelNev) { "Ügyfél neve" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ugyfelTel) { "Ügyfél száma" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ebAzonosito) { azonosito }
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ugyfelNev, "Ügyfél neve")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ugyfelTel, "Ügyfél száma")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ebAzonosito, azonosito)
 
             it("The server should send back the modified entity") {
                 val prevMinute = moment().subtract(1, TimeUnit.Minutes)
@@ -790,9 +850,12 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
                     assertEquals("Baranya", megr.regio)
                     assertEquals(Munkatipusok.Ertekbecsles.str, megr.munkatipus)
                     assertEquals("Presting Zrt.", megr.foVallalkozo)
-                    assertEquals(24, megr.alvallalkozoId)
-                    assertEquals(67, megr.ertekbecsloId)
+                    assertEquals(alvallalkozId, megr.alvallalkozoId)
+                    assertEquals(ertekbecsloId, megr.ertekbecsloId)
                     assertEquals("vásárlás", megr.hitelTipus)
+
+                    // az afa a kiválasztott Megrendelőhöz tartozó saját árból jön, amit 30ra állitottam korábban
+                    assertEquals(30, megr.afa)
 
                     assertEquals("1234", megr.hrsz)
                     assertEquals("7636", megr.irsz)
@@ -808,7 +871,9 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
                     assertEquals("Ügyfél száma", megr.ertesitesiTel)
                     assertEquals("", megr.ugyfelEmail)
                     assertEquals("Panel lakás", megr.ingatlanTipusMunkadijMeghatarozasahoz)
-                    assertEquals(10, megr.ertekbecsloDija)
+                    // ez a regio összerendelésből jön automatikusan
+                    assertEquals(null, megr.ertekbecsloDija)
+                    // Saját ár nettó ára
                     assertEquals(18000, megr.szamlazhatoDij)
                     assertEquals(null, megr.helyszinelo)
                     assertEquals("lakás", megr.ingatlanBovebbTipus)
@@ -819,7 +884,8 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
                     assertEquals(null, megr.eladasiAr)
                     assertEquals(null, megr.fajlagosBecsultAr)
                     assertEquals(null, megr.fajlagosEladAr)
-                    assertEquals(false, megr.ellenorizve)
+                    // alapesetben be van pipálva az "Email küldése az alvállalkozónak
+                    assertEquals(true, megr.ellenorizve)
                     assertEquals(Statusz.B1, megr.statusz)
 
                     assertEquals("", megr.kerulet)
@@ -854,13 +920,41 @@ fun runIntegrationTests(globalDispatcher: Dispatcher<Action>, appState: AppState
             }
         }
     }
+    given("test editing Existing Megrendeles") {
+        globalDispatcher(Action.ChangeURL(Path.megrendeles.edit(newMegrendelesId)))
+
+        on("Értékbelcső dija a Régió összerendelésből kell jöjjön, az Ingatlan tipus (munkadij...) alapján") {
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.megrendelo, testMegrendelo)
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus, testMunkatipus)
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ingatlanTipusMunkadijMeghatarozasahoz, testLeiras)
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.alvallalkozo, testAlvallalkozName)
+
+            it("The server should send back the modified entity") {
+                globalEventListeners.add { appState ->
+                    val megr: Megrendeles = appState.megrendelesState.megrendelesek[newMegrendelesId]!!
+
+                    assertEquals("Baranya", megr.regio)
+                    assertEquals(testMunkatipus, megr.munkatipus)
+                    assertEquals(testLeiras, megr.ingatlanTipusMunkadijMeghatarozasahoz)
+                    assertEquals(alvallalkozId, megr.alvallalkozoId)
+                    assertEquals(ertekbecsloId, megr.ertekbecsloId)
+                    assertEquals(90000, megr.ertekbecsloDija)
+
+                    globalEventListeners.removeAt(globalEventListeners.lastIndex)
+                    testDone()
+                }
+                haltTestingUntilExternalEvent()
+                MegrendelesScreenIds.modal.button.save.simulateClick()
+            }
+        }
+    }
     given("test creating NEW Megrendeles by importing email texts") {
         globalDispatcher(Action.ChangeURL(Path.megrendeles.edit(0)))
 
         on("Importing EB text") {
             MegrendelesScreenIds.modal.button.import.simulateClick()
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.importTextArea) {
-                """Tisztelt Partnerünk!
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.importTextArea,
+                    """Tisztelt Partnerünk!
 
 Ezúton küldjük Önnek megrendelésünket, 950/2 HRSZ számú, természetben 8181 Berhida, Kálvin tér 7. sz. alatt található ingatlannal kapcsolatban az alábbi feladat(ok) elvégzésére. A teljesítéshez szükséges dokumentumokat kérje az ügyféltől.
 Elvégzendő feladatok:
@@ -879,10 +973,10 @@ Szerződésszám: 4294997
 Az elkészült feladato(ka)t - a szükséges mellékletekkel és/vagy kiegészítő adatokkal együtt -, kérjük legkésőbb a fent megjelölt határidőig portálunkra feltölteni, illetve az ügyfélnek átadni.
 Üdvözlettel,
 Fundamenta-Lakáskassza Zrt."""
-            }
+            )
 
             it("Az alapadatok tabon a megfelelő értékek kellenek beírva legyenek") {
-                (MegrendelesScreenIds.modal.tab.first + "___tab").simulateClick()
+                MegrendelesScreenIds.modal.tab.first.simulateClick()
 
                 assertEquals("2016-05-23", MegrendelesScreenIds.modal.input.hatarido.inputElementValue())
                 assertEquals(Munkatipusok.Ertekbecsles.str, MegrendelesScreenIds.modal.input.munkatipus.inputElementValue())
@@ -900,8 +994,8 @@ Fundamenta-Lakáskassza Zrt."""
             }
         }
         on("Importing ET, több ajánlat- és szerződésszám text") {
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.importTextArea) {
-                """
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.importTextArea,
+                    """
 
 Ezúton küldjük Önnek megrendelésünket, 5486 HRSZ számú, természetben 6000 Kecskemét, Márvány utca 48. sz. alatt található ingatlannal kapcsolatban az alábbi feladat(ok) elvégzésére. A teljesítéshez szükséges dokumentumokat kérje az ügyféltől.
 Elvégzendő feladatok:
@@ -921,10 +1015,10 @@ Szerződésszám: 4586938
 Az elkészült feladato(ka)t - a szükséges mellékletekkel és/vagy kiegészítő adatokkal együtt -, kérjük legkésőbb a fent megjelölt határidőig portálunkra feltölteni, illetve az ügyfélnek átadni.
 Üdvözlettel,
 Fundamenta-Lakáskassza Zrt."""
-            }
+            )
 
             it("Az alapadatok tabon a megfelelő értékek kellenek beírva legyenek") {
-                (MegrendelesScreenIds.modal.tab.first + "___tab").simulateClick()
+                MegrendelesScreenIds.modal.tab.first.simulateClick()
 
                 assertEquals("2016-05-18", MegrendelesScreenIds.modal.input.hatarido.inputElementValue())
                 assertEquals(Munkatipusok.Energetika.str, MegrendelesScreenIds.modal.input.munkatipus.inputElementValue())
@@ -940,8 +1034,8 @@ Fundamenta-Lakáskassza Zrt."""
             }
         }
         on("Importing EB, sok ajánlat- és szerződésszám text") {
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.importTextArea) {
-                """Tisztelt Partnerünk!
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.importTextArea,
+                    """Tisztelt Partnerünk!
 
 Ezúton küldjük Önnek megrendelésünket, 0100/2 HRSZ számú, természetben 6042 Fülöpháza, II.körzet út 405. sz. alatt található ingatlannal kapcsolatban az alábbi feladat(ok) elvégzésére. A teljesítéshez szükséges dokumentumokat kérje az ügyféltől.
 Elvégzendő feladatok:
@@ -969,10 +1063,10 @@ Szerződésszám: 4483021
 Az elkészült feladato(ka)t - a szükséges mellékletekkel és/vagy kiegészítő adatokkal együtt -, kérjük legkésőbb a fent megjelölt határidőig portálunkra feltölteni, illetve az ügyfélnek átadni.
 Üdvözlettel,
 Fundamenta-Lakáskassza Zrt."""
-            }
+            )
 
             it("Az alapadatok tabon a megfelelő értékek kellenek beírva legyenek") {
-                (MegrendelesScreenIds.modal.tab.first + "___tab").simulateClick()
+                MegrendelesScreenIds.modal.tab.first.simulateClick()
 
                 assertEquals("2016-05-17", MegrendelesScreenIds.modal.input.hatarido.inputElementValue())
                 assertEquals(Munkatipusok.Ertekbecsles.str, MegrendelesScreenIds.modal.input.munkatipus.inputElementValue())
@@ -990,8 +1084,8 @@ Fundamenta-Lakáskassza Zrt."""
             }
         }
         on("Importing EB, ET, sok ajánlat- és szerződésszám text") {
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.importTextArea) {
-                """Tisztelt Partnerünk!
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.importTextArea,
+                    """Tisztelt Partnerünk!
 
 Ezúton küldjük Önnek megrendelésünket, 884 HRSZ számú, természetben 7827 Beremend, Sport u. utca 5/d. sz. alatt található ingatlannal kapcsolatban az alábbi feladat(ok) elvégzésére. A teljesítéshez szükséges dokumentumokat kérje az ügyféltől.
 Elvégzendő feladatok:
@@ -1013,12 +1107,12 @@ Szerződésszám: 4439733
 Az elkészült feladato(ka)t - a szükséges mellékletekkel és/vagy kiegészítő adatokkal együtt -, kérjük legkésőbb a fent megjelölt határidőig portálunkra feltölteni, illetve az ügyfélnek átadni.
 Üdvözlettel,
 Fundamenta-Lakáskassza Zrt."""
-            }
+            )
 
             it("Az alapadatok tabon a megfelelő értékek kellenek beírva legyenek") {
-                (MegrendelesScreenIds.modal.tab.first + "___tab").simulateClick()
+                MegrendelesScreenIds.modal.tab.first.simulateClick()
 
-                assertEquals(Munkatipusok.EnergetikaAndErtekBecsles.str, MegrendelesScreenIds.modal.input.munkatipus.inputElementValue())
+                assertEquals(htmlEncode(Munkatipusok.EnergetikaAndErtekBecsles.str), MegrendelesScreenIds.modal.input.munkatipus.inputElementValue())
                 assertEquals("2016-05-09", MegrendelesScreenIds.modal.input.hatarido.inputElementValue())
                 assertEquals("bodnár istván", MegrendelesScreenIds.modal.input.ugyfelNev.inputElementValue())
                 assertEquals("+36308657604", MegrendelesScreenIds.modal.input.ugyfelTel.inputElementValue())
@@ -1038,35 +1132,36 @@ Fundamenta-Lakáskassza Zrt."""
         globalDispatcher(Action.ChangeURL(Path.megrendeles.edit(newMegrendelesId)))
 
         on("Click on Save button after fields were modified") {
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.megrendelo) { "Állami" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.regio) { "Bács-Kiskun" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus) { Munkatipusok.EnergetikaAndErtekBecsles.str }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.fovallalkozo) { "Viridis Kft." }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.alvallalkozo) { "24" } // Test Kft.
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hitelTipus) { "építés" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.helyrajziSzam) { "4321" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.iranyitoszam) { "7841" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.telepules) { "Adorjás" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.kozteruletNeve) { "q" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hitelOsszege) { "12000001" }
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.megrendelo, "Fundamenta Zrt.")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.regio, "Bács-Kiskun")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus, Munkatipusok.EnergetikaAndErtekBecsles.str)
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.fovallalkozo, "Viridis Kft.")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.alvallalkozo, "Presting Észak") // Test Kft.
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hitelTipus, "építés")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.helyrajziSzam, "4321")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.iranyitoszam, "7841")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.telepules, "Adorjás")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.kozteruletNeve, "q")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hitelOsszege, "12000001")
 
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ugyfelNev) { "Ügyfél neve2" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ugyfelTel) { "Ügyfél száma2" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ebAzonosito) { azonosito + "ertb" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.etAzonosito) { azonosito + "ener" }
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ugyfelNev, "Ügyfél neve2")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ugyfelTel, "Ügyfél száma2")
+            MegrendelesScreenIds.modal.input.ertesitesiSzemelyAzonos.checkboxClick() // set to true
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ebAzonosito, azonosito + "ertb")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.etAzonosito, azonosito + "ener")
 
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.kerulet) { "kerulet" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.kozteruletJellege) { "kozteruletJellege" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hazszam) { "hazszam" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.lepcsohaz) { "lepcsohaz" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.emelet) { "emelet" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ajto) { "ajto" }
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.kerulet, "kerulet")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.kozteruletJellege, "kozteruletJellege")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hazszam, "hazszam")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.lepcsohaz, "lepcsohaz")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.emelet, "emelet")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ajto, "ajto")
 
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ajanlatSzam) { "ajanlatSzam" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.szerzodesSzam) { "szerzodesSzam" }
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ajanlatSzam, "ajanlatSzam")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.szerzodesSzam, "szerzodesSzam")
 
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.megrendelesDatuma) { moment().add(1, TimeUnit.Days).format(dateFormat) }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hatarido) { moment().add(2, TimeUnit.Days).format(dateFormat) }
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.megrendelesDatuma, moment().add(1, TimeUnit.Days).format(dateFormat))
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hatarido, moment().add(2, TimeUnit.Days).format(dateFormat))
 
             it("The server should send back the modified entity") {
                 val prevMinute = moment().subtract(1, TimeUnit.Minutes)
@@ -1075,13 +1170,13 @@ Fundamenta-Lakáskassza Zrt."""
                 globalEventListeners.add { appState ->
                     val megr: Megrendeles = appState.megrendelesState.megrendelesek[newMegrendelesId]!!
 
-                    assertEquals("Állami", megr.megrendelo)
+                    assertEquals("Fundamenta Zrt.", megr.megrendelo)
                     assertEquals("Bács-Kiskun", megr.regio)
                     assertEquals(Munkatipusok.EnergetikaAndErtekBecsles.str, megr.munkatipus)
                     assertEquals("Viridis Kft.", megr.foVallalkozo)
-                    assertEquals(24, megr.alvallalkozoId)
-                    assertEquals(67, megr.ertekbecsloId)
-                    // Állami-n belül csak ez az egy darab ingatlanTipus van, ezért automatikusan kiválasztódik
+                    assertEquals(9, megr.alvallalkozoId)
+                    // Csizmadia Beáta automatikusan kiválasztódik
+                    assertEquals(22, megr.ertekbecsloId)
                     assertEquals("Panel lakás", megr.ingatlanTipusMunkadijMeghatarozasahoz)
                     assertEquals("építés", megr.hitelTipus)
 
@@ -1099,8 +1194,8 @@ Fundamenta-Lakáskassza Zrt."""
                     assertEquals("Ügyfél száma2", megr.ertesitesiTel)
                     assertEquals("", megr.ugyfelEmail)
                     assertEquals("Panel lakás", megr.ingatlanTipusMunkadijMeghatarozasahoz)
-                    assertEquals(10000, megr.ertekbecsloDija)
-                    assertEquals(20000, megr.szamlazhatoDij)
+                    assertEquals(22000, megr.ertekbecsloDija)
+                    assertEquals(22000, megr.szamlazhatoDij)
                     assertEquals(null, megr.helyszinelo)
                     assertEquals("lakás", megr.ingatlanBovebbTipus)
                     assertEquals(null, megr.keszultsegiFok)
@@ -1110,7 +1205,7 @@ Fundamenta-Lakáskassza Zrt."""
                     assertEquals(null, megr.eladasiAr)
                     assertEquals(null, megr.fajlagosBecsultAr)
                     assertEquals(null, megr.fajlagosEladAr)
-                    assertEquals(false, megr.ellenorizve)
+                    assertEquals(true, megr.ellenorizve)
                     assertEquals(Statusz.B1, megr.statusz)
 
                     assertEquals("", megr.ugyfelEmail)
@@ -1147,8 +1242,8 @@ Fundamenta-Lakáskassza Zrt."""
             }
         }
         on("Értékbecslés munkatipus") {
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus) { Munkatipusok.Ertekbecsles.str }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ebAzonosito) { azonosito }
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus, Munkatipusok.Ertekbecsles.str)
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ebAzonosito, azonosito)
 
             it("The server should send back the modified entity") {
                 globalEventListeners.add { appState ->
@@ -1165,8 +1260,8 @@ Fundamenta-Lakáskassza Zrt."""
             }
         }
         on("Energetika munkatipus") {
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus) { Munkatipusok.Energetika.str }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.etAzonosito) { azonosito }
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus, Munkatipusok.Energetika.str)
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.etAzonosito, azonosito)
 
             it("The server should send back the modified entity") {
                 globalEventListeners.add { appState ->
@@ -1189,10 +1284,10 @@ Fundamenta-Lakáskassza Zrt."""
         Ehhez viszont kell egy Régióösszerendelés egy Somogy-gyal egy 4. munkatipushoz.
         on("Egyéb munkatipus") {
             val randomStringGenerator = RandomStringGenerator()
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus) { "Valami munkatípus" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.azonosito) {
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus,  "Valami munkatípus" )
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.azonosito, 
                 randomStringGenerator.next()
-            }
+            )
 
 
             it("The server should send back the modified entity") {
@@ -1210,38 +1305,35 @@ Fundamenta-Lakáskassza Zrt."""
             }
         }*/
         on("Az irányítószám kiválasztása ki kell válassza a települést, de csak azt, a Régiót nem!") {
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.iranyitoszam) { "7636" }
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.iranyitoszam, "7636")
             it("regio marad 'Bács-Kiskun', település: Pécs") {
-                assertEquals("Bács-Kiskun", jq("#${MegrendelesScreenIds.modal.input.regio}").`val`())
-                assertEquals("Pécs", jq("#${MegrendelesScreenIds.modal.input.telepules}").`val`())
+                assertEquals("Bács-Kiskun", MegrendelesScreenIds.modal.input.regio.inputElementValue())
+                assertEquals("Pécs", MegrendelesScreenIds.modal.input.telepules.inputElementValue())
             }
         }
-        on("A régió kiválasztása NEM állítja be az alvállalkozó és értékbecslő selectek választható értékeit, ha azok listájában több mint egy elem szerepel") {
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.alvallalkozo) { "0" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ertekbecslo) { "0" }
-
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.regio) { "Baranya" }
+        on("A régió kiválasztása IGENIS beállítja be az alvállalkozó és értékbecslő selectek választható értékeit, ha azok listájában több mint egy elem szerepel") {
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.regio, "Baranya")
 
             it("save") {
-                assertEquals("Baranya", jq("#${MegrendelesScreenIds.modal.input.regio}").`val`())
-                assertEquals("", jq("#${MegrendelesScreenIds.modal.input.alvallalkozo}").`val`())
-                assertEquals("", jq("#${MegrendelesScreenIds.modal.input.ertekbecslo}").`val`())
+                assertEquals("Baranya", MegrendelesScreenIds.modal.input.regio.inputElementValue())
+                assertEquals("Viridis Kft", MegrendelesScreenIds.modal.input.alvallalkozo.inputElementValue())
+                assertEquals("Rice János", MegrendelesScreenIds.modal.input.ertekbecslo.inputElementValue())
             }
         }
         on("Alvállalkozó és értékbecslő mentése") {
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.regio) { "Baranya" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus) { Munkatipusok.Ertekbecsles.str }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.alvallalkozo) { "24" } // Test Kft.
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ertekbecslo) { "67" } // BB
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ebAzonosito) { azonosito }
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.regio, "Baranya")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus, Munkatipusok.Ertekbecsles.str)
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.alvallalkozo, "Presting Dél") // Test Kft.
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ertekbecslo, "Bocz Gábor") // BB
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ebAzonosito, azonosito)
 
             it("save") {
                 globalEventListeners.add { appState ->
                     val megr = appState.megrendelesState.megrendelesek[newMegrendelesId]!!
 
                     assertEquals("Baranya", megr.regio)
-                    assertEquals(24, megr.alvallalkozoId)
-                    assertEquals(67, megr.ertekbecsloId)
+                    assertEquals(10, megr.alvallalkozoId)
+                    assertEquals(27, megr.ertekbecsloId)
 
                     globalEventListeners.removeAt(globalEventListeners.lastIndex)
                     testDone()
@@ -1251,9 +1343,9 @@ Fundamenta-Lakáskassza Zrt."""
             }
         }
         on("ingatlanTipusMunkadijMeghatarozasahoz mentés") {
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.megrendelo) { "Fundamenta Zrt." }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus) { Munkatipusok.Ertekbecsles.str }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ingatlanTipusMunkadijMeghatarozasahoz) { "5" } // vegyes funkciójú ingatlan
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.megrendelo, "Fundamenta Zrt.")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.munkatipus, Munkatipusok.Ertekbecsles.str)
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ingatlanTipusMunkadijMeghatarozasahoz, "Vegyes funkciójú ingatlan")
 
             it("elmenti") {
                 globalEventListeners.add { appState ->
@@ -1271,8 +1363,8 @@ Fundamenta-Lakáskassza Zrt."""
             }
         }
         on("Click on Save button after Comment were added") {
-            (MegrendelesScreenIds.modal.tab.akadalyok + "___tab").simulateClick()
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.megjegyzes) { "Ez egy comment" }
+            MegrendelesScreenIds.modal.tab.akadalyok.simulateClick()
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.megjegyzes, "Ez egy comment")
             it("The server should send back the modified entity") {
                 val prevMinute = moment().subtract(1, TimeUnit.Minutes)
                 val nextMinute = moment().add(1, TimeUnit.Minutes)
@@ -1290,10 +1382,10 @@ Fundamenta-Lakáskassza Zrt."""
             }
         }
         on("Adding new Akadaly") {
-            (MegrendelesScreenIds.modal.tab.akadalyok + "___tab").simulateClick()
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.akadaly.keslekedesOka) { Statusz.G3.name }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.akadaly.szovegesMagyarazat) { "Szöveges magyarázat Akadályhoz" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.akadaly.ujHatarido) { "2017-07-07" }
+            MegrendelesScreenIds.modal.tab.akadalyok.simulateClick()
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.akadaly.keslekedesOka, Statusz.G3.text)
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.akadaly.szovegesMagyarazat, "Szöveges magyarázat Akadályhoz")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.akadaly.ujHatarido, "2017-07-07")
             it("The server should send back the modified entity") {
                 val tabId = MegrendelesScreenIds.modal.tab.akadalyok
                 val prevMinute = moment().subtract(1, TimeUnit.Minutes)
@@ -1327,16 +1419,17 @@ Fundamenta-Lakáskassza Zrt."""
             }
         }
         on("Click on Save button after fields from the 2nd tab were modified") {
-            (MegrendelesScreenIds.modal.tab.ingatlanAdatai + "___tab").simulateClick()
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.helyszinelo) { "helyszinelo" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ingatlanBovebbTipus) { "lakóház, udvar, gazdasági épület" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ingatlanKeszultsegiFoka) { "69" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.lakasTerulet) { "100" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.telekTerulet) { "200" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.becsultErtek) { "10000000" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.eladasiAr) { "20000000" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hetKod) { "het" }
-            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.adasvetelDatuma) { "2016-04-19" }
+            MegrendelesScreenIds.modal.tab.ingatlanAdatai.simulateClick()
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.helyszinelo, "helyszinelo")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ingatlanBovebbTipus, "lakóház, udvar, gazdasági épület")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.ingatlanKeszultsegiFoka, "69")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.lakasTerulet, "100")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.telekTerulet, "200")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.becsultErtek, "10000000")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.eladasiAr, "20000000")
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.hetKod, "het")
+            MegrendelesScreenIds.modal.input.adasvetelDatumaCheckbox.checkboxClick()
+            simulateChangeAndSetValue(MegrendelesScreenIds.modal.input.adasvetelDatuma, "2016-04-19")
 
             it("The server should send back the modified entity") {
                 val prevMinute = moment().subtract(1, TimeUnit.Minutes)
@@ -1349,8 +1442,8 @@ Fundamenta-Lakáskassza Zrt."""
                     assertEquals(Munkatipusok.Ertekbecsles.str, megr.munkatipus)
                     assertEquals(azonosito, megr.azonosito)
                     assertEquals("Viridis Kft.", megr.foVallalkozo)
-                    assertEquals(24, megr.alvallalkozoId)
-                    assertEquals(67, megr.ertekbecsloId)
+                    assertEquals(12, megr.alvallalkozoId)
+                    assertEquals(30, megr.ertekbecsloId)
                     assertEquals("építés", megr.hitelTipus)
 
                     assertEquals("4321", megr.hrsz)
@@ -1377,8 +1470,8 @@ Fundamenta-Lakáskassza Zrt."""
                     assertEquals(20000000, megr.eladasiAr)
                     assertEquals(100000, megr.fajlagosBecsultAr)
                     assertEquals(200000, megr.fajlagosEladAr)
-                    assertEquals(false, megr.ellenorizve)
-                    assertEquals(Statusz.B1, megr.statusz)
+                    assertEquals(true, megr.ellenorizve)
+                    assertEquals(Statusz.G3, megr.statusz)
 
                     assertEquals("", megr.ugyfelEmail)
                     assertEquals("kerulet", megr.kerulet)
@@ -1414,24 +1507,24 @@ Fundamenta-Lakáskassza Zrt."""
         }
     }
     runFirstGiven(onFinally = {
-        //        if (sajatArId != 0) {
-//            communicator.deleteEntity("SajatAr", sajatArId)
-//        }
-//        if (regioId != 0) {
-//            communicator.deleteEntity("RegioOsszerendeles", regioId)
-//        }
-//        if (regioId2 != 0) {
-//            communicator.deleteEntity("RegioOsszerendeles", regioId2)
-//        }
-//                if (ertekbecsloId != 0) {
-//            communicator.deleteEntity("Ertekbecslo", ertekbecsloId)
-//        }
-//        if (alvallalkozId != 0) {
-//            communicator.deleteEntity("Alvallalkozo", alvallalkozId)
-//        }
-        //        if (newMegrendelesId != 0) {
-//            communicator.deleteEntity("Megrendeles", newMegrendelesId)
-//        }
+        if (sajatArId != 0) {
+            communicator.deleteEntity("SajatAr", sajatArId)
+        }
+        if (regioId != 0) {
+            communicator.deleteEntity("RegioOsszerendeles", regioId)
+        }
+        if (regioId2 != 0) {
+            communicator.deleteEntity("RegioOsszerendeles", regioId2)
+        }
+        if (ertekbecsloId != 0) {
+            communicator.deleteEntity("Ertekbecslo", ertekbecsloId)
+        }
+        if (alvallalkozId != 0) {
+            communicator.deleteEntity("Alvallalkozo", alvallalkozId)
+        }
+        if (newMegrendelesId != 0) {
+            communicator.deleteEntity("Megrendeles", newMegrendelesId)
+        }
     })
 }
 

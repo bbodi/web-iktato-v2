@@ -17,6 +17,7 @@ import hu.nevermind.utils.store.MegrendelesFieldsFromExternalSource
 import hu.nevermind.utils.store.dateFormat
 import hu.nevermind.utils.store.ingatlanBovebbTipusaArray
 import react.RBuilder
+import react.RElementBuilder
 import react.ReactElement
 import react.children
 import react.dom.span
@@ -79,6 +80,7 @@ private fun RBuilder.helyszinelesPanel(tabState: Megrendeles,
                 attrs.label = StringOrReactElement.fromString("Szemle időpontja")
                 addExcelbolBetoltveMessages(tabState.szemleIdopontja?.format(dateFormat), excel?.szemleIdopontja)
                 Checkbox {
+                    attrs.asDynamic().id = MegrendelesScreenIds.modal.input.szemleIdopontjaCheckbox
                     attrs.checked = tabState.szemleIdopontja != null
                     attrs.onChange = { checked ->
                         setTabState(tabState.copy(
@@ -152,171 +154,34 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
                                    excel: MegrendelesFieldsFromExternalSource?) {
     Row {
         Col(span = 7) {
-            FormItem {
-                attrs.label = StringOrReactElement.fromString("Ingatlan bővebb típus")
-                addExcelbolBetoltveMessages(tabState.ingatlanBovebbTipus.toLowerCase(), excel?.ingatlanTipusa?.toLowerCase())
-                Select {
-                    attrs.asDynamic().style = jsStyle { minWidth = 300 }
-                    attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ingatlanBovebbTipus
-                    attrs.value = tabState.ingatlanBovebbTipus
-                    attrs.onSelect = { value, option ->
-                        setTabState(tabState.copy(
-                                ingatlanBovebbTipus = value
-                        ))
-                    }
-                    ingatlanBovebbTipusaArray.forEach { ingatlanBt ->
-                        Option { attrs.value = ingatlanBt; +(ingatlanBt) }
-                    }
-                }
-            }
+            bovebbTipus(tabState, excel, setTabState)
         }
-        Col(offset = 1, span = 7) {
-            FormItem {
-                attrs.label = StringOrReactElement.fromString("Ingatlan készültségi foka")
-                addExcelbolBetoltveMessages(tabState.keszultsegiFok, excel?.keszultsegiFok?.toInt())
-                MyNumberInput {
-                    attrs.number = tabState.keszultsegiFok?.toLong()
-                    attrs.onValueChange = { value ->
-                        setTabState(tabState.copy(
-                                keszultsegiFok = value?.toInt()
-                        ))
-                    }
-                }
-            }
+        Col(offset = 9, span = 7) {
+            keszultsegiFok(tabState, excel, setTabState)
         }
     }
     Row {
-        Col(span = 5) {
-            FormItem {
-                attrs.label = StringOrReactElement.fromString("Lakás terület (m²)")
-                addExcelbolBetoltveMessages(tabState.lakasTerulet, excel?.ingatlanTerulet?.toInt())
-                MyNumberInput {
-                    attrs.number = tabState.lakasTerulet?.toLong()
-                    attrs.onValueChange = { value ->
-                        val (fajlagosBecsultErtek, fajlagosEladasiAr) =
-                                if (tabState.ingatlanBovebbTipus != "beépítetlen terület") {
-                                    if (value != null && value > 0) {
-                                        (tabState.becsultErtek ?: 0).div(value.toInt()) to
-                                                (tabState.eladasiAr ?: 0).div(value.toInt())
-                                    } else {
-                                        tabState.fajlagosBecsultAr to
-                                                tabState.fajlagosEladAr
-                                    }
-                                } else {
-                                    tabState.fajlagosBecsultAr to
-                                            tabState.fajlagosEladAr
-                                }
-
-                        setTabState(tabState.copy(
-                                lakasTerulet = value?.toInt(),
-                                fajlagosBecsultAr = fajlagosBecsultErtek,
-                                fajlagosEladAr = fajlagosEladasiAr
-                        ))
-                    }
-                }
-            }
-        }
-        Col(offset = 1, span = 5) {
-            FormItem {
-                attrs.label = StringOrReactElement.fromString("Telek terület (m²)")
-                addExcelbolBetoltveMessages(tabState.telekTerulet, excel?.telekMeret?.toInt())
-                MyNumberInput {
-                    attrs.number = tabState.telekTerulet?.toLong()
-                    attrs.onValueChange = { value ->
-                        val (fajlagosBecsultErtek, fajlagosEladasiAr) =
-                                if (tabState.ingatlanBovebbTipus == "beépítetlen terület") {
-                                    if (value != null && value > 0) {
-                                        (tabState.becsultErtek ?: 0).div(value.toInt()) to
-                                                (tabState.eladasiAr ?: 0).div(value.toInt())
-                                    } else {
-                                        tabState.fajlagosBecsultAr to
-                                                tabState.fajlagosEladAr
-                                    }
-                                } else {
-                                    tabState.fajlagosBecsultAr to
-                                            tabState.fajlagosEladAr
-                                }
-
-                        setTabState(tabState.copy(
-                                telekTerulet = value?.toInt(),
-                                fajlagosBecsultAr = fajlagosBecsultErtek,
-                                fajlagosEladAr = fajlagosEladasiAr
-                        ))
-                    }
-                }
-            }
-        }
-        Col(offset = 1, span = 5) {
-            FormItem {
-                attrs.label = StringOrReactElement.fromString("Becsült érték (Ft)")
-                addExcelbolBetoltveMessages(tabState.becsultErtek, excel?.forgalmiErtek?.toInt())
-                MyNumberInput {
-                    attrs.number = tabState.becsultErtek?.toLong()
-                    attrs.onValueChange = { becsultErtek ->
-                        val terulet = if (tabState.ingatlanBovebbTipus == "beépítetlen terület")
-                            tabState.telekTerulet
-                        else
-                            tabState.lakasTerulet
-                        val fajlagosBecsultErtek = if (terulet != null && terulet > 0) {
-                            (becsultErtek ?: 0).div(terulet)
-                        } else null
-
-                        setTabState(tabState.copy(
-                                becsultErtek = becsultErtek?.toInt(),
-                                fajlagosBecsultAr = fajlagosBecsultErtek?.toInt()
-                        ))
-                    }
-                }
-            }
-        }
-        Col(offset = 1, span = 5) {
-            FormItem {
-                attrs.label = StringOrReactElement.fromString("Eladási ár (Ft)")
-                addExcelbolBetoltveMessages(tabState.eladasiAr, excel?.adasvetel?.toIntOrNull())
-                MyNumberInput {
-                    attrs.number = tabState.eladasiAr?.toLong()
-                    attrs.onValueChange = { eladasiAr ->
-                        val terulet = if (tabState.ingatlanBovebbTipus == "beépítetlen terület")
-                            tabState.telekTerulet
-                        else
-                            tabState.lakasTerulet
-                        val fajlagosEladasiAr = if (terulet != null && terulet > 0) {
-                            (eladasiAr ?: 0).div(terulet)
-                        } else null
-                        setTabState(tabState.copy(
-                                eladasiAr = eladasiAr?.toInt(),
-                                fajlagosEladAr = fajlagosEladasiAr?.toInt()
-                        ))
-                    }
-                }
-            }
-        }
         Col(span = 7) {
-            FormItem {
-                attrs.label = StringOrReactElement.fromString("Fajlagos becsült ár (Ft)")
-                addExcelbolBetoltveMessages(tabState.fajlagosBecsultAr, excel?.fajlagosAr?.toInt())
-                MyNumberInput {
-                    attrs.number = tabState.fajlagosBecsultAr?.toLong()
-                    attrs.onValueChange = { value ->
-                        setTabState(tabState.copy(
-                                fajlagosBecsultAr = value?.toInt()
-                        ))
-                    }
-                }
-            }
+            lakasTerulet(tabState, excel, setTabState)
         }
         Col(offset = 1, span = 7) {
-            FormItem {
-                attrs.label = StringOrReactElement.fromString("Fajlagos eladási ár (Ft)")
-                MyNumberInput {
-                    attrs.number = tabState.fajlagosEladAr?.toLong()
-                    attrs.onValueChange = { value ->
-                        setTabState(tabState.copy(
-                                fajlagosEladAr = value?.toInt()
-                        ))
-                    }
-                }
-            }
+            telekTerulet(tabState, excel, setTabState)
+        }
+    }
+    Row {
+        Col(span = 7) {
+            becsultErtek(tabState, excel, setTabState)
+        }
+        Col(offset = 1, span = 7) {
+            fajlagosBecsultAr(tabState, excel, setTabState)
+        }
+    }
+    Row {
+        Col(span = 7) {
+            eladasiAr(tabState, excel, setTabState)
+        }
+        Col(offset = 1, span = 7) {
+            FajlagosEladasiAr(tabState, setTabState)
         }
     }
     Row {
@@ -325,6 +190,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
                 attrs.label = StringOrReactElement.fromString("Adásvétel dátuma")
                 addExcelbolBetoltveMessages(tabState.adasvetelDatuma?.format(dateFormat), excel?.adasvetelDatuma)
                 Checkbox {
+                    attrs.asDynamic().id = MegrendelesScreenIds.modal.input.adasvetelDatumaCheckbox
                     attrs.checked = tabState.adasvetelDatuma != null
                     attrs.onChange = { checked ->
                         setTabState(tabState.copy(
@@ -333,9 +199,9 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
                     }
                 }
                 DatePicker {
+                    attrs.asDynamic().id = MegrendelesScreenIds.modal.input.adasvetelDatuma
                     attrs.allowClear = false
                     attrs.disabled = tabState.adasvetelDatuma == null
-                    attrs.asDynamic().id = MegrendelesScreenIds.modal.input.adasvetelDatuma
                     attrs.value = tabState.adasvetelDatuma
                     attrs.onChange = { date, str ->
                         if (date != null) {
@@ -349,6 +215,7 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
             FormItem {
                 attrs.label = StringOrReactElement.fromString("HET kód")
                 Input {
+                    attrs.asDynamic().id = MegrendelesScreenIds.modal.input.hetKod
                     attrs.value = tabState.hetKod ?: ""
                     attrs.onChange = { e ->
                         setTabState(tabState.copy(
@@ -359,5 +226,185 @@ private fun RBuilder.ingatlanPanel(tabState: Megrendeles,
             }
         }
 
+    }
+}
+
+private fun RElementBuilder<ColProps>.bovebbTipus(tabState: Megrendeles, excel: MegrendelesFieldsFromExternalSource?, setTabState: Dispatcher<Megrendeles>) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Ingatlan bővebb típus")
+        addExcelbolBetoltveMessages(tabState.ingatlanBovebbTipus.toLowerCase(), excel?.ingatlanTipusa?.toLowerCase())
+        Select {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ingatlanBovebbTipus
+            attrs.asDynamic().style = jsStyle { minWidth = 300 }
+            attrs.value = tabState.ingatlanBovebbTipus
+            attrs.onSelect = { value, option ->
+                setTabState(tabState.copy(
+                        ingatlanBovebbTipus = value
+                ))
+            }
+            ingatlanBovebbTipusaArray.forEach { ingatlanBt ->
+                Option { attrs.value = ingatlanBt; +(ingatlanBt) }
+            }
+        }
+    }
+}
+
+private fun RElementBuilder<ColProps>.keszultsegiFok(tabState: Megrendeles, excel: MegrendelesFieldsFromExternalSource?, setTabState: Dispatcher<Megrendeles>) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Ingatlan készültségi foka")
+        addExcelbolBetoltveMessages(tabState.keszultsegiFok, excel?.keszultsegiFok?.toInt())
+        MyNumberInput {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ingatlanKeszultsegiFoka
+            attrs.number = tabState.keszultsegiFok?.toLong()
+            attrs.onValueChange = { value ->
+                setTabState(tabState.copy(
+                        keszultsegiFok = value?.toInt()
+                ))
+            }
+        }
+    }
+}
+
+private fun RElementBuilder<ColProps>.lakasTerulet(tabState: Megrendeles, excel: MegrendelesFieldsFromExternalSource?, setTabState: Dispatcher<Megrendeles>) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Lakás terület (m²)")
+        addExcelbolBetoltveMessages(tabState.lakasTerulet, excel?.ingatlanTerulet?.toInt())
+        MyNumberInput {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.lakasTerulet
+            attrs.number = tabState.lakasTerulet?.toLong()
+            attrs.onValueChange = { value ->
+                val (fajlagosBecsultErtek, fajlagosEladasiAr) =
+                        if (tabState.ingatlanBovebbTipus != "beépítetlen terület") {
+                            if (value != null && value > 0) {
+                                (tabState.becsultErtek ?: 0).div(value.toInt()) to
+                                        (tabState.eladasiAr ?: 0).div(value.toInt())
+                            } else {
+                                tabState.fajlagosBecsultAr to
+                                        tabState.fajlagosEladAr
+                            }
+                        } else {
+                            tabState.fajlagosBecsultAr to
+                                    tabState.fajlagosEladAr
+                        }
+
+                setTabState(tabState.copy(
+                        lakasTerulet = value?.toInt(),
+                        fajlagosBecsultAr = fajlagosBecsultErtek,
+                        fajlagosEladAr = fajlagosEladasiAr
+                ))
+            }
+        }
+    }
+}
+
+private fun RElementBuilder<ColProps>.telekTerulet(tabState: Megrendeles, excel: MegrendelesFieldsFromExternalSource?, setTabState: Dispatcher<Megrendeles>) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Telek terület (m²)")
+        addExcelbolBetoltveMessages(tabState.telekTerulet, excel?.telekMeret?.toInt())
+        MyNumberInput {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.telekTerulet
+            attrs.number = tabState.telekTerulet?.toLong()
+            attrs.onValueChange = { value ->
+                val (fajlagosBecsultErtek, fajlagosEladasiAr) =
+                        if (tabState.ingatlanBovebbTipus == "beépítetlen terület") {
+                            if (value != null && value > 0) {
+                                (tabState.becsultErtek ?: 0).div(value.toInt()) to
+                                        (tabState.eladasiAr ?: 0).div(value.toInt())
+                            } else {
+                                tabState.fajlagosBecsultAr to
+                                        tabState.fajlagosEladAr
+                            }
+                        } else {
+                            tabState.fajlagosBecsultAr to
+                                    tabState.fajlagosEladAr
+                        }
+
+                setTabState(tabState.copy(
+                        telekTerulet = value?.toInt(),
+                        fajlagosBecsultAr = fajlagosBecsultErtek,
+                        fajlagosEladAr = fajlagosEladasiAr
+                ))
+            }
+        }
+    }
+}
+
+private fun RElementBuilder<ColProps>.FajlagosEladasiAr(tabState: Megrendeles, setTabState: Dispatcher<Megrendeles>) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Fajlagos eladási ár (Ft)")
+        MyNumberInput {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.fajlagosEladasiAr
+            attrs.number = tabState.fajlagosEladAr?.toLong()
+            attrs.onValueChange = { value ->
+                setTabState(tabState.copy(
+                        fajlagosEladAr = value?.toInt()
+                ))
+            }
+        }
+    }
+}
+
+private fun RElementBuilder<ColProps>.fajlagosBecsultAr(tabState: Megrendeles, excel: MegrendelesFieldsFromExternalSource?, setTabState: Dispatcher<Megrendeles>) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Fajlagos becsült ár (Ft)")
+        addExcelbolBetoltveMessages(tabState.fajlagosBecsultAr, excel?.fajlagosAr?.toInt())
+        MyNumberInput {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.fajlagosBecsultAr
+            attrs.number = tabState.fajlagosBecsultAr?.toLong()
+            attrs.onValueChange = { value ->
+                setTabState(tabState.copy(
+                        fajlagosBecsultAr = value?.toInt()
+                ))
+            }
+        }
+    }
+}
+
+private fun RElementBuilder<ColProps>.eladasiAr(tabState: Megrendeles, excel: MegrendelesFieldsFromExternalSource?, setTabState: Dispatcher<Megrendeles>) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Eladási ár (Ft)")
+        addExcelbolBetoltveMessages(tabState.eladasiAr, excel?.adasvetel?.toIntOrNull())
+        MyNumberInput {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.eladasiAr
+            attrs.number = tabState.eladasiAr?.toLong()
+            attrs.onValueChange = { eladasiAr ->
+                val terulet = if (tabState.ingatlanBovebbTipus == "beépítetlen terület")
+                    tabState.telekTerulet
+                else
+                    tabState.lakasTerulet
+                val fajlagosEladasiAr = if (terulet != null && terulet > 0) {
+                    (eladasiAr ?: 0).div(terulet)
+                } else null
+                setTabState(tabState.copy(
+                        eladasiAr = eladasiAr?.toInt(),
+                        fajlagosEladAr = fajlagosEladasiAr?.toInt()
+                ))
+            }
+        }
+    }
+}
+
+private fun RElementBuilder<ColProps>.becsultErtek(tabState: Megrendeles, excel: MegrendelesFieldsFromExternalSource?, setTabState: Dispatcher<Megrendeles>) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Becsült érték (Ft)")
+        addExcelbolBetoltveMessages(tabState.becsultErtek, excel?.forgalmiErtek?.toInt())
+        MyNumberInput {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.becsultErtek
+            attrs.number = tabState.becsultErtek?.toLong()
+            attrs.onValueChange = { becsultErtek ->
+                val terulet = if (tabState.ingatlanBovebbTipus == "beépítetlen terület")
+                    tabState.telekTerulet
+                else
+                    tabState.lakasTerulet
+                val fajlagosBecsultErtek = if (terulet != null && terulet > 0) {
+                    (becsultErtek ?: 0).div(terulet)
+                } else null
+
+                setTabState(tabState.copy(
+                        becsultErtek = becsultErtek?.toInt(),
+                        fajlagosBecsultAr = fajlagosBecsultErtek?.toInt()
+                ))
+            }
+        }
     }
 }

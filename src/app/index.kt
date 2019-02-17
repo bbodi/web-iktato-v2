@@ -15,6 +15,7 @@ import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.*
 import kotlinext.js.require
 import kotlinext.js.requireAll
+import org.w3c.dom.events.Event
 import react.RProps
 import react.ReactElement
 import react.buildElement
@@ -55,6 +56,10 @@ val globalEventListeners: MutableList<(AppState)->Unit> = arrayListOf()
 fun main(args: Array<String>) {
     // HACK: operator invoke is translated as `invoke()` function call in Javascript -_-'
     moment.asDynamic().invoke = moment
+    moment.asDynamic().fn.toJSON = {
+        js("return this.format('$dateTimeFormat');")
+    }
+//    js("moment.fn.toJSON = function() { return this.format('$dateTimeFormat'); }")
     requireAll(require.context("src", true, js("/\\.css$/")))
 
     val data = object {
@@ -162,10 +167,12 @@ fun main(args: Array<String>) {
     val AppComponent: () -> ReactElement? = {
         val (appState, dispatch) = useReducer<AppState, Action>({ currentState, action ->
             console.log("Message arrived: $action")
+            val newUrlData = routerStoreHandler(currentState.urlData, action)
             currentState.copy(
                     megrendelesState = megrendelesekFromServer(currentState.megrendelesState, action),
                     alvallalkozoState = alvallalkozoActionHandler(currentState.alvallalkozoState, action),
-                    urlData = routerStoreHandler(currentState.urlData, action),
+                    urlData = newUrlData,
+                    currentScreen = route(currentState.maybeLoggedInUser, newUrlData.path),
                     maybeLoggedInUser = appReducer(currentState.maybeLoggedInUser, action),
                     megrendelesTableFilterState = megrendelesTableFilterReducer(currentState.megrendelesTableFilterState, action),
                     geoData = geoReducer(currentState.geoData, action),
@@ -187,17 +194,18 @@ fun main(args: Array<String>) {
                         haviTeljesites = null
                 ),
                 accountStore = AccountStore(emptyArray()))) // TODO: parse current uRL
-        useEffect {
-            var urlChangeOccurredByDispatchAction = false
-            window.addEventListener("hashchange", {
-                val externalChange = urlChangeOccurredByDispatchAction == false
+        useEffectWithCleanup {
+            val callback = { e: Event ->
+                val externalChange = appState.urlData.path != window.location.hash.substring(1)
                 if (externalChange) {
-//                    RouterStore.path = window.location.hash.substring(1)
-                    // appState.copy(urlData = appState.urlData.copy(path = window.location.hash.substring(1)))
-//                    dispatch(Action.ChangeURL(window.location.hash.substring(1)))
+                    dispatch(Action.ChangeURL(window.location.hash.substring(1)))
                 }
-                urlChangeOccurredByDispatchAction = false
-            }, false)
+            }
+            window.addEventListener("hashchange", callback, false)
+            val cleanup = {
+                window.removeEventListener("hashchange", callback)
+            }
+            cleanup
         }
 
         useEffect(emptyArray<Any>()) {
@@ -236,14 +244,7 @@ fun main(args: Array<String>) {
 
         buildElement {
             div {
-                val (currentScreen: AppScreen, changeScreenDispatcher: Dispatcher<AppScreen>) = useState(AppScreen.LoginAppScreen() as AppScreen)
-                useEffect(changeSet = arrayOf(appState.urlData)) {
-                    route(appState.megrendelesState.megrendelesek,
-                            appState.maybeLoggedInUser,
-                            appState.urlData.path,
-                            changeScreenDispatcher,
-                            dispatch)
-                }
+                val currentScreen = appState.currentScreen
                 val content = when (currentScreen) {
 //                    is AccountAppScreen -> AccountScreen({ this.editingAccountId = screen.editingAccountId })
 //                    is SajatArAppScreen -> SajatArScreen({ this.editingSajatArId = screen.editingSajatArId })
@@ -260,9 +261,8 @@ fun main(args: Array<String>) {
                                         dispatch
                                 ))
                             } else {
-                                val megr = appState.megrendelesState.megrendelesek[currentScreen.editingMegrendelesId]
                                 MegrendelesFormScreenComponent.createElement(MegrendelesFormScreenParams(
-                                        megr,
+                                        currentScreen.editingMegrendelesId,
                                         appState,
                                         dispatch
                                 ))
@@ -399,69 +399,54 @@ sealed class AppScreen {
     data class SajatArAppScreen(val editingSajatArId: Int?) : AppScreen()
 }
 
-private fun route(megrendelesek: Map<Int, Megrendeles>,
-                  maybeLoggedInUser: LoggedInUser?,
-                  path: String,
-                  screenDispatcher: Dispatcher<AppScreen>,
-                  appStateDispatcher: Dispatcher<Action>) {
+private fun route(maybeLoggedInUser: LoggedInUser?,
+                  path: String): AppScreen {
     console.log("Route: $path")
-    val loggingDispatcher = { screen: AppScreen ->
+    val loggingDispatcher: (AppScreen) -> AppScreen = { screen: AppScreen ->
         console.log("-- match: $screen")
-        screenDispatcher(screen)
+        screen
     }
-    if (false && !maybeLoggedInUser.isLoggedIn) {
-        appStateDispatcher(Action.ChangeURL(Path.login))
-    } else {
-        RouterStore.match(path,
-                Path.login to { params ->
-                    loggingDispatcher(AppScreen.LoginAppScreen())
-                },
-                "${Path.account.root}?editedAccountId" to { params ->
-                    val id = (params["editedAccountId"] ?: "").toIntOrNull()
-                    loggingDispatcher(AppScreen.AccountAppScreen(id))
-                },
-                "${Path.sajatAr.root}?editedSajatArId" to { params ->
-                    val id = (params["editedSajatArId"] ?: "").toIntOrNull()
-                    loggingDispatcher(AppScreen.SajatArAppScreen(id))
-                },
-                "${Path.alvallalkozo.root}regio/?alvallalkozoId/?regioOsszerendelesId" to { params ->
-                    val avId = (params["alvallalkozoId"]!!).toInt()
-                    val regioId = (params["regioOsszerendelesId"] ?: "").toIntOrNull()
-                    loggingDispatcher(AppScreen.RegioAppScreen(avId, regioId))
-                },
-                "${Path.alvallalkozo.root}av/:alvallalkozoId" to { params ->
-                    val avId = (params["alvallalkozoId"] ?: "").toIntOrNull()
-                    loggingDispatcher(AppScreen.AlvallalkozoAppScreen(avId))
-                },
-                "${Path.ertekbecslo.r}:alvallalkozoId/ebs/?ertekbecsloId" to { params ->
-                    val avId = (params["alvallalkozoId"] ?: "").toInt()
-                    val ebId = (params["ertekbecsloId"] ?: "").toIntOrNull()
-                    loggingDispatcher(AppScreen.ErtekbecsloAppScreen(avId, ebId))
-                },
-                Path.alvallalkozo.sajatAdatok to { params ->
-                    loggingDispatcher(AppScreen.MegrendelesAppScreen(null, showAlvallalkozoSajatAdataiModal = true))
-                },
-                Path.megrendeles.tableConfig to { params ->
-                    loggingDispatcher(AppScreen.MegrendelesAppScreen(null, showTableConfigurationModal = true))
-                },
-                "${Path.megrendeles.root}:megrendelesId" to { params ->
-                    val id = (params["megrendelesId"] ?: "").toIntOrNull()
-                    if (id != 0 && id !in megrendelesek) {
-                        communicator.getEntityFromServer<dynamic, Unit>(RestUrl.getMegrendelesByIdFromServer,
-                                object {
-                                    val megrendelesId = id
-                                }) { response ->
-                            appStateDispatcher(Action.MegrendelesekFromServer(response))
-                        }
-                    }
-                    loggingDispatcher(AppScreen.MegrendelesAppScreen(id))
-                },
-                Path.alvallalkozo.root to { params ->
-                    loggingDispatcher(AppScreen.AlvallalkozoAppScreen(null))
-                },
-                otherwise = {
-                    loggingDispatcher(AppScreen.MegrendelesAppScreen(null))
-                }
-        )
-    }
+    // TODO: login
+    return if (false && !maybeLoggedInUser.isLoggedIn)
+        loggingDispatcher(AppScreen.LoginAppScreen())
+     else RouterStore.match(path,
+            Path.login to { params ->
+                loggingDispatcher(AppScreen.LoginAppScreen())
+            },
+            "${Path.account.root}?editedAccountId" to { params ->
+                val id = (params["editedAccountId"] ?: "").toIntOrNull()
+                loggingDispatcher(AppScreen.AccountAppScreen(id))
+            },
+            "${Path.sajatAr.root}?editedSajatArId" to { params ->
+                val id = (params["editedSajatArId"] ?: "").toIntOrNull()
+                loggingDispatcher(AppScreen.SajatArAppScreen(id))
+            },
+            "${Path.alvallalkozo.root}regio/?alvallalkozoId/?regioOsszerendelesId" to { params ->
+                val avId = (params["alvallalkozoId"]!!).toInt()
+                val regioId = (params["regioOsszerendelesId"] ?: "").toIntOrNull()
+                loggingDispatcher(AppScreen.RegioAppScreen(avId, regioId))
+            },
+            "${Path.alvallalkozo.root}av/:alvallalkozoId" to { params ->
+                val avId = (params["alvallalkozoId"] ?: "").toIntOrNull()
+                loggingDispatcher(AppScreen.AlvallalkozoAppScreen(avId))
+            },
+            "${Path.ertekbecslo.r}:alvallalkozoId/ebs/?ertekbecsloId" to { params ->
+                val avId = (params["alvallalkozoId"] ?: "").toInt()
+                val ebId = (params["ertekbecsloId"] ?: "").toIntOrNull()
+                loggingDispatcher(AppScreen.ErtekbecsloAppScreen(avId, ebId))
+            },
+            Path.alvallalkozo.sajatAdatok to { params ->
+                loggingDispatcher(AppScreen.MegrendelesAppScreen(null, showAlvallalkozoSajatAdataiModal = true))
+            },
+            Path.megrendeles.tableConfig to { params ->
+                loggingDispatcher(AppScreen.MegrendelesAppScreen(null, showTableConfigurationModal = true))
+            },
+            "${Path.megrendeles.root}:megrendelesId" to { params ->
+                val id = (params["megrendelesId"] ?: "").toIntOrNull()
+                loggingDispatcher(AppScreen.MegrendelesAppScreen(id))
+            },
+            Path.alvallalkozo.root to { params ->
+                loggingDispatcher(AppScreen.AlvallalkozoAppScreen(null))
+            }
+    ) ?: loggingDispatcher(AppScreen.MegrendelesAppScreen(null))
 }

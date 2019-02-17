@@ -8,6 +8,7 @@ import hu.nevermind.iktato.RestUrl
 import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.app.ErtekbecsloModalComponent
 import hu.nevermind.utils.app.ErtekbecsloModalParams
+import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.Ertekbecslo
@@ -62,39 +63,46 @@ object ErtekbecsloScreenComponent : DefinedReactComponent<ErtekbecsloScreenParam
         val editingErtekbecsloId: Int? = props.editingErtekbecsloId
         val alvallalkozoId: Int = props.alvallalkozoId
         div {
-            Breadcrumb {
-                BreadcrumbItem {
-                    Select {
-                        attrs.asDynamic().id = ErtekbecslokScreenIds.alvallalkozoSelect
-                        attrs.asDynamic().style = jsStyle { minWidth = 300 }
-                        attrs.showSearch = true
-                        attrs.filterOption = { inputString, optionElement ->
-                            (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))
-                        }
-                        attrs.value = alvallalkozoId
-                        attrs.onSelect = { value: Int, option ->
-                            globalDispatch(Action.ChangeURL(Path.ertekbecslo.root(value)))
-                        }
-                        appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.forEach {
-                            Option { attrs.value = it.id; +it.name }
+            Row {
+                Col(offset = 3, span = 10) {
+                    Form {
+                        FormItem {
+                            attrs.labelCol = ColProperties { span = 5 }
+                            attrs.wrapperCol = ColProperties { span = 19 }
+                            attrs.label = StringOrReactElement.fromString("Alvállalkozó")
+                            alvallalkozoSelect(alvallalkozoId, globalDispatch, appState)
                         }
                     }
                 }
-                BreadcrumbItem { +"Értékbecslők" }
-            }
-            Row { Col(span = 24) { attrs.asDynamic().style = jsStyle { height = 20 } } }
-            Row {
                 Col(offset = 3, span = 2) {
                     addNewButton(alvallalkozoId, globalDispatch)
                 }
             }
             Row {
-                Col(span = 18, offset = 3) {
+                Col(offset = 3, span = 18) {
                     ertekbecsloTable(alvallalkozoId, appState, globalDispatch)
                 }
             }
             if (editingErtekbecsloId != null) {
                 ertekbecsloEditingModal(alvallalkozoId, editingErtekbecsloId, appState, globalDispatch)
+            }
+        }
+    }
+
+    private fun RBuilder.alvallalkozoSelect(alvallalkozoId: Int, globalDispatch: (Action) -> Unit, appState: AppState) {
+        Select {
+            attrs.asDynamic().id = ErtekbecslokScreenIds.alvallalkozoSelect
+            attrs.asDynamic().style = jsStyle { minWidth = 300 }
+            attrs.showSearch = true
+            attrs.filterOption = { inputString, optionElement ->
+                (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))
+            }
+            attrs.value = alvallalkozoId
+            attrs.onSelect = { value: Int, option ->
+                globalDispatch(Action.ChangeURL(Path.ertekbecslo.root(value)))
+            }
+            appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.forEach {
+                Option { attrs.value = it.id; +it.name }
             }
         }
     }
@@ -178,7 +186,7 @@ private fun RBuilder.ertekbecsloTable(alvallalkozoId: Int,
                 }
             },
             ColumnProps {
-                title = ""; key = "action"; width = 100
+                title = "Szerk"; key = "action"; width = 50
                 render = { row: Ertekbecslo, _, rowIndex ->
                     buildElement {
                         div {
@@ -200,6 +208,7 @@ private fun RBuilder.ertekbecsloTable(alvallalkozoId: Int,
         attrs.columns = columns
         attrs.dataSource = appState.alvallalkozoState.getErtekbecslokOf(alvallalkozoId).sortedBy { it.name }.toTypedArray()
         attrs.rowKey = "id"
+        attrs.bordered = true
         attrs.asDynamic().size = "middle"
     }
 }

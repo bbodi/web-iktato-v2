@@ -9,10 +9,12 @@ import hu.nevermind.utils.app.AlvallalkozoModalComponent
 import hu.nevermind.utils.app.AlvallalkozoModalParams
 import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.hu.nevermind.antd.message
+import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.Alvallalkozo
 import hu.nevermind.utils.store.communicator
 import kotlinext.js.jsObject
 import kotlinx.html.DIV
+import kotlinx.html.style
 import react.RBuilder
 import react.RElementBuilder
 import react.buildElement
@@ -41,7 +43,7 @@ object AlvallalkozoScreenComponent : DefinedReactComponent<AlvallalkozoScreenPar
         val (state, setState) = useState(AlvallalkozoScreenState("", ""))
         div {
             Row {
-                Col(offset = 1, span = 2) {
+                Col(offset = 19, span = 2) {
                     addNewButton(globalDispatch)
                 }
             }
@@ -156,10 +158,11 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                 }
             },
             ColumnProps {
-                title = ""; key = "action"; width = 120
+                title = "Szerk"; key = "action"; width = 140
                 render = { row: Alvallalkozo, _, rowIndex ->
                     buildElement {
                         div {
+                            attrs.jsStyle = jsStyle { width = "130px" }
                             Tooltip("Szerkesztés") {
                                 Button {
                                     attrs.asDynamic().id = AlvallalkozoScreenIds.table.row.editButton(rowIndex)
@@ -169,7 +172,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                                     }
                                 }
                             }
-                            +" "
+                            Divider(type = DividerType.vertical)
                             Tooltip("Értékbecslők") {
                                 Button {
                                     attrs.asDynamic().id = AlvallalkozoScreenIds.table.row.ertekbecslok(rowIndex)
@@ -197,6 +200,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
         attrs.columns = columns
         attrs.dataSource = appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.toTypedArray()
         attrs.rowKey = "id"
+        attrs.bordered = true
         attrs.asDynamic().size = "middle"
     }
 }

@@ -58,7 +58,7 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
                     azonosito1 = azonosito1,
                     azonosito2 = azonosito2,
                     selectableAlvallalkozok = props.appState.alvallalkozoState.getSelectableAlvallalkozok(megrendeles.regio),
-                    selectableMunkatipusok = munkatipusokForRegio(props.appState.alvallalkozoState, megrendeles.regio),
+                    selectableMunkatipusok = munkatipusokForRegio(props.appState, megrendeles.megrendelo, megrendeles.regio),
                     ertesitendoSzemelyAzonos = ertesitendoSzemelyAzonos,
                     importedTextChanged = moment()
             )
@@ -101,8 +101,12 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
         }
         useEffect {
             props.onSaveFunctions[0] = { globalMegrendeles ->
+                val sajatAr = props.appState.sajatArState.getSajatArakFor(tabState.megrendeles.megrendelo, tabState.megrendeles.munkatipus).firstOrNull() { it.leiras == tabState.megrendeles.ingatlanTipusMunkadijMeghatarozasahoz }
                 overwriteTabState(globalMegrendeles, tabState.megrendeles).copy(
-                        azonosito = createAzonosito(tabState)
+                        azonosito = createAzonosito(tabState),
+                        ertesitesiNev = if (tabState.ertesitendoSzemelyAzonos) tabState.megrendeles.ugyfelNeve else tabState.megrendeles.ertesitesiNev,
+                        ertesitesiTel = if (tabState.ertesitendoSzemelyAzonos) tabState.megrendeles.ugyfelTel else tabState.megrendeles.ertesitesiTel,
+                        afa = sajatAr?.afa ?: 0
                 )
             }
         }
@@ -650,11 +654,11 @@ private fun RElementBuilder<PanelProps>.hitelPanel(tabState: AlapAdatokTabCompon
                 }
                 Col(offset = 2, span = 10) {
                     FormItem {
-                        attrs.asDynamic().id = MegrendelesScreenIds.modal.input.hitelOsszege
                         beilesztettSzovegbolImportalva(tabState.megrendelesFieldsFromImportText?.hitelOsszeg?.let { it == tabState.megrendeles.hitelOsszeg }
                                 ?: false)
                         attrs.label = StringOrReactElement.fromString("Hitel összege")
                         MyNumberInput {
+                            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.hitelOsszege
                             attrs.number = tabState.megrendeles.hitelOsszeg?.toLong()
                             attrs.onValueChange = { value ->
                                 setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(
@@ -720,10 +724,11 @@ private fun RElementBuilder<PanelProps>.ertesitendoSzemelyPanel(tabState: AlapAd
         Row {
             Col(span = 24) {
                 FormItem {
-                    attrs.labelCol = ColProperties { span = 8 }
-                    attrs.wrapperCol = ColProperties { span = 16 }
+                    attrs.labelCol = ColProperties { span = 16 }
+                    attrs.wrapperCol = ColProperties { span = 8 }
                     attrs.label = StringOrReactElement.fromString("Értesítendő személy azonos az ügyféllel")
                     Checkbox {
+                        attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ertesitesiSzemelyAzonos
                         attrs.checked = tabState.ertesitendoSzemelyAzonos
                         attrs.onChange = { checked ->
                             setTabState(tabState.copy(ertesitendoSzemelyAzonos = checked))
@@ -904,79 +909,20 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(
                 }
             }
             Col(offset = 1, span = 7) {
-                FormItem {
-                    attrs.label = StringOrReactElement.fromString("Munkatípus")
-                    Select {
-                        attrs.value = tabState.megrendeles.munkatipus
-                        attrs.asDynamic().id = MegrendelesScreenIds.modal.input.munkatipus
-                        attrs.onSelect = { munkatipus, option ->
-                            setMunkatipus(appState, tabState, tabState.megrendeles, munkatipus, setTabState)
-                        }
-                        tabState.selectableMunkatipusok.forEach {
-                            Option { attrs.value = it; +it }
-                        }
-                    }
-                }
+                munkatipusField(tabState, appState, setTabState)
             }
         }
         Row {
             Col(span = 7) {
-                FormItem {
-                    attrs.label = StringOrReactElement.fromString("Ingatlan típus (munkadíj meghatározásához)")
-                    val sajatArak = appState.sajatArState.getSajatArakFor(tabState.megrendeles.megrendelo, tabState.megrendeles.munkatipus)
-                    Select {
-                        attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ingatlanTipusMunkadijMeghatarozasahoz
-                        attrs.value = sajatArak.firstOrNull { it.leiras == tabState.megrendeles.ingatlanTipusMunkadijMeghatarozasahoz }?.id
-                                ?: ""
-                        attrs.disabled = sajatArak.isEmpty()
-                        attrs.onSelect = { sajatArId: Int, option ->
-                            setLeiras(appState, tabState, tabState.megrendeles, sajatArId, setTabState)
-                        }
-                        sajatArak.forEach { sajatAr ->
-                            Option { attrs.value = sajatAr.id; +sajatAr.leiras }
-                        }
-                    }
-                }
+                ingatlanTipusField(appState, tabState, setTabState)
             }
-            Col(offset = 1, span = 7) {
-                FormItem {
-                    attrs.label = StringOrReactElement.fromString("Alvállalkozó")
-                    val selectableAlvallalkozok = tabState.selectableAlvallalkozok
-                    Select {
-                        attrs.asDynamic().id = MegrendelesScreenIds.modal.input.alvallalkozo
-                        attrs.value = if (tabState.megrendeles.alvallalkozoId == 0) "" else tabState.megrendeles.alvallalkozoId
-                        attrs.disabled = selectableAlvallalkozok.isEmpty()
-                        attrs.onSelect = { avId: Int, option ->
-                            setTabState(tabState.copy(megrendeles = setAlvallalkozoId(appState, tabState.megrendeles, avId)))
-                        }
-                        selectableAlvallalkozok.forEach { alv ->
-                            Option { attrs.value = alv.id; +alv.name }
-                        }
-                    }
-                }
+            Col(offset = 9, span = 7) {
+                alvallalkozoField(tabState, setTabState, appState)
             }
         }
         Row {
             Col(span = 7) {
-                FormItem {
-                    attrs.label = StringOrReactElement.fromString("Értékbecslő")
-                    val ebName = appState.alvallalkozoState.ertekbecslok[tabState.megrendeles.ertekbecsloId]?.name
-                    addExcelbolBetoltveMessages(ebName, excel?.ertekBecslo)
-                    val selectableAlvallalkozok = tabState.selectableAlvallalkozok
-                    Select {
-                        attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ertekbecslo
-                        attrs.value = if (tabState.megrendeles.ertekbecsloId == 0) "" else tabState.megrendeles.ertekbecsloId
-                        attrs.disabled = selectableAlvallalkozok.isEmpty()
-                        attrs.onSelect = { ebId: Int, option ->
-                            setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(ertekbecsloId = ebId)))
-                        }
-                        appState.alvallalkozoState.alvallalkozok[tabState.megrendeles.alvallalkozoId]?.let { alvallalkozo ->
-                            appState.alvallalkozoState.getErtekbecslokOf(alvallalkozo).filter { !it.disabled }.forEach { eb ->
-                                Option { attrs.value = eb.id; +eb.name }
-                            }
-                        }
-                    }
-                }
+                ertekbecsloField(appState, tabState, excel, setTabState)
             }
             Col(offset = 1, span = 7) {
                 FormItem {
@@ -1023,26 +969,22 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(
         Row {
             val eb = tabState.megrendeles.munkatipus.isErtekbecsles()
             val et = tabState.megrendeles.munkatipus.isEnergetika()
-            if (!eb && !et) {
-                Col(span = 7) {
+            Col(span = 7) {
+                if (!eb && !et) {
                     ebAzon(tabState, setTabState, "Azonosító")
-                }
-            } else {
-                if (eb && et) {
-                    Col(span = 3) {
-                        ebAzon(tabState, setTabState, "Értékbecslés Azonosító")
-                    }
-                    Col(offset = 1, span = 3) {
-                        etAzon(tabState, setTabState)
-                    }
                 } else if (eb) {
-                    Col(span = 7) {
-                        ebAzon(tabState, setTabState, "Értékbecslés Azonosító")
-                    }
+                    ebAzon(tabState, setTabState, "Értékbecslés Azonosító")
+                } else if (!eb && et) {
+                    etAzon(tabState, setTabState)
                 } else {
-                    Col(span = 7) {
-                        etAzon(tabState, setTabState)
-                    }
+                    // intentionally empty dom element
+                }
+            }
+            Col(offset = 1, span = 7) {
+                if (eb && et) {
+                    etAzon(tabState, setTabState)
+                } else {
+                    // intentionally empty dom element
                 }
             }
             Col(offset = 1, span = 7) {
@@ -1100,6 +1042,81 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(
     }
 }
 
+private fun RElementBuilder<ColProps>.munkatipusField(tabState: AlapAdatokTabComponentState, appState: AppState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Munkatípus")
+        Select {
+            attrs.value = tabState.megrendeles.munkatipus
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.munkatipus
+            attrs.onSelect = { munkatipus, option ->
+                setMunkatipus(appState, tabState, tabState.megrendeles, munkatipus, setTabState)
+            }
+            tabState.selectableMunkatipusok.forEach {
+                Option { attrs.value = it; +it }
+            }
+        }
+    }
+}
+
+private fun RElementBuilder<ColProps>.ertekbecsloField(appState: AppState, tabState: AlapAdatokTabComponentState, excel: MegrendelesFieldsFromExternalSource?, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Értékbecslő")
+        val ebName = appState.alvallalkozoState.ertekbecslok[tabState.megrendeles.ertekbecsloId]?.name
+        addExcelbolBetoltveMessages(ebName, excel?.ertekBecslo)
+        val selectableAlvallalkozok = tabState.selectableAlvallalkozok
+        Select {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ertekbecslo
+            attrs.value = if (tabState.megrendeles.ertekbecsloId == 0) "" else tabState.megrendeles.ertekbecsloId
+            attrs.disabled = selectableAlvallalkozok.isEmpty()
+            attrs.onSelect = { ebId: Int, option ->
+                setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(ertekbecsloId = ebId)))
+            }
+            appState.alvallalkozoState.alvallalkozok[tabState.megrendeles.alvallalkozoId]?.let { alvallalkozo ->
+                appState.alvallalkozoState.getErtekbecslokOf(alvallalkozo).filter { !it.disabled }.forEach { eb ->
+                    Option { attrs.value = eb.id; +eb.name }
+                }
+            }
+        }
+    }
+}
+
+private fun RElementBuilder<ColProps>.alvallalkozoField(tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>, appState: AppState) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Alvállalkozó")
+        val selectableAlvallalkozok = tabState.selectableAlvallalkozok
+        Select {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.alvallalkozo
+            attrs.value = if (tabState.megrendeles.alvallalkozoId == 0) "" else tabState.megrendeles.alvallalkozoId
+            attrs.disabled = selectableAlvallalkozok.isEmpty()
+            attrs.onSelect = { avId: Int, option ->
+                setTabState(tabState.copy(megrendeles = setAlvallalkozoId(appState, tabState.megrendeles, avId)))
+            }
+            selectableAlvallalkozok.forEach { alv ->
+                Option { attrs.value = alv.id; +alv.name }
+            }
+        }
+    }
+}
+
+private fun RElementBuilder<ColProps>.ingatlanTipusField(appState: AppState, tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
+    FormItem {
+        attrs.label = StringOrReactElement.fromString("Ingatlan típus (munkadíj meghatározásához)")
+        val sajatArak = appState.sajatArState.getSajatArakFor(tabState.megrendeles.megrendelo, tabState.megrendeles.munkatipus)
+        Select {
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.input.ingatlanTipusMunkadijMeghatarozasahoz
+            attrs.value = sajatArak.firstOrNull { it.leiras == tabState.megrendeles.ingatlanTipusMunkadijMeghatarozasahoz }?.id
+                    ?: ""
+            attrs.disabled = sajatArak.isEmpty()
+            attrs.onSelect = { sajatArId: Int, option ->
+                setLeiras(appState, tabState, tabState.megrendeles, sajatArId, setTabState)
+            }
+            sajatArak.forEach { sajatAr ->
+                Option { attrs.value = sajatAr.id; +sajatAr.leiras }
+            }
+        }
+    }
+}
+
 private fun RElementBuilder<ColProps>.etAzon(tabState: AlapAdatokTabComponentState, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
     FormItem {
         attrs.required = tabState.megrendeles.munkatipus.isEnergetika()
@@ -1152,7 +1169,7 @@ fun setNewRegio(appState: AppState,
     val defaultSelectedAlvallalkozoId = newSelectableAlvallalkozok.firstOrNull()?.id
     val newMegr = setAlvallalkozoId(appState, megr.copy(regio = newRegio), defaultSelectedAlvallalkozoId)
 
-    val munkatipusok = munkatipusokForRegio(appState.alvallalkozoState, newRegio)
+    val munkatipusok = munkatipusokForRegio(appState, newMegr.megrendelo, newRegio)
     val currentMunkatipus = munkatipusok.firstOrNull { it == newMegr.munkatipus }
     val defaultMunkatipus = munkatipusok.let { munkatipusok ->
         if (munkatipusok.size == 1) {
@@ -1172,9 +1189,12 @@ fun setNewRegio(appState: AppState,
     }
 }
 
-fun munkatipusokForRegio(alvallalkozoState: AlvallalkozoState, regio: String): List<String> {
-    return alvallalkozoState.regioOsszerendelesek.values
-            .filter { regioOssz -> regioOssz.megye == regio }
+private fun munkatipusokForRegio(appstate: AppState, megrendelo: String, regio: String): List<String> {
+    val sajatArakForMegrendelo = appstate.sajatArState.sajatArak.values
+            .filter { it.megrendelo == megrendelo }
+            .map { it.munkatipus }
+    return appstate.alvallalkozoState.regioOsszerendelesek.values
+            .filter { regioOssz -> regioOssz.megye == regio && regioOssz.munkatipus in sajatArakForMegrendelo}
             .map { it.munkatipus }
             .distinct()
 }
@@ -1192,7 +1212,9 @@ private fun setMunkatipus(appState: AppState,
 }
 
 private fun setAlvallalkozoId(appState: AppState, megr: Megrendeles, alvId: Int?): Megrendeles {
-    val ebId = appState.alvallalkozoState.getErtekbecslokOf(alvId ?: 0).firstOrNull()?.id
+    val ebId = appState.alvallalkozoState.getErtekbecslokOf(alvId ?: 0)
+            .filter { !it.disabled }
+            .firstOrNull()?.id
 
     return recalcRegioOsszerendeles(megr.copy(
             alvallalkozoId = alvId ?: 0,
@@ -1202,11 +1224,14 @@ private fun setAlvallalkozoId(appState: AppState, megr: Megrendeles, alvId: Int?
 
 private fun setMegrendelo(appState: AppState, megrendeles: Megrendeles,
                           oldState: AlapAdatokTabComponentState,
-                          newMegrendelo: String, setTabState: Dispatcher<AlapAdatokTabComponentState>) {
-    val sajatArId = getOnlySajatArOrNull(appState, newMegrendelo, megrendeles.munkatipus)?.id
-    setLeiras(appState, oldState, megrendeles.copy(
-            megrendelo = newMegrendelo
-    ), sajatArId, setTabState)
+                          newMegrendelo: String,
+                          setTabState: Dispatcher<AlapAdatokTabComponentState>) {
+    setNewRegio(
+            appState,
+            oldState,
+            megrendeles.copy(megrendelo = newMegrendelo),
+            megrendeles.regio,
+            setTabState)
 }
 
 private fun setLeiras(appState: AppState, oldState: AlapAdatokTabComponentState,

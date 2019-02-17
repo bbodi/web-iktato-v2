@@ -1,11 +1,12 @@
 package hu.nevermind.utils.app
 
+import app.AppState
 import app.RegioScreenIds
 import app.useState
 import hu.nevermind.antd.*
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
+import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.Alvallalkozo
-import hu.nevermind.utils.store.Munkatipusok
 import hu.nevermind.utils.store.RegioOsszerendeles
 import kotlinext.js.jsObject
 import react.RBuilder
@@ -14,6 +15,7 @@ import react.dom.div
 
 data class RegioModalParams(val editingRegio: RegioOsszerendeles,
                             val alvallalkozo: Alvallalkozo,
+                            val appState: AppState,
                             val onClose: (Boolean, RegioOsszerendeles?) -> Unit
 )
 
@@ -22,6 +24,7 @@ object RegioModalComponent : DefinedReactComponent<RegioModalParams>() {
         val editingRegio: RegioOsszerendeles = props.editingRegio
         val (state, setState) = useState(editingRegio)
         Modal {
+            attrs.width = 620
             attrs.visible = true
             attrs.title = StringOrReactElement.from {
                 div {
@@ -51,32 +54,36 @@ object RegioModalComponent : DefinedReactComponent<RegioModalParams>() {
             Form {
                 attrs.asDynamic().id = RegioScreenIds.modal.id
                 Row {
-                    Col(span = 11) {
+                    Col(span = 9) {
                         FormItem {
                             attrs.label = StringOrReactElement.fromString("Munkatípus")
+                            val munkatipusok = props.appState.sajatArState.sajatArak.values.map { it.munkatipus }.distinct()
                             Select {
                                 attrs.asDynamic().id = RegioScreenIds.modal.inputs.munkatipus
                                 attrs.value = state.munkatipus
                                 attrs.onSelect = { value, option ->
-                                    setState(state.copy(munkatipus = value))
+                                    setState(state.copy(munkatipus = value, leiras = ""))
                                 }
-                                Munkatipusok.values().forEach {
-                                    Option { attrs.value = it.str; +it.str }
+                                munkatipusok.forEach {
+                                    Option { attrs.value = it; +it }
                                 }
                             }
                         }
                     }
-                    Col(offset = 2, span = 11) {
+                    Col(offset = 2, span = 13) {
                         FormItem {
                             attrs.label = StringOrReactElement.fromString("Leírás")
-                            TextArea {
+                            Select {
                                 attrs.asDynamic().id = RegioScreenIds.modal.inputs.leiras
-                                attrs.rows = 2
+                                attrs.asDynamic().style = jsStyle { minWidth = 300 }
                                 attrs.value = state.leiras
-                                attrs.onChange = { e ->
-                                    setState(
-                                            state.copy(leiras = e.currentTarget.asDynamic().value)
-                                    )
+                                attrs.onSelect = { value, option ->
+                                    setState(state.copy(leiras = value))
+                                }
+                                props.appState.sajatArState.sajatArak.values.filter {
+                                    it.munkatipus == state.munkatipus
+                                }.forEach {
+                                    Option { attrs.value = it.leiras; +it.leiras }
                                 }
                             }
                         }

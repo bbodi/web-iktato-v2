@@ -12,6 +12,7 @@ external interface TableProps : RProps {
     var columns: Array<ColumnProps>
     var dataSource: Array<out Any>
     var rowKey: String
+    var bordered: Boolean
     var onRow: (dynamic) -> Any
 }
 

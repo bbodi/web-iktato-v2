@@ -11,7 +11,6 @@ import hu.nevermind.utils.app.sajatArModal
 import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.store.SajatAr
 import hu.nevermind.utils.store.communicator
-import kotlinext.js.jsObject
 import kotlinx.html.DIV
 import react.RBuilder
 import react.RElementBuilder
@@ -166,17 +165,31 @@ private fun RBuilder.table(appState: AppState,
                     }
                 }
             },
-            ColumnProps { title = "ÁFA (%)"; dataIndex = "afa"; align = ColumnAlign.right; width = 100 }
+            ColumnProps { title = "ÁFA (%)"; dataIndex = "afa"; align = ColumnAlign.right; width = 100 },
+            ColumnProps {
+                title = "Szerk"; key = "action"; width = 50
+                render = { sajatAr: SajatAr, _, rowIndex ->
+                    buildElement {
+                        div {
+                            Tooltip("Szerkesztés") {
+                                Button {
+                                    attrs.asDynamic().id = SajatArScreenIds.rowEdit(rowIndex)
+                                    attrs.icon = "edit"
+                                    attrs.onClick = {
+                                        globalDispatch(Action.ChangeURL(Path.sajatAr.withOpenedEditorModal((sajatAr as SajatAr).id)))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
     )
     Table {
         attrs.columns = columns
         attrs.dataSource = rows
         attrs.rowKey = "id"
-        attrs.onRow = { sajatAr ->
-            jsObject {
-                this.asDynamic().onClick = { globalDispatch(Action.ChangeURL(Path.sajatAr.withOpenedEditorModal((sajatAr as SajatAr).id))) }
-            }
-        }
+        attrs.bordered = true
         attrs.asDynamic().size = "middle"
     }
 }
@@ -187,6 +200,8 @@ object SajatArScreenIds {
     val addButton = "${screenId}add"
     val megrendeloSelect = "${screenId}megrendelo"
     val munkatipusSelect = "${screenId}munkatipus"
+
+    val rowEdit = { index: Int -> "${screenId}edit_$index" }
 
     object modal {
         private val prefix = "${screenId}_modal_"

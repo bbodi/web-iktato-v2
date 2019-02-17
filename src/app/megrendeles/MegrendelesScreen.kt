@@ -99,6 +99,7 @@ object MegrendelesScreenIds {
             val emelet = "${prefix}emelet"
             val ajto = "${prefix}ajto"
 
+            val ertesitesiSzemelyAzonos = "${prefix}ertesitesiSzemelyAzonos"
             val ertesitendoNev = "${prefix}ertesitendoNev"
             val ertesitendoTel = "${prefix}ertesitendoTel"
 
@@ -113,12 +114,14 @@ object MegrendelesScreenIds {
             val megrendelesAtvetelIdeje = "${prefix}megrendelesAtvetelIdeje"
             val vallalkozoFeltoltotteAKeszAnyagot = "${prefix}vallalkozoFeltoltotteAKeszAnyagot"
             val energetikaFeltoltese = "${prefix}energetikaFeltoltese"
-            val szemleIdopontja = "${prefix}helysziniSzemle"
+            val szemleIdopontja = "${prefix}szemleIdopontja"
+            val szemleIdopontjaCheckbox = "${prefix}szemleIdopontjaCheckbox"
             val keszpenzesKifizetes = "${prefix}keszpenzesKifizetes"
             val feltoltveMegrendelonek = "${prefix}feltoltveMegrendelonek"
             val zarolva = "${prefix}zarolva"
             val szamlaKifizetese = "${prefix}szamlaKifizetese"
             val penzBeerkezettSzamlara = "${prefix}penzBeerkezettSzamlara"
+            val adasvetelDatumaCheckbox = "${prefix}adasvetelDatumaCheckbox"
             val adasvetelDatuma = "${prefix}adasvetelDatuma"
 
             val alvallalkozo = "${prefix}alvallalkozo"
@@ -448,6 +451,7 @@ private fun RBuilder.megrendelesekTable(user: LoggedInUser,
         attrs.columns = columns
         attrs.dataSource = filteredMegrendelesek
         attrs.rowKey = "id"
+        attrs.bordered = true
         attrs.onRow = { megrendeles: Megrendeles ->
             jsObject {
                 this.asDynamic().onClick = { onClick(megrendeles) }

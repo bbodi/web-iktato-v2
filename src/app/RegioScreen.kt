@@ -9,10 +9,7 @@ import hu.nevermind.iktato.RestUrl
 import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.app.RegioModalComponent
 import hu.nevermind.utils.app.RegioModalParams
-import hu.nevermind.utils.hu.nevermind.antd.Menu
-import hu.nevermind.utils.hu.nevermind.antd.MenuItem
-import hu.nevermind.utils.hu.nevermind.antd.MenuMode
-import hu.nevermind.utils.hu.nevermind.antd.message
+import hu.nevermind.utils.hu.nevermind.antd.*
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.RegioOsszerendeles
 import hu.nevermind.utils.store.communicator
@@ -73,65 +70,24 @@ object RegioScreenComponent : DefinedReactComponent<RegioScreenParams>() {
         val (state, setState) = useState(RegioScreenState(megyek.first()))
 
         div {
-            Breadcrumb {
-                BreadcrumbItem {
-                    Select {
-                        attrs.asDynamic().style = jsStyle { minWidth = 300 }
-                        attrs.showSearch = true
-                        attrs.filterOption = { inputString, optionElement ->
-                            (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))
-                        }
-                        attrs.value = alvallalkozoId
-                        attrs.onSelect = { value: Int, option ->
-                            globalDispatch(Action.ChangeURL(Path.alvallalkozo.regio(value)))
-                        }
-                        appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.forEach {
-                            Option { attrs.value = it.id; +it.name }
+            Row {
+                Col(offset = 3, span = 10) {
+                    Form {
+                        FormItem {
+                            attrs.labelCol = ColProperties { span = 5 }
+                            attrs.wrapperCol = ColProperties { span = 19 }
+                            attrs.label = StringOrReactElement.fromString("Alvállalkozó")
+                            alvallalkozokSelect(alvallalkozoId, globalDispatch, appState)
                         }
                     }
                 }
-                BreadcrumbItem { +"Régiók" }
-            }
-            Row { Col(span = 24) { attrs.asDynamic().style = jsStyle { height = 20 } } }
-            Row {
-                Col(offset = 7, span = 2) {
+                Col(offset = 3, span = 2) {
                     addNewButton(alvallalkozoId, globalDispatch)
                 }
             }
             Row {
                 Col(span = 6) {
-                    Menu {
-                        attrs.mode = MenuMode.inline
-                        attrs.selectedKeys = arrayOf(state.selectedMegye)
-                        attrs.onSelect = { e ->
-                            setState(state.copy(selectedMegye = e.key))
-                        }
-                        val megyeCounts = appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozoId).groupBy { it.megye }
-                        megyek.forEach { megyeName ->
-                            MenuItem(megyeName) {
-                                attrs.asDynamic().style = jsStyle {
-                                    height = 30
-                                }
-                                val count = megyeCounts[megyeName]?.size ?: 0
-                                if (count > 0) {
-                                    Badge(count) {
-                                        attrs.asDynamic().style = jsStyle {
-                                            backgroundColor = "#1890ff"
-                                        }
-                                        span {
-                                            attrs.jsStyle {
-                                                marginRight = "15px"
-                                            }
-                                            +megyeName
-                                        }
-                                    }
-                                } else {
-                                    +megyeName
-                                }
-                            }
-//                                }
-                        }
-                    }
+                    regioChooser(state, setState, appState, alvallalkozoId)
                 }
                 Col(span = 18) {
                     Row {
@@ -143,6 +99,58 @@ object RegioScreenComponent : DefinedReactComponent<RegioScreenParams>() {
             }
             if (editingRegioId != null) {
                 regioEditingModal(alvallalkozoId, editingRegioId, state.selectedMegye, appState, globalDispatch)
+            }
+        }
+    }
+
+    private fun RElementBuilder<ColProps>.regioChooser(state: RegioScreenState, setState: Dispatcher<RegioScreenState>, appState: AppState, alvallalkozoId: Int) {
+        Menu {
+            attrs.mode = MenuMode.inline
+            attrs.selectedKeys = arrayOf(state.selectedMegye)
+            attrs.onSelect = { e ->
+                setState(state.copy(selectedMegye = e.key))
+            }
+            val megyeCounts = appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozoId).groupBy { it.megye }
+            megyek.forEach { megyeName ->
+                MenuItem(megyeName) {
+                    attrs.asDynamic().style = jsStyle {
+                        height = 30
+                    }
+                    val count = megyeCounts[megyeName]?.size ?: 0
+                    if (count > 0) {
+                        Badge(count) {
+                            attrs.asDynamic().style = jsStyle {
+                                backgroundColor = "#1890ff"
+                            }
+                            span {
+                                attrs.jsStyle {
+                                    marginRight = "15px"
+                                }
+                                +megyeName
+                            }
+                        }
+                    } else {
+                        +megyeName
+                    }
+                }
+    //                                }
+            }
+        }
+    }
+
+    private fun RElementBuilder<FormItemProps>.alvallalkozokSelect(alvallalkozoId: Int, globalDispatch: (Action) -> Unit, appState: AppState) {
+        Select {
+            attrs.asDynamic().style = jsStyle { minWidth = 300 }
+            attrs.showSearch = true
+            attrs.filterOption = { inputString, optionElement ->
+                (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))
+            }
+            attrs.value = alvallalkozoId
+            attrs.onSelect = { value: Int, option ->
+                globalDispatch(Action.ChangeURL(Path.alvallalkozo.regio(value)))
+            }
+            appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.forEach {
+                Option { attrs.value = it.id; +it.name }
             }
         }
     }
@@ -161,7 +169,7 @@ private fun RBuilder.regioEditingModal(alvallalkozoId: Int,
         appState.alvallalkozoState.regioOsszerendelesek[editingRegioId]!!
     }
     val alvallalkozo = appState.alvallalkozoState.alvallalkozok[editingRegio.alvallalkozoId]!!
-    RegioModalComponent.insert(this, RegioModalParams(editingRegio, alvallalkozo) { okButtonPressed, regioOssz ->
+    RegioModalComponent.insert(this, RegioModalParams(editingRegio, alvallalkozo, appState) { okButtonPressed, regioOssz ->
         if (okButtonPressed && regioOssz != null) {
             val sendingEntity = object {
                 val id = regioOssz.id
@@ -211,7 +219,7 @@ private fun RBuilder.regioTable(alvallalkozoId: Int,
                 title = "Leírás"; dataIndex = "leiras"; width = 130
             },
             ColumnProps {
-                title = "Nettó ár (Ft)"; dataIndex = "nettoAr"; width = 100; align = ColumnAlign.right
+                title = "Nettó ár (Ft)"; dataIndex = "nettoAr"; width = 85; align = ColumnAlign.right
                 render = { num: Int, _, _ ->
                     buildElement {
                         +parseGroupedStringToNum(num.toString()).second
@@ -219,7 +227,7 @@ private fun RBuilder.regioTable(alvallalkozoId: Int,
                 }
             },
             ColumnProps {
-                title = "Jutalék (Ft)"; dataIndex = "jutalek"; width = 100; align = ColumnAlign.right
+                title = "Jutalék (Ft)"; dataIndex = "jutalek"; width = 75; align = ColumnAlign.right
                 render = { num: Int, _, _ ->
                     buildElement {
                         +parseGroupedStringToNum(num.toString()).second
@@ -227,10 +235,10 @@ private fun RBuilder.regioTable(alvallalkozoId: Int,
                 }
             },
             ColumnProps {
-                title = "ÁFA (%)"; dataIndex = "afa"; width = 50; align = ColumnAlign.right
+                title = "ÁFA (%)"; dataIndex = "afa"; width = 65; align = ColumnAlign.right
             },
             ColumnProps {
-                title = ""; key = "action"; width = 100
+                title = "Szerk"; key = "action"; width = 100
                 render = { row: RegioOsszerendeles, _, rowIndex ->
                     buildElement {
                         Row {
@@ -275,6 +283,7 @@ private fun RBuilder.regioTable(alvallalkozoId: Int,
         attrs.columns = columns
         attrs.dataSource = appState.alvallalkozoState.getRegioOsszerendelesek(alvallalkozoId).filter { it.megye == megye }.toTypedArray()
         attrs.rowKey = "id"
+        attrs.bordered = true
         attrs.asDynamic().size = "middle"
     }
 }

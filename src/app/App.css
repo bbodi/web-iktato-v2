@@ -27,3 +27,7 @@
 .affix-hack-noinline div {
   display: inline
 }
+
+.ant-table-row {
+    background: #fff
+}

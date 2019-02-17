@@ -15,6 +15,7 @@ import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.*
+import kotlinx.html.id
 import react.RBuilder
 import react.RElementBuilder
 import react.ReactElement
@@ -28,10 +29,11 @@ data class MegrendelesFormState(val activeTab: String,
                                 val importedText: String,
                                 val importedTextModified: Moment?,
                                 val megrendeles: Megrendeles,
+                                val megrIsAvailable: Boolean,
                                 val megrendelesFieldsFromExcel: MegrendelesFieldsFromExternalSource? = null
 )
 
-data class MegrendelesFormScreenParams(val megrendeles: Megrendeles?,
+data class MegrendelesFormScreenParams(val megrendelesId: Int,
                                        val appState: AppState,
                                        val globalDispatch: (Action) -> Unit)
 
@@ -39,7 +41,7 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
     override fun RBuilder.body(props: MegrendelesFormScreenParams) {
         val appState: AppState = props.appState
         val globalDispatch: (Action) -> Unit = props.globalDispatch
-        val megrendeles = if (props.megrendeles == null)
+        val megrendeles = if (props.megrendelesId == 0 || props.megrendelesId !in props.appState.megrendelesState.megrendelesek) {
             Megrendeles(
                     megrendelo = appState.sajatArState.allMegrendelo.first(),
                     foVallalkozo = "Presting Zrt.",
@@ -51,15 +53,60 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
                     hatarido = getNextWeekDay(5),
                     ellenorizve = true,
                     statusz = Statusz.B1
-            ) else props.megrendeles.copy()
+            )
+        } else {
+            val megr = appState.megrendelesState.megrendelesek[props.megrendelesId]!!
+            megr.copy()
+        }
+
+        val megrIsAvailable = props.megrendelesId == 0 || props.megrendelesId in props.appState.megrendelesState.megrendelesek
+        if (!megrIsAvailable) {
+            communicator.asyncPost<dynamic>(RestUrl.getMegrendelesByIdFromServer,
+                    object {
+                        val megrendelesId = props.megrendelesId
+                    }) { response ->
+                props.globalDispatch(Action.MegrendelesekFromServer(response))
+            }
+        }
         val (state, setState) = useState(MegrendelesFormState(
                 activeTab = MegrendelesScreenIds.modal.tab.first,
                 importedText = "",
+                megrIsAvailable = megrIsAvailable,
                 importedTextModified = null,
                 importTextAreaVisible = false,
                 megrendeles = megrendeles
         ))
+        if (state.megrIsAvailable != megrIsAvailable) {
+            if (megrIsAvailable) {
+                // data arrived from server
+                setState(state.copy(
+                        megrendeles = appState.megrendelesState.megrendelesek[props.megrendelesId]!!,
+                        megrIsAvailable = true
+                ))
+            } else {
+                // we went from a cached Product to a noncached
+                setState(state.copy(
+                        megrIsAvailable = false
+                ))
+            }
+        } else if (megrIsAvailable && props.megrendelesId != state.megrendeles.id) {
+            setState(state.copy(
+                    megrendeles = appState.megrendelesState.megrendelesek[props.megrendelesId]!!,
+                    megrIsAvailable = true
+            ))
+        }
         val (onSaveFunctions, _) = useState(Array<(Megrendeles) -> Megrendeles>(6) { size -> { megr -> megr } })
+        if (state.megrIsAvailable) {
+            megrendelesForm(state, setState, appState, megrendeles, onSaveFunctions, globalDispatch)
+        } else {
+            Spin {
+                attrs.tip = StringOrReactElement.fromString("Betöltés")
+                megrendelesForm(state, setState, appState, megrendeles, onSaveFunctions, globalDispatch)
+            }
+        }
+    }
+
+    private fun RBuilder.megrendelesForm(state: MegrendelesFormState, setState: Dispatcher<MegrendelesFormState>, appState: AppState, megrendeles: Megrendeles, onSaveFunctions: Array<(Megrendeles) -> Megrendeles>, globalDispatch: (Action) -> Unit) {
         div {
             Row {
                 val leftSideSpan = if (state.importTextAreaVisible) 9 else 6
@@ -115,7 +162,7 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
 
     private fun RElementBuilder<ColProps>.importEmailButton(state: MegrendelesFormState, setState: Dispatcher<MegrendelesFormState>) {
         Button {
-            attrs.asDynamic().id = MegrendelesScreenIds.addButton
+            attrs.asDynamic().id = MegrendelesScreenIds.modal.button.import
             attrs.type = ButtonType.default
             attrs.onClick = {
                 setState(state.copy(
@@ -132,6 +179,7 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
         FormItem {
             attrs.label = StringOrReactElement.fromString("Importálni kívánt e-mail szövege")
             TextArea {
+                attrs.asDynamic().id = MegrendelesScreenIds.modal.input.importTextArea
                 attrs.value = state.importedText
                 attrs.rows = 30
                 attrs.onChange = { e ->
@@ -265,30 +313,38 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
     private fun RElementBuilder<ColProps>.saveAndBackButton(onSaveFunctions: Array<(Megrendeles) -> Megrendeles>, state: MegrendelesFormState, globalDispatch: (Action) -> Unit) {
         Affix {
             attrs.offsetTop = 30
-            attrs.asDynamic().className = "affix-hack-noinline"
-            Button {
-                attrs.asDynamic().id = MegrendelesScreenIds.modal.button.save
-                attrs.type = ButtonType.primary
-                attrs.onClick = {
-                    val finalMegrendeles = onSaveFunctions.fold(state.megrendeles) { megrendeles, onSaveFunctionOfTab ->
-                        onSaveFunctionOfTab(megrendeles)
-                    }
-                    val diffs = diff(state.megrendeles, finalMegrendeles)
-                    diffs?.forEach { diffNode ->
-                        if (diffNode.kind[0] == 'E') {
-                            console.info(" ${diffNode.path[0]}: ${diffNode.lhs} -> ${diffNode.rhs}")
+            div {
+                attrs.jsStyle = jsStyle { width = "160px" }
+                Button {
+                    attrs.asDynamic().id = MegrendelesScreenIds.modal.button.save
+                    attrs.type = ButtonType.primary
+                    attrs.onClick = {
+                        val finalMegrendeles = onSaveFunctions.fold(state.megrendeles) { megrendeles, onSaveFunctionOfTab ->
+                            onSaveFunctionOfTab(megrendeles)
+                        }
+                        val diffs = diff(state.megrendeles, finalMegrendeles)
+                        diffs?.forEach { diffNode ->
+                            if (diffNode.kind[0] == 'E') {
+                                console.info(" ${diffNode.path[0]}: ${diffNode.lhs} -> ${diffNode.rhs}")
+                            }
+                        }
+                        communicator.saveEntity<Megrendeles, dynamic>(RestUrl.saveMegrendeles, finalMegrendeles) { response ->
+                            globalDispatch(Action.MegrendelesekFromServer(arrayOf(response)))
+                            globalDispatch(Action.ChangeURL(Path.megrendeles.root))
+                            val str = if (finalMegrendeles.id == 0) "létrejött" else "módosult"
+                            message.success("A Megrendelés sikeresen $str")
                         }
                     }
+                    +"Mentés"
                 }
-                +"Mentés"
-            }
-            Button {
-                attrs.asDynamic().id = MegrendelesScreenIds.modal.button.close
-                attrs.type = ButtonType.danger
-                attrs.onClick = {
-                    globalDispatch(Action.ChangeURL(Path.megrendeles.root))
+                Button {
+                    attrs.asDynamic().id = MegrendelesScreenIds.modal.button.close
+                    attrs.type = ButtonType.danger
+                    attrs.onClick = {
+                        globalDispatch(Action.ChangeURL(Path.megrendeles.root))
+                    }
+                    +"Vissza"
                 }
-                +"Vissza"
             }
         }
     }
@@ -312,7 +368,7 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
         }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.first
-            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Alap adatok", color = "black", icon = "list-alt"))
+            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Alap adatok", icon = "list-alt", color = "black", id = MegrendelesScreenIds.modal.tab.first))
             AlapAdatokTabComponent.insert(this, AlapAdatokTabParams(
                     state.megrendeles,
                     state.importedTextModified,
@@ -325,14 +381,14 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
         }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.ingatlanAdatai
-            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Ingatlan adatai", color = "red", icon = "home"))
+            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Ingatlan adatai", icon = "home", color = "red", id = MegrendelesScreenIds.modal.tab.ingatlanAdatai))
             IngatlanAdataiTabComponent.insert(this, IngatlanAdataiTabParams(state, appState, onSaveFunctions, setFormState))
         }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.akadalyok
             val akadalyok = state.megrendeles.akadalyok
             val akadalyokSize = maxOf(akadalyok.size, if (state.megrendeles.megjegyzes.isNotEmpty()) 1 else 0)
-            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Megjegyzés/Akadály", color = "black", icon = "message", badgeNum = akadalyokSize))
+            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Megjegyzés/Akadály", icon = "message", badgeNum = akadalyokSize, color = "black", id = MegrendelesScreenIds.modal.tab.akadalyok))
             AkadalyokTabComponent.insert(this,
                     AkadalyokTabParams(state.megrendeles.hatarido,
                             onSaveFunctions, globalDispatch,
@@ -341,7 +397,7 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
         }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.files
-            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Fájlok", color = "black", icon = "upload", badgeNum = state.megrendeles.files.size))
+            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Fájlok", icon = "upload", badgeNum = state.megrendeles.files.size, color = "black", id = MegrendelesScreenIds.modal.tab.files))
             FajlokTabComponent.insert(this, FajlokTabParams(state,
                     onSaveFunctions,
                     globalDispatch,
@@ -351,12 +407,12 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
         }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.penzBeerkezett
-            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Pénz beérkezett", color = "black", icon = "dollar"))
+            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Pénz beérkezett", icon = "dollar", color = "black", id = MegrendelesScreenIds.modal.tab.penzBeerkezett))
             PenzBeerkezettTabComponent.insert(this, PenzBeerkezettTabParams(state.megrendeles, onSaveFunctions))
         }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.feltoltesZarolas
-            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Feltöltés/Zárolás", color = "black", icon = "file-done"))
+            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Feltöltés/Zárolás", icon = "file-done", color = "black", id = MegrendelesScreenIds.modal.tab.feltoltesZarolas))
             ZarolasTabComponent.insert(this, ZarolasTabParams(
                     state,
                     setFormState,
@@ -367,8 +423,9 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
 }
 
 
-private fun tabTitle(text: String, icon: String? = null, badgeNum: Int? = null, color: String? = null): ReactElement = buildElement {
+private fun tabTitle(text: String, icon: String? = null, badgeNum: Int? = null, color: String? = null, id: String): ReactElement = buildElement {
     div {
+        attrs.id = id
         if (icon != null) {
             Icon(icon)
         }

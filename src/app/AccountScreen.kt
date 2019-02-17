@@ -5,8 +5,8 @@ import hu.nevermind.antd.table.ColumnProps
 import hu.nevermind.antd.table.Table
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
-import hu.nevermind.utils.app.AccountModalParams
 import hu.nevermind.utils.app.AccountModalComponent
+import hu.nevermind.utils.app.AccountModalParams
 import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.hu.nevermind.antd.message
@@ -45,12 +45,12 @@ object AccountScreenComponent : DefinedReactComponent<AccountScreenParams>() {
         val (state, setState) = useState(AccountScreenState("", ""))
         div {
             Row {
-                Col(offset = 5, span = 2) {
+                Col(offset = 17, span = 2) {
                     addNewButton(globalDispatch)
                 }
             }
             Row {
-                Col(span = 14, offset = 5) {
+                Col(offset = 3, span = 18) {
                     accountTable(appState, globalDispatch, state, setState)
                 }
             }
@@ -128,15 +128,19 @@ fun <T> StringFilteringColumnProps(searchText: String,
         }
         filterDropdown = { filterDropdownData ->
             buildElement {
-                val handleSearch = {
-                    filterDropdownData.confirm()
-                    setState(filterDropdownData.selectedKeys[0])
-                }
-
                 val handleReset = {
                     filterDropdownData.clearFilters()
                     setState("")
                 }
+                val handleSearch = {
+                    filterDropdownData.confirm()
+                    if (filterDropdownData.selectedKeys[0].isEmpty()) {
+                        handleReset()
+                    } else {
+                        setState(filterDropdownData.selectedKeys[0])
+                    }
+                }
+
                 div("custom-filter-dropdown") {
                     Input {
                         attrs.asDynamic().id = if (id != null) "${id}_input" else null
@@ -204,10 +208,10 @@ private fun RBuilder.accountTable(appState: AppState,
                     setState = { changedSearchText -> setState(state.copy(fullnameSearchText = changedSearchText)) },
                     fieldGetter = { account -> account.fullName }
             ) {
-                title = "Név"; dataIndex = "fullName"; width = 100
+                title = "Név"; dataIndex = "fullName"; width = 125
             },
             ColumnProps {
-                title = "Állapot"; key = "formState"; width = 100
+                title = "Állapot"; key = "formState"; width = 50
                 render = { account: Account, _, _ ->
                     buildElement {
                         Tag {
@@ -223,17 +227,33 @@ private fun RBuilder.accountTable(appState: AppState,
                 onFilter = { value: String, record: Account ->
                     record.disabled == value.toBoolean()
                 }
+            },
+            ColumnProps {
+                title = "Szerk"; key = "action"; width = 50
+                render = { row: Account, _, rowIndex ->
+                    buildElement {
+                        Row {
+                            Col(span = 12) {
+                                Tooltip("Szerkesztés") {
+                                    Button {
+                                        attrs.asDynamic().id = AccountScreenIds.table.row.editButton(rowIndex)
+                                        attrs.icon = "edit"
+                                        attrs.onClick = {
+                                            globalDispatch(Action.ChangeURL(Path.account.withOpenedEditorModal(row.id)))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
     )
     Table {
         attrs.columns = columns
         attrs.dataSource = appState.accountStore.accounts.sortedBy { it.fullName }.toTypedArray()
         attrs.rowKey = "id"
-        attrs.onRow = { account ->
-            jsObject {
-                this.asDynamic().onClick = { globalDispatch(Action.ChangeURL(Path.account.withOpenedEditorModal((account as Account).id))) }
-            }
-        }
+        attrs.bordered = true
         attrs.asDynamic().size = "middle"
     }
 }

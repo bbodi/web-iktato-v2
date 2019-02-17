@@ -25,7 +25,7 @@ import react.buildElement
 import react.dom.*
 import store.Action
 import store.UploadData
-import store.addListener
+import store.addMegrendelesExternalListener
 import store.removeListener
 import kotlin.js.Promise
 
@@ -51,7 +51,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                 uploadingFiles = emptyList()
         ))
         useEffectWithCleanup(RUN_ONLY_WHEN_MOUNT) {
-            addListener("FajlokTab") { megr ->
+            addMegrendelesExternalListener("FajlokTab") { megr ->
                 if (megr is Megrendeles) {
                     props.setFormState(props.formState.copy(megrendeles = props.formState.megrendeles.copy(
                             ertekbecslesFeltoltve = megr.ertekbecslesFeltoltve,
@@ -133,9 +133,9 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                             div {
                                 if (row.oldValue != row.newValue && row.oldValue.isNotEmpty()) {
                                     Tooltip("Jelenlegi érték: ${row.oldValue}") {
-                                        Icon("exclamation-circle", style = jsStyle { color = "black"; cursor="pointer" }) {
-                                            attrs.asDynamic().theme="twoTone"
-                                            attrs.asDynamic().twoToneColor="rgb(235, 148, 6)"
+                                        Icon("exclamation-circle", style = jsStyle { color = "black"; cursor = "pointer" }) {
+                                            attrs.asDynamic().theme = "twoTone"
+                                            attrs.asDynamic().twoToneColor = "rgb(235, 148, 6)"
                                         }
                                     }
                                     +" "
@@ -186,8 +186,11 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                             ?: "", megr.szemleIdopontja?.format(dateFormat) ?: ""),
                     oldNewValues("Telek terület", excel.telekMeret?.toInt(), megr.telekTerulet)
             )
+            attrs.asDynamic().pagination = jsObject<dynamic> {
+                defaultPageSize = 20
+            }
             attrs.rowKey = "name"
-            attrs.asDynamic().size = "middle"
+            attrs.asDynamic().size = "small"
         }
     }
 
@@ -199,12 +202,23 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                     title = "Név"
                     dataIndex = "name"
                     width = 100
+                    render = { cell: String, _, _ ->
+                        buildElement {
+                            span {
+                                attrs.jsStyle = jsStyle {
+//                                    width = "200px"
+                                    wordBreak = "break-all"
+                                }
+                                +cell
+                            }
+                        }
+                    }
                 },
                 ColumnProps {
                     title = "Méret"
                     dataIndex = "humanReadableSize"
                     align = ColumnAlign.right
-                    width = 50
+                    width = 60
                     render = { cell: String, _, _ ->
                         buildElement {
                             span {
@@ -220,7 +234,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                     title = ""
                     key = "action"
                     align = ColumnAlign.right
-                    width = 150
+                    width = 160
                     render = { _, fileData: FileData, _ ->
                         buildElement {
                             span {
@@ -259,20 +273,13 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                             }
                         }
                     }
-
                 }
         )
-
         Table {
             attrs.columns = columns
             attrs.dataSource = megr.files
             attrs.rowKey = "name"
-            attrs.onRow = { account ->
-                jsObject {
-                    //this.asDynamic().onClick = { globalDispatch(Action.ChangeURL(Path.account.withOpenedEditorModal((account as Account).id))) }
-                }
-            }
-            attrs.asDynamic().size = "middle"
+            attrs.asDynamic().size = "small"
         }
     }
 

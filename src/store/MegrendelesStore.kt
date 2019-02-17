@@ -21,9 +21,9 @@ data class MegrendelesState(
 //    }
 //}
 
-private val listeners = hashMapOf<String, (Any) -> Unit>()
+private val listeners = hashMapOf<String, (Megrendeles) -> Unit>()
 
-fun addListener(name: String, action: (Any) -> Unit) {
+fun addMegrendelesExternalListener(name: String, action: (Megrendeles) -> Unit) {
     listeners.put(name, action)
 }
 
@@ -31,7 +31,7 @@ fun removeListener(name: String) {
     listeners.remove(name)
 }
 
-fun emitEvent(item: Any) {
+fun emitEvent(item: Megrendeles) {
     listeners.forEach {
         console.log("Store listener: ", it.key, ", ", item)
         it.value(item)
@@ -288,7 +288,7 @@ private fun toMegrendeles(json: dynamic): Megrendeles {
             }.toTypedArray(),
             akadalyok = (json.akadalyok as Array<dynamic>).map {
                 jsonToAkadaly(it)
-            }.toTypedArray()
+            }.sortedByDescending { it.rogzitve.valueOf() }.toTypedArray()
     )
     return megr
 }

@@ -17,6 +17,7 @@ import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.*
 import kotlinext.js.jsObject
 import kotlinx.html.js.onClickFunction
+import org.w3c.dom.get
 import react.RBuilder
 import react.RElementBuilder
 import react.buildElement
@@ -25,8 +26,9 @@ import react.dom.b
 import react.dom.div
 import react.dom.jsStyle
 import store.Action
-import store.addListener
+import store.addMegrendelesExternalListener
 import store.removeListener
+import kotlin.browser.document
 
 
 data class AkadalyokTabParams(val jelenlegiHatarido: Moment?,
@@ -56,16 +58,14 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
             }
         }
         useEffectWithCleanup(RUN_ONLY_WHEN_MOUNT) {
-            addListener("AkadalyokTab") { megr ->
-                if (megr is Megrendeles) {
-                    props.setFormState(props.formState.copy(megrendeles = props.formState.megrendeles.copy(
-                            akadalyok = megr.akadalyok,
-                            hatarido = if (megr.statusz != Statusz.G4 && megr.statusz != Statusz.G6) {
-                                megr.hatarido
-                            } else props.formState.megrendeles.hatarido,
-                            statusz = megr.statusz
-                    )))
-                }
+            addMegrendelesExternalListener("AkadalyokTab") { megr ->
+                props.setFormState(props.formState.copy(megrendeles = props.formState.megrendeles.copy(
+                        akadalyok = megr.akadalyok,
+                        hatarido = if (megr.statusz != Statusz.G4 && megr.statusz != Statusz.G6) {
+                            megr.hatarido
+                        } else props.formState.megrendeles.hatarido,
+                        statusz = megr.statusz
+                )))
             }
             val cleanup: () -> Unit = { removeListener("AkadalyokTab") }
             cleanup
@@ -77,6 +77,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                     attrs.defaultActiveKey += arrayOf("Akadályok")
                 }
                 Panel("Akadályok") {
+                    attrs.asDynamic().id = "akadalyokPanelHeader"
                     attrs.header = StringOrReactElement.fromString("Akadályok")
                     Row {
                         Col(span = 24) {
@@ -97,10 +98,10 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                                 }
                             }
                             Row {
-                                Col(span = 8) {
+                                Col(span = 11) {
                                     jelenlegiHataridoField(props)
                                 }
-                                Col(offset = 1, span = 8) {
+                                Col(offset = 1, span = 11) {
                                     if (tabState.akadalyReason != Statusz.G4 && tabState.akadalyReason != Statusz.G6) {
                                         javitasiHataridoField(tabState, setTabState)
                                     }
@@ -127,6 +128,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                             FormItem {
                                 attrs.label = StringOrReactElement.fromString("Megjegyzés")
                                 TextArea {
+                                    attrs.asDynamic().id = MegrendelesScreenIds.modal.input.megjegyzes
                                     attrs.value = tabState.megjegyzes
                                     attrs.rows = 5
                                     attrs.onChange = { e ->
@@ -164,6 +166,13 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                             val szoveg = tabState.szovegesMagyarazat
                         }) { response ->
                     props.globalDispatch(Action.MegrendelesekFromServer(response))
+                    // don't even ask... It opens the first Panel so the table appears
+                    // to the user
+                    document.getElementById("akadalyokPanelHeader")?.children?.get(0)?.apply {
+                        if (this.getAttribute("aria-expanded") == "false") {
+                            this.asDynamic().click()
+                        }
+                    }
                     message.success("Akadály rögztíve")
                 }
             }
@@ -175,6 +184,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
         FormItem {
             attrs.label = StringOrReactElement.fromString("Szöveges magyarázat")
             TextArea {
+                attrs.asDynamic().id = MegrendelesScreenIds.modal.akadaly.szovegesMagyarazat
                 attrs.value = tabState.szovegesMagyarazat
                 attrs.rows = 5
                 attrs.onChange = { e ->
@@ -255,7 +265,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                 ColumnProps {
                     title = "Rögzítve"
                     dataIndex = "rogzitve"
-                    width = 75
+                    width = 125
                     render = { cell: Moment?, _, _ ->
                         buildElement {
                             +(cell?.format(dateTimeFormat) ?: "")
@@ -321,7 +331,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                     //this.asDynamic().onClick = { globalDispatch(Action.ChangeURL(Path.account.withOpenedEditorModal((account as Account).id))) }
                 }
             }
-            attrs.asDynamic().size = "middle"
+            attrs.asDynamic().size = "small"
         }
     }
 }
