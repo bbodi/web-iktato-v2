@@ -68,8 +68,8 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
             val (azonosito1: String, azonosito2: String) = determineAzonositok(props.megrendeles)
             setTabState(tabState.copy(
                     megrendeles = overwriteTabState(tabState.megrendeles, props.megrendeles).copy(modified = moment()),
-                    azonosito1 = azonosito1.ifEmpty { tabState.azonosito1 },
-                    azonosito2 = azonosito2.ifEmpty { tabState.azonosito2 }
+                    azonosito1 = if (azonosito1.isEmpty()) tabState.azonosito1  else azonosito1,
+                    azonosito2 = if (azonosito2.isEmpty()) tabState.azonosito2  else azonosito2
             ))
         }
         if (props.importedTextChanged != null) {
@@ -88,8 +88,9 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
                     sameName && sameTel
                 }
 
-                val newAzon1 = if (importedData.ebAzonosito != null) importedData.ebAzonosito!! else newState.azonosito1
-                val newAzon2 = if (importedData.etAzonosito != null) importedData.etAzonosito!! else newState.azonosito2
+
+                val newAzon1 = importedData.ebAzonosito ?: newState.azonosito1
+                val newAzon2 = importedData.etAzonosito ?: newState.azonosito2
                 setTabState(newState.copy(
                         ertesitendoSzemelyAzonos = ertesitendoSzemelyAzonos,
                         importedTextChanged = moment(),
@@ -140,24 +141,24 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
                                              appState: AppState,
                                              importedData: MegrendelesFieldsFromExternalSource): AlapAdatokTabComponentState {
         var modifiedState = state
-        if (importedData.regio != null) {
-            setNewRegio(appState, modifiedState, modifiedState.megrendeles, importedData.regio!!) { newState ->
+        importedData.regio?.let { regio ->
+            setNewRegio(appState, modifiedState, modifiedState.megrendeles, regio) { newState ->
                 modifiedState = newState
             }
         }
-        if (importedData.hrsz != null) {
+        importedData.hrsz?.let { hrsz ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    hrsz = importedData.hrsz!!
+                    hrsz = hrsz
             ))
         }
-        if (importedData.irsz != null) {
+        importedData.irsz?.let { irsz ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    irsz = importedData.irsz!!
+                    irsz = irsz
             ))
         }
-        if (importedData.telepules != null) {
+        importedData.telepules?.let { telepules ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    telepules = importedData.telepules!!
+                    telepules = telepules
             ))
         }
         if (importedData.ertekbecsles && importedData.energetika) {
@@ -173,49 +174,49 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
                 modifiedState = newState
             }
         }
-        if (importedData.hatarido != null) {
+        importedData.hatarido?.let { hatarido ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    hatarido = importedData.hatarido!!
+                    hatarido = importedData.hatarido
             ))
         }
-        if (importedData.ugyfelNeve != null) {
+        importedData.ugyfelNeve?.let { ugyfelNeve ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    ugyfelNeve = importedData.ugyfelNeve!!
+                    ugyfelNeve = ugyfelNeve
             ))
         }
-        if (importedData.ugyfelTelefonszama != null) {
+        importedData.ugyfelTelefonszama?.let { ugyfelTelefonszama ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    ugyfelTel = importedData.ugyfelTelefonszama!!
+                    ugyfelTel = ugyfelTelefonszama
             ))
         }
-        if (importedData.ertesitesiNev != null) {
+        importedData.ertesitesiNev?.let { ertesitesiNev ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    ertesitesiNev = importedData.ertesitesiNev!!
+                    ertesitesiNev = ertesitesiNev
             ))
         }
-        if (importedData.ertesitesiTel != null) {
+        importedData.ertesitesiTel?.let { ertesitesiTel ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    ertesitesiTel = importedData.ertesitesiTel!!
+                    ertesitesiTel = ertesitesiTel
             ))
         }
-        if (importedData.lakasCel != null) {
+        importedData.lakasCel?.let { lakasCel ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    hitelTipus = importedData.lakasCel!!
+                    hitelTipus = lakasCel
             ))
         }
-        if (importedData.hitelOsszeg != null) {
+        importedData.hitelOsszeg?.let { hitelOsszeg ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    hitelOsszeg = importedData.hitelOsszeg
+                    hitelOsszeg = hitelOsszeg
             ))
         }
-        if (importedData.ajanlatSzam != null) {
+        importedData.ajanlatSzam?.let { ajanlatSzam ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    ajanlatSzam = importedData.ajanlatSzam!!
+                    ajanlatSzam = ajanlatSzam
             ))
         }
-        if (importedData.szerzodesSzam != null) {
+        importedData.szerzodesSzam?.let { szerzodesSzam ->
             modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
-                    szerzodesSzam = importedData.szerzodesSzam!!
+                    szerzodesSzam = szerzodesSzam
             ))
         }
         modifiedState = modifiedState.copy(megrendeles = modifiedState.megrendeles.copy(
@@ -244,7 +245,8 @@ object AlapAdatokTabComponent : DefinedReactComponent<AlapAdatokTabParams>() {
             } else if (line.contains("Határideje")) {
                 val startIndex = line.indexOf("Határideje") + "Határideje: ".length
                 val newHatarido = moment(line.substring(startIndex), "YYYY.MM.DD.")
-                if (importedData.hatarido == null || newHatarido.isBefore(importedData.hatarido!!)) {
+                val hatarido = importedData.hatarido
+                if (hatarido == null || newHatarido.isBefore(hatarido)) {
                     importedData.hatarido = newHatarido
                 }
             } else if (line.startsWith("Hiteligénylő neve: ")) {

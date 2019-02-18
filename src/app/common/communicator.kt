@@ -5,8 +5,11 @@ import store.UploadData
 import hu.nevermind.utils.store.Megrendeles
 import hu.nevermind.utils.store.MegrendelesFieldsFromExternalSource
 import org.w3c.xhr.FormData
+import store.MegrendelesFromServer
 
 object RestUrl {
+    const val login = "/login"
+    const val logout = "/logout"
     const val authenticate = "/user"
 
     const val getAccountsFromServer = "/getAllAccounts"
@@ -158,14 +161,12 @@ class Communicator(val ajaxPoster: AjaxPoster) {
     }
 
     fun <T, R> getEntityFromServer(url: String, data: Any = "", callback: (T) -> R): R {
-//        Jq.blockUI(object {val baseZ = 2000})
         var returnValue = 1.asDynamic()
         ajaxPoster.ajaxPost(
                 url = url,
                 type = "POST",
                 data = JSON.stringify(data),
                 async = false) { result: Result<dynamic, String> ->
-//            js("$.unblockUI()")
             result.withOkOrError { returnedEntities ->
                 returnValue = callback(returnedEntities)
             }
@@ -173,15 +174,13 @@ class Communicator(val ajaxPoster: AjaxPoster) {
         return returnValue
     }
 
-    fun <T> asyncPost(url: String, data: Any = "", callback: (T) -> Unit) {
+    fun <T> asyncPost(url: String, data: Any = "", callback: (Result<T, String>) -> Unit) {
         ajaxPoster.ajaxPost(
                 url = url,
                 type = "POST",
                 data = JSON.stringify(data),
                 async = true) { result: Result<dynamic, String> ->
-            result.withOkOrError { returnedEntities ->
-                callback(returnedEntities)
-            }
+            callback(result)
         }
     }
 
@@ -238,13 +237,11 @@ class Communicator(val ajaxPoster: AjaxPoster) {
         }
     }
 
-    fun authenticate(after: (Result<Any, String>) -> Unit) {
-//        Jq.blockUI(object {val baseZ = 2000})
+    fun getRequest(url: String, after: (Result<Any, String>) -> Unit) {
         ajaxPoster.ajaxPost(
-                url = RestUrl.authenticate,
+                url = url,
                 async = false,
                 after = { result: Result<Any, String> ->
-//                    js("$.unblockUI()")
                     after(result)
                 },
                 type = "GET"
@@ -270,7 +267,7 @@ class Communicator(val ajaxPoster: AjaxPoster) {
         }
     }
 
-    fun upload(uploadData: UploadData, callback: (Megrendeles) -> Unit) {
+    fun upload(uploadData: UploadData, callback: (MegrendelesFromServer) -> Unit) {
         val data = FormData()
         uploadData.files.forEach {
             data.append("file", it)
@@ -288,7 +285,7 @@ class Communicator(val ajaxPoster: AjaxPoster) {
                     req.processData = false
                     req.contentType = false
                 },
-                async = true) { result: Result<Megrendeles, String> ->
+                async = true) { result: Result<MegrendelesFromServer, String> ->
             result.ifOk { response ->
                 callback(response)
             }

@@ -130,10 +130,6 @@ data class LoggedInUser(val username: String,
                         val alvallalkozoId: Int,
                         val role: Role,
                         val megrendelesTableColumns: Array<MegrendelesColumnData>) {
-    val isAdmin: Boolean
-        get() = role == Role.ROLE_ADMIN
-    val isAlvallalkozo: Boolean
-        get() = role == Role.ROLE_USER
 }
 
 fun stringToColumnDefArray(megrendelesTableColumns: String?): Array<MegrendelesColumnData> {
@@ -148,6 +144,12 @@ fun stringToColumnDefArray(megrendelesTableColumns: String?): Array<MegrendelesC
 
 val LoggedInUser?.isLoggedIn: Boolean
     get() = this != null
+
+val LoggedInUser?.isAdmin: Boolean
+    get() = this?.role == Role.ROLE_ADMIN
+
+val LoggedInUser?.isAlvallalkozo: Boolean
+    get() = this?.role == Role.ROLE_USER
 
 
 

@@ -16,8 +16,9 @@ import hu.nevermind.antd.table.ColumnProps
 import hu.nevermind.antd.table.Table
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
+import hu.nevermind.utils.app.CustomSearchModalComponent
+import hu.nevermind.utils.app.CustomSearchModalParams
 import hu.nevermind.utils.app.DefinedReactComponent
-import hu.nevermind.utils.app.customSearchModal
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.jsStyle
@@ -26,7 +27,9 @@ import kotlinext.js.jsObject
 import org.w3c.xhr.BLOB
 import org.w3c.xhr.XMLHttpRequest
 import org.w3c.xhr.XMLHttpRequestResponseType
-import react.*
+import react.RBuilder
+import react.RElementBuilder
+import react.children
 import react.dom.div
 import react.dom.jsStyle
 import react.dom.span
@@ -170,11 +173,9 @@ data class SimpleMegrendelesFilter(val label: String, val icon: String? = null, 
     }
 }
 
-// TODO: a filter gombokon az ikonok tünjenek el kis felbontásban
 val atNemVettFilter = SimpleMegrendelesFilter("Át nem vett") {
     (megrendelesMegtekint == null)
             .and(!alvallalkozoFeltoltotteFajlokat)
-            //.and(ellenorizve == false) // ???
             .and(penzBeerkezettDatum == null && keszpenzesBefizetes == null)
             .and(feltoltveMegrendelonek == null)
             .and(zarolva == null)
@@ -189,8 +190,10 @@ private val atvettFilter = SimpleMegrendelesFilter("Átvett") {
 }
 
 fun feladatElvegezveEbbenAHonapban(ertekbecslesFeltoltve: Moment?, energetikaFeltoltve: Moment?): Boolean {
-    val latestUplaodDate = arrayOf(ertekbecslesFeltoltve, energetikaFeltoltve).filterNotNull().maxBy { it.toDate().getTime() }!!
-    return moment().isSame(latestUplaodDate, Granularity.Month)
+    val latestUplaodDate = arrayOf(ertekbecslesFeltoltve, energetikaFeltoltve)
+            .filterNotNull()
+            .maxBy { it.toDate().getTime() }
+    return latestUplaodDate != null && moment().isSame(latestUplaodDate, Granularity.Month)
 }
 
 private val alvallalkozoVegzettVeleAdottHonapban = SimpleMegrendelesFilter("Elvégezve", "check") {
@@ -238,7 +241,6 @@ private val akadalyosFilterForAlvallalkozo = SimpleMegrendelesFilter("Akadályos
 private val utalasHianyzikFilter = SimpleMegrendelesFilter("Utalás hiányzik", "alert") {
     (megrendelesMegtekint != null)
             .and(alvallalkozoFeltoltotteFajlokat)
-            //.and(ellenorizve == false)
             .and(penzBeerkezettDatum == null && keszpenzesBefizetes == null)
             .and(feltoltveMegrendelonek == null)
             .and(!this.isAkadalyos())
@@ -247,7 +249,6 @@ private val utalasHianyzikFilter = SimpleMegrendelesFilter("Utalás hiányzik", 
 private val ellenorzesreVarFilter = SimpleMegrendelesFilter("Ellenőrzésre vár", "check") {
     (megrendelesMegtekint != null)
             .and(alvallalkozoFeltoltotteFajlokat)
-            //.and(ellenorizve == false) // ???
             .and(penzBeerkezettDatum != null || keszpenzesBefizetes != null)
             .and(feltoltveMegrendelonek == null)
             .and(!this.isAkadalyos())
@@ -256,7 +257,6 @@ private val ellenorzesreVarFilter = SimpleMegrendelesFilter("Ellenőrzésre vár
 private val archivalasraVarFilter = SimpleMegrendelesFilter("Archiválásra vár", "folder-close") {
     (megrendelesMegtekint != null)
             .and(alvallalkozoFeltoltotteFajlokat)
-            //.and(ellenorizve == false) // ???
             .and(szamlaSorszama.isNotEmpty())
             .and(penzBeerkezettDatum != null || keszpenzesBefizetes != null)
             .and(feltoltveMegrendelonek != null)
@@ -264,15 +264,21 @@ private val archivalasraVarFilter = SimpleMegrendelesFilter("Archiválásra vár
             .and(zarolva == null)
 }
 
+// TODO a filtereket átirni gombokról tabokra.
+private val selectedFilterClass = jsStyle {
+    background = "#fafafa"
+    fontWeight = "bold"
+    color = "#1890ff"
+    border = "3px solid #1890ff"
+    borderBottom = "0px"
+}
 
 data class HaviTeljesites(val alvallalkozoId: Int, val date: Moment)
 
 data class SzuroMezo(val columnData: MegrendelesColumnData, val operator: String, val operand: String) {
     fun toSqlWhereClause(): String {
         val keyEquality = columnData.renderer == ebRenderer || columnData.renderer == avRenderer
-        return if (operand.isEmpty() || operator.isEmpty()) {
-            return "1=1"
-        } else if (columnData.megrendelesFieldType == MegrendelesFieldType.Int || keyEquality) {
+        return if (columnData.megrendelesFieldType == MegrendelesFieldType.Int || keyEquality) {
             if (operator == "kisebb") {
                 "${columnData.dbName} < $operand"
             } else if (operator == "nagyobb") {
@@ -306,12 +312,14 @@ data class SzuroMezo(val columnData: MegrendelesColumnData, val operator: String
                 }
             }
         } else {
-            val dbName = columnData.dbName
-            when (operator) {
-                "Nem tartamazza" -> "$dbName not like '%$operand%'"
-                "Kezdődik" -> "$dbName like '$operand%'"
-                "Végződik" -> "$dbName like '%$operand'"
-                else -> "$dbName like '%$operand%'" // "Tartalmazza"
+            val columnName = columnData.dbName
+            if (operand.isEmpty()) {
+                "$columnName = ''"
+            } else when (operator) {
+                "Nem tartamazza" -> "$columnName not like '%$operand%'"
+                "Kezdődik" -> "$columnName like '$operand%'"
+                "Végződik" -> "$columnName like '%$operand'"
+                else -> "$columnName like '%$operand%'" // "Tartalmazza"
             }
         }
     }
@@ -341,17 +349,19 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
         )
         div {
             Row {
-                Button {
-                    attrs.asDynamic().id = MegrendelesScreenIds.addButton
-                    attrs.type = ButtonType.primary
-                    attrs.onClick = {
-                        globalDispatch(Action.ChangeURL(Path.megrendeles.edit(0)))
+                if (user.isAdmin) {
+                    Button {
+                        attrs.asDynamic().id = MegrendelesScreenIds.addButton
+                        attrs.type = ButtonType.primary
+                        attrs.onClick = {
+                            globalDispatch(Action.ChangeURL(Path.megrendeles.edit(0)))
+                        }
+                        Icon("plus")
+                        +" Hozzáadás"
                     }
-                    Icon("plus")
-                    +" Hozzáadás"
+                    Divider(type = DividerType.vertical, orientation = Orientation.left)
+                    Divider(type = DividerType.vertical, orientation = Orientation.right)
                 }
-                Divider(type = DividerType.vertical, orientation = Orientation.left)
-                Divider(type = DividerType.vertical, orientation = Orientation.right)
                 simpleFilterButtons(
                         user,
                         state,
@@ -376,9 +386,11 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
                     megrendelesekTable(user, appState, globalDispatch)
                 }
             }
-            if (haviTeljesitesFilter == appState.megrendelesTableFilterState.activeFilter && user.isAdmin) {
+            if (haviTeljesitesFilter == appState.megrendelesTableFilterState.activeFilter &&
+                    appState.megrendelesTableFilterState.haviTeljesites != null &&
+                    user.isAdmin) {
                 Row {
-                    val avId = appState.megrendelesTableFilterState.haviTeljesites!!.alvallalkozoId
+                    val avId = appState.megrendelesTableFilterState.haviTeljesites.alvallalkozoId
                     val dateStr = appState.megrendelesTableFilterState.haviTeljesites.date.format(monthFormat)
                     Button {
                         attrs.onClick = {
@@ -386,8 +398,9 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
                             x.open("GET", "/haviTeljesites/$avId/$dateStr", true)
                             x.responseType = XMLHttpRequestResponseType.BLOB
                             x.onload = { e ->
+                                val avName = appState.alvallalkozoState.alvallalkozok[avId]?.name ?: "ismeretlen"
                                 downloadFile(e.target.asDynamic().response,
-                                        "${appState.alvallalkozoState.alvallalkozok[avId]!!.name} ${dateStr}.xlsx")
+                                        "$avName ${dateStr}.xlsx")
                             }
                             x.send()
 
@@ -398,13 +411,16 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
 
                 }
             }
-            child(haviTeljesitesModal(state,
+            HaviTeljesitesModalComponent.insert(this, HaviTeljesitesModalParams(user,
+                    state,
                     appState.megrendelesTableFilterState,
                     appState.alvallalkozoState.alvallalkozok,
                     setState,
                     globalDispatch
             ))
-            mindFilterModal(appState, globalDispatch, state, setState)
+            if (user.isAdmin) {
+                customSearchModalComponent(appState, globalDispatch, state, setState)
+            }
         }
     }
 }
@@ -418,17 +434,17 @@ private fun RBuilder.megrendelesekTable(user: LoggedInUser,
     val onClick = { megr: Megrendeles ->
         if (user.isAlvallalkozo && megr.atNemVett) {
             communicator.getEntityFromServer<dynamic, Any>(RestUrl.megrendelesAtvetele, object {
-                val megrendelesId = megr.id
             }) { response ->
                 globalDispatch(Action.MegrendelesekFromServer(arrayOf(response)))
                 globalDispatch(Action.ChangeURL(Path.megrendeles.edit(megr.id)))
                 message.success("A Megrendelés átvétele sikeres")
             }
         } else {
-            communicator.asyncPost<dynamic>(RestUrl.megrendelesMegnyitasa, object {
-                val megrendelesId = megr.id
-            }) { response ->
-                globalDispatch(Action.MegrendelesekFromServer(arrayOf(response)))
+            communicator.asyncPost<MegrendelesFromServer>(RestUrl.megrendelesMegnyitasa, object {
+            }) { result ->
+                result.ifOk { response ->
+                    globalDispatch(Action.MegrendelesekFromServer(arrayOf(response)))
+                }
             }
             globalDispatch(Action.ChangeURL(Path.megrendeles.edit(megr.id)))
         }
@@ -457,116 +473,51 @@ private fun RBuilder.megrendelesekTable(user: LoggedInUser,
                 this.asDynamic().onClick = { onClick(megrendeles) }
             }
         }
+        attrs.asDynamic().pagination = jsObject<dynamic> {
+            defaultPageSize = 1000
+        }
         attrs.asDynamic().size = "middle"
     }
-    /*data class MegrendelesColumnData(val dbName: String,
-                                 val fieldName: String,
-                                 val columnTitle: String,
-                                 val renderer: Any,
-                                 val megrendelesFieldType: MegrendelesFieldType)*/
-//    if (LoggedInUserStore.loggedInUser.megrendelesTableColumns.isNotEmpty()) {
-//        bootstrapTable<Megrendeles>({
-//            ref = "table"
-//            data = filteredMegrendelesek
-//            hover = true
-//            clearSearch = true
-//            pagination = false
-//            searchPlaceholder = "Szűrés"
-//            selectRow = SelectRowProp(
-//                    SelectionMode.radio,
-//                    clickToSelect = true,
-//                    hideSelectColumn = true
-//            )
-//            options = object {
-//
-//            }
-//            search = true
-//            trClassName = { megrendeles: Megrendeles, rowIndex: Int ->
-//                val (alvallalkozoAzAtNemVettTabon, alvallalkozoAzElvegezveTabon) = if (LoggedInUserStore.loggedInUser.role == Role.ROLE_USER) {
-//                    Pair(self.formState.filter == atNemVettFilter, self.formState.filter == alvallalkozoVegzettVeleAdottHonapban)
-//                } else Pair(false, false)
-//                val goodTab = !alvallalkozoAzAtNemVettTabon && !alvallalkozoAzElvegezveTabon
-//                if (goodTab && megrendeles.isUnread(LoggedInUserStore.loggedInUser.role)) {
-//                    "unread_megr"
-//                } else ""
-//            }
-//            condensed = true
-//        }) {
-//            keyColumn("ID", "id", 0)
-//            LoggedInUserStore.loggedInUser.megrendelesTableColumns.forEach { confugiredColumnData ->
-//                column(confugiredColumnData.columnTitle,
-//                        confugiredColumnData.fieldName,
-//                        10,
-//                        renderer = confugiredColumnData.renderer.asDynamic())
-//            }
-//        }
-//    } else {
-////        text("Önnek nincsenek megjeleníthető oszlopok beállítva. Ezt megteheti a 'Beállítások > Táblázat beállítások' menüpontban, vagy kérje az adminisztrátor segítségét.")
-//    }
 }
 
-private fun RBuilder.mindFilterModal(
+private fun RBuilder.customSearchModalComponent(
         appState: AppState,
         globalDispatch: (Action) -> Unit,
         state: MegrendelesScreenState,
         setState: Dispatcher<MegrendelesScreenState>) {
-    child(customSearchModal(appState, appState.megrendelesTableFilterState.szuroMezok, visible = state.showMindFilterModal, onClose = { ok, szuroMezok ->
-        if (!ok) {
-            setState(state.copy(
-                    showMindFilterModal = false
-            ))
-        } else {
-            val sqlWhereClause = szuroMezok.map { szuroMezo ->
-                szuroMezo.toSqlWhereClause()
-            }.joinToString(") AND (", "(", ")")
-            communicator.getEntitiesFromServer(RestUrl.megrendelesFilter, object {
-                val text = sqlWhereClause
-            }) { response: Array<dynamic> ->
-                val ids = response.map { it.id as Int }
-                setState(state.copy(
-                        showMindFilterModal = false
-                ))
-                globalDispatch(Action.SetActiveFilter(
-                        SetActiveFilterPayload.MindFilter(ids, szuroMezok)
-                ))
-                globalDispatch(Action.MegrendelesekFromServer(response))
-                globalDispatch(Action.ChangeURL(Path.megrendeles.root))
+    CustomSearchModalComponent.insert(this, CustomSearchModalParams(
+            appState = appState,
+            szuroMezok = appState.megrendelesTableFilterState.szuroMezok,
+            visible = state.showMindFilterModal,
+            onClose = { ok, szuroMezok ->
+                if (!ok) {
+                    setState(state.copy(
+                            showMindFilterModal = false
+                    ))
+                } else {
+                    val sqlWhereClause = szuroMezok.map { szuroMezo ->
+                        szuroMezo.toSqlWhereClause()
+                    }.joinToString(") AND (", "(", ")")
+                    communicator.getEntitiesFromServer(RestUrl.megrendelesFilter, object {
+                        val text = sqlWhereClause
+                    }) { response: Array<MegrendelesFromServer> ->
+                        val ids = response.map { it.id }
+                        setState(state.copy(
+                                showMindFilterModal = false
+                        ))
+                        globalDispatch(Action.SetActiveFilter(
+                                SetActiveFilterPayload.MindFilter(ids, szuroMezok)
+                        ))
+                        globalDispatch(Action.MegrendelesekFromServer(response))
+                        globalDispatch(Action.ChangeURL(Path.megrendeles.root))
+                    }
+                }
             }
-        }
-    }))
+    ))
 }
 
 
 object MegrendelesScreen {
-//    val component: ReactStatefulComponent<MegrendelesScreenProps, MegrendelesScreenState> = StatefulReactBuilder<MegrendelesScreenProps, MegrendelesScreenState>().apply {
-//
-//
-//        componentDidMount = { self ->
-//            AlvallalkozoStore.addChangeListener(this) {
-//                self.forceUpdate()
-//            }
-//            GeoStore.addChangeListener(this) {
-//                self.forceUpdate()
-//            }
-//            SajatArStore.addChangeListener(this) {
-//                self.forceUpdate()
-//            }
-//            LoggedInUserStore.addChangeListener(this) {
-//                self.forceUpdate()
-//            }
-//            MegrendelesStore.addChangeListener(this) {
-//                self.setState(self.formState.copy(megrendelesek = MegrendelesStore.megrendelesek))
-//            }
-//        }
-//
-//        componentWillUnmount = { self ->
-//            AlvallalkozoStore.removeListener(this)
-//            GeoStore.removeListener(this)
-//            SajatArStore.removeListener(this)
-//            LoggedInUserStore.removeListener(this)
-//            MegrendelesStore.removeListener(this)
-//        }
-
 
     val haviTeljesitesFilter = object : MegrendelesFilter {
         override fun label(state: MegrendelesTableFilterState, appState: AppState): String {
@@ -587,31 +538,6 @@ object MegrendelesScreen {
         override fun predicate(state: MegrendelesTableFilterState, megr: Megrendeles): Boolean = megr.id in state.mindFilteredMegrendelesIds
     }
 
-    //
-//    private fun Component.tableConfigurationModal(self: ReactStatefulComponent<MegrendelesScreenProps, MegrendelesScreenState>) {
-//        if (self.props.showTableConfigurationModal) {
-//            MegrendelesColumnConfigModal({
-//                close = { result, columns ->
-//                    if (result == ModalResult.Close) {
-//                        Actions.changeURL(Path.megrendeles.root)
-//                    } else {
-//                        val sendMsg = columns!!.map { it.fieldName }.joinToString(",")
-//                        communicator.getEntityFromServer<dynamic>(RestUrl.megrendelesTablazatOszlop, object {
-//                            val text = sendMsg
-//                        }) { response ->
-//                            Actions.megrendelesTableOszlopFromServer(response.text)
-//                            Actions.notification(Notification(BsStyle.Success, "Beálíltások elmentve"))
-//                            Actions.changeURL(Path.megrendeles.root)
-//                        }
-//                    }
-//                }
-//            })
-//        }
-//    }
-//
-//
-//
-
     fun RBuilder.haviTeljesitesFilterButton(filterState: MegrendelesTableFilterState,
                                             state: MegrendelesScreenState,
                                             megrendelesek: Map<Int, Megrendeles>,
@@ -620,12 +546,17 @@ object MegrendelesScreen {
                                             globalDispatch: (Action) -> Unit) {
         ButtonGroup {
             Button(disabled = filterState.haviTeljesites == null,
-                    type = if (filterState.activeFilter == haviTeljesitesFilter) ButtonType.primary else ButtonType.default,
                     onClick = {
-                        globalDispatch(Action.SetActiveFilter(
-                                SetActiveFilterPayload.HaviTeljesites(filterState.haviTeljesites!!.alvallalkozoId, filterState.haviTeljesites.date)
-                        ))
-                    }) {
+                        if (filterState.haviTeljesites != null) {
+                            globalDispatch(Action.SetActiveFilter(
+                                    SetActiveFilterPayload.HaviTeljesites(filterState.haviTeljesites.alvallalkozoId, filterState.haviTeljesites.date)
+                            ))
+                        }
+                    })
+            {
+                if (filterState.activeFilter == haviTeljesitesFilter) {
+                    attrs.asDynamic().style = selectedFilterClass
+                }
                 val filteredMegrendelesek = megrendelesek.values.filter { haviTeljesitesFilter.predicate(filterState, it) }
                 Badge(filteredMegrendelesek.count()) {
                     attrs.asDynamic().style = jsStyle {
@@ -637,8 +568,8 @@ object MegrendelesScreen {
                         }
                         val props = filterState.haviTeljesites
                         val label = if (props == null) "Havi teljesítés" else {
-                            val alv = alvallalkozok[props.alvallalkozoId]!!
-                            "${alv.name}: ${props.date.format(monthFormat)}"
+                            val alvName = alvallalkozok[props.alvallalkozoId]?.name ?: "ismeretlen"
+                            "${alvName}: ${props.date.format(monthFormat)}"
                         }
                         +" $label "
                     }
@@ -649,116 +580,8 @@ object MegrendelesScreen {
                     onClick = { screenDispatch(state.copy(haviTeljesitesModalOpen = true)) }
             )
         }
-//        div({ className = "dropdown btn-group" }) {
-//            bsButton({
-//                disabled = self.formState.haviTeljesites == null
-//                bsStyle = if (self.formState.filter == haviTeljesitesFilter) BsStyle.Info else BsStyle.Default
-//                onClick = {
-
-//                }
-//            }) {
-//                text("${haviTeljesitesFilter.label(self)} ")
-//                val filteredMegrendelesek = self.formState.megrendelesek.values.filter { haviTeljesitesFilter.predicate(self, it) }
-//                val count = filteredMegrendelesek.count()
-//                if (count > 0) {
-//                    span({ className = "badge" }) {
-//                        text(count.toString())
-//                    }
-//                }
-//            }
-//            bsButton({
-//                onClick = { self.setState(self.formState.copy(haviTeljesitesModalOpen = true)) }
-//            }) {
-//                bsIcon("cog")
-//            }
-//        }
     }
 
-
-    //    private fun Component.megrendelesModal(self: ReactStatefulComponent<MegrendelesScreenProps, MegrendelesScreenState>) {
-//        if (self.props.megrendelesId != null) {
-//            val id = self.props.megrendelesId!!
-//            if (LoggedInUserStore.isAdmin) {
-//                MegrendelesModal({
-//                    primaryKey = id
-//                    close = { result, megrendeles ->
-//                        if (result == ModalResult.Save) {
-//                            communicator.saveEntity<Megrendeles, dynamic>(RestUrl.saveMegrendeles, megrendeles!!) { response ->
-//                                Actions.megrendelesekFromServer(arrayOf(response))
-//                                Actions.changeURL(Path.megrendeles.root)
-//                                val str = if (id == 0) "létrejött" else "módosult"
-//                                Actions.notification(Notification(BsStyle.Success, "A Megrendelés sikeresen $str"))
-//                            }
-//                        } else {
-//                            Actions.changeURL(Path.megrendeles.root)
-//                        }
-//                    }
-//                })
-//            } else if (LoggedInUserStore.isAlvallalkozo) {
-//                AlvallalkozoMegrendelesModal({
-//                    megrendeles = self.formState.megrendelesek[id]!!
-//                    close = { dataToSave ->
-//                        if (dataToSave != null) {
-//                            communicator.saveEntity<Any, dynamic>(RestUrl.saveMegrendeles, dataToSave) { response ->
-//                                Actions.megrendelesekFromServer(arrayOf(response))
-//                                Actions.changeURL(Path.megrendeles.root)
-//                                Actions.notification(Notification(BsStyle.Success, "A Megrendelés sikeresen elmentve"))
-//                            }
-//                        } else {
-//                            Actions.changeURL(Path.megrendeles.root)
-//                        }
-//                    }
-//                })
-//            }
-//        } else if (self.props.showAlvallalkozoSajatAdataiModal) {
-//            AlvallalkozoSajatAdataiModal({
-//                alvallalkozo = LoggedInUserStore.loggedInAlvallalkozo
-//                close = {
-//                    Actions.changeURL(Path.root)
-//                }
-//            })
-//        }
-//    }
-//
-//    private fun cellColorer(): (dynamic) -> String {
-//        return { params: dynamic ->
-//            val clazz = with(params.data as Megrendeles) {
-//                if (!alvallalkozoFeltoltotteFajlokat && szamlaSorszama.isNotEmpty() && penzBeerkezettDatum != null) {
-//                    // az ügyfél fizetett, alvállalkozó még nem készítette el az értékbecslést
-//                    "bg-primary"
-//                } else if (alvallalkozoFeltoltotteFajlokat && penzBeerkezettDatum == null) {
-//                    // alvállalkozó feltöltötte, az ügyfél még nem fizetett
-//                    "bg-warning"
-//                } else if (isAkadalyos()) {
-//                    // akadályos ( nem ért rá, dok.hiány, stb)
-//                    "bg-danger"
-//                } else if (statusz == Statusz.G4) {
-//                    // lemondva
-//                    "bg-info"
-//                } else if (alvallalkozoFeltoltotteFajlokat && penzBeerkezettDatum != null && szamlaSorszama.isNotEmpty()) {
-//                    // ellenőrizhető - értékbecslés díja átutalva, az alvállalkozó feltöltötte az értékbecslést
-//                    "bg-success"
-//                } else {
-//                    ""
-//                }
-//            }
-//            """<p class='$clazz'><strong>${params.value}</strong></p>"""
-//        }
-//    }
-//
-//    private fun Component.addNewButton() {
-//        bsButton({
-//            id = MegrendelesScreenIds.addButton
-//            bsStyle = BsStyle.Primary
-//            onClick = {
-//                Actions.changeURL(Path.megrendeles.withOpenedEditorModal(0))
-//            }
-//        }) {
-//            bsIcon("plus")
-//            text(" Új Értékbecslés")
-//        }
-//    }
-//
     fun RBuilder.simpleFilterButtons(loggedInUser: LoggedInUser,
                                      state: MegrendelesScreenState,
                                      filterState: MegrendelesTableFilterState,
@@ -773,8 +596,10 @@ object MegrendelesScreen {
         )
 
         if (loggedInUser.isAdmin) {
-            Button(icon = "search",
-                    type = if (filterState.activeFilter == mindFilter) ButtonType.primary else ButtonType.default) {
+            Button(icon = "search") {
+                if (filterState.activeFilter == mindFilter) {
+                    attrs.asDynamic().style = selectedFilterClass
+                }
                 attrs.onClick = {
                     setState(state.copy(
                             showMindFilterModal = true
@@ -785,7 +610,6 @@ object MegrendelesScreen {
         }
     }
 
-    //
     private fun getSimpleFilters(loggedInUser: LoggedInUser): Array<SimpleMegrendelesFilter> {
         return when (loggedInUser.role) {
             Role.ROLE_ADMIN -> arrayOf(
@@ -816,11 +640,13 @@ object MegrendelesScreen {
         simpleFilters.forEach { filter ->
             val megrendelesek = megrendelesek.values.filter { filter.predicate(filterState, it) }
             val count = megrendelesek.count()
-            Button(type = if (filter === filterState.activeFilter) ButtonType.primary else ButtonType.default,
-                    icon = filter.icon,
+            Button(icon = filter.icon,
                     onClick = {
                         globalDispatch(Action.SetActiveFilter(SetActiveFilterPayload.SimpleFilter(filter)))
                     }) {
+                if (filter === filterState.activeFilter) {
+                    attrs.asDynamic().style = selectedFilterClass
+                }
                 if (count > 0) {
                     filterButtonCountBadge(count, filter)
                 } else {
@@ -854,43 +680,44 @@ object MegrendelesScreen {
     }
 }
 
-private fun haviTeljesitesModal(state: MegrendelesScreenState,
-                                filterState: MegrendelesTableFilterState,
-                                osszesAlvallalkozo: Map<Int, Alvallalkozo>,
-                                screenDispatch: Dispatcher<MegrendelesScreenState>,
-                                globalDispatch: (Action) -> Unit): ReactElement {
-    return createElement(type = { props: dynamic ->
-        val state: MegrendelesScreenState = props.state
-        val osszesAlvallalkozo: Map<Int, Alvallalkozo> = props.osszesAlvallalkozo
-        val screenDispatch: Dispatcher<MegrendelesScreenState> = props.screenDispatch
-        val globalDispatch: (Action) -> Unit = props.globalDispatch
+data class HaviTeljesitesModalParams(val loggedInUser: LoggedInUser,
+                                     val state: MegrendelesScreenState,
+                                     val filterState: MegrendelesTableFilterState,
+                                     val osszesAlvallalkozo: Map<Int, Alvallalkozo>,
+                                     val screenDispatch: Dispatcher<MegrendelesScreenState>,
+                                     val globalDispatch: (Action) -> Unit)
 
-        val alvallalkozok = osszesAlvallalkozo.getEnabledAlvallalkozok()
-        val haviTeljesites = filterState.haviTeljesites ?: HaviTeljesites(0, moment())
+
+object HaviTeljesitesModalComponent : DefinedReactComponent<HaviTeljesitesModalParams>() {
+    override fun RBuilder.body(props: HaviTeljesitesModalParams) {
+        val haviTeljesites = props.filterState.haviTeljesites ?: HaviTeljesites(0, moment())
         val (modalState, modalDispatch) = useState(haviTeljesites)
-        buildElement {
-            Modal {
-                attrs.title = StringOrReactElement.fromString("Havi teljesítés")
-                attrs.visible = state.haviTeljesitesModalOpen
-                attrs.okButtonProps = jsObject {
-                    disabled = modalState.alvallalkozoId == 0
-                }
-                attrs.onOk = {
-                    screenDispatch(state.copy(
-                            haviTeljesitesModalOpen = false
-                    ))
-                    globalDispatch(Action.SetActiveFilter(SetActiveFilterPayload.HaviTeljesites(
-                            modalState.alvallalkozoId, modalState.date
-                    )))
-                }
-                attrs.onCancel = {
-                    screenDispatch(state.copy(haviTeljesitesModalOpen = false))
-                }
-                Form {
-                    FormItem {
-                        attrs.labelCol = ColProperties { span = 4 }
-                        attrs.wrapperCol = ColProperties { span = 14 }
-                        attrs.label = StringOrReactElement.fromString("Alvállalkozó")
+        Modal {
+            attrs.title = StringOrReactElement.fromString("Havi teljesítés")
+            attrs.visible = props.state.haviTeljesitesModalOpen
+            attrs.okButtonProps = jsObject {
+                disabled = modalState.alvallalkozoId == 0
+            }
+            attrs.onOk = {
+                props.screenDispatch(props.state.copy(
+                        haviTeljesitesModalOpen = false
+                ))
+                props.globalDispatch(Action.SetActiveFilter(SetActiveFilterPayload.HaviTeljesites(
+                        alvallalkozoId = if (props.loggedInUser.isAdmin) modalState.alvallalkozoId else props.loggedInUser.alvallalkozoId,
+                        date = modalState.date
+                )))
+            }
+            attrs.onCancel = {
+                props.screenDispatch(props.state.copy(haviTeljesitesModalOpen = false))
+            }
+            Form {
+                FormItem {
+                    attrs.labelCol = ColProperties { span = 5 }
+                    attrs.wrapperCol = ColProperties { span = 14 }
+                    attrs.label = StringOrReactElement.fromString("Alvállalkozó")
+
+                    if (props.loggedInUser.isAdmin) {
+                        val alvallalkozok = props.osszesAlvallalkozo.getEnabledAlvallalkozok()
                         AutoComplete(alvallalkozok.map { it.name }.sortedBy { it }.toTypedArray()) {
                             attrs.placeholder = "Alvállalkozó"
                             attrs.filterOption = { inputString, optionElement ->
@@ -900,41 +727,30 @@ private fun haviTeljesitesModal(state: MegrendelesScreenState,
                                 modalDispatch(modalState.copy(alvallalkozoId = alvallalkozok.first { it.name == selectedName }.id))
                             }
                         }
+                    } else {
+                        Input {
+                            attrs.value = props.osszesAlvallalkozo[props.loggedInUser.alvallalkozoId]?.name ?: ""
+                            attrs.disabled = true
+                        }
                     }
-                    FormItem {
-                        attrs.labelCol = ColProperties { span = 4 }
-                        attrs.wrapperCol = ColProperties { span = 14 }
-                        attrs.label = StringOrReactElement.fromString("Hónap")
-                        MonthPicker {
-                            attrs.allowClear = false
-                            attrs.value = modalState.date
-                            attrs.disabledDate = { date -> date.isAfter(moment(), Granularity.Month) }
-                            attrs.placeholder = "Válassz dátumot"
-                            attrs.onChange = { date, dateStr ->
-                                if (date != null) {
-                                    modalDispatch(modalState.copy(date = date))
-                                }
+                }
+                FormItem {
+                    attrs.labelCol = ColProperties { span = 5 }
+                    attrs.wrapperCol = ColProperties { span = 14 }
+                    attrs.label = StringOrReactElement.fromString("Hónap")
+                    MonthPicker {
+                        attrs.allowClear = false
+                        attrs.value = modalState.date
+                        attrs.disabledDate = { date -> date.isAfter(moment(), Granularity.Month) }
+                        attrs.placeholder = "Válassz dátumot"
+                        attrs.onChange = { date, dateStr ->
+                            if (date != null) {
+                                modalDispatch(modalState.copy(date = date))
                             }
                         }
                     }
                 }
             }
-        }!!
-
-    }, props = jsObject<dynamic> {
-        this.state = state
-        this.osszesAlvallalkozo = osszesAlvallalkozo
-        this.screenDispatch = screenDispatch
-        this.globalDispatch = globalDispatch
-    })
+        }
+    }
 }
-
-
-//fun Component.MegrendelesScreen(
-//        properties: MegrendelesScreenProps.() -> Unit = {},
-//        init: Component.() -> Unit = {}) {
-//    externalReactClass(
-//            MegrendelesScreen.component,
-//            Ref(initProps(MegrendelesScreenProps(), properties)).asDynamic(),
-//            init)
-//}

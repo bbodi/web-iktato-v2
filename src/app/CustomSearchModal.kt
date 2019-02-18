@@ -11,7 +11,8 @@ import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.dateFormat
 import kotlinext.js.jsObject
-import react.*
+import react.RBuilder
+import react.children
 import react.dom.br
 import store.*
 
@@ -19,84 +20,86 @@ private data class CustomSearchModalState(
         val szuroMezok: List<SzuroMezo>
 )
 
-fun customSearchModal(
-        appState: AppState,
-        szuroMezok: List<SzuroMezo>,
-        visible: Boolean,
-        onClose: (Boolean, List<SzuroMezo>) -> Unit): ReactElement {
-    return createElement(type = { props: dynamic ->
-        val appState: AppState = props.appState
-        val szuroMezok: List<SzuroMezo> = props.szuroMezok
-        val visible: Boolean = props.visible
-        val (state, setState) = useState(CustomSearchModalState(szuroMezok))
+data class CustomSearchModalParams(
+        val appState: AppState,
+        val szuroMezok: List<SzuroMezo>,
+        val visible: Boolean,
+        val onClose: (Boolean, List<SzuroMezo>) -> Unit)
 
-        buildElement {
-            Modal {
-                attrs.visible = visible
-                attrs.width = 800
-                attrs.title = StringOrReactElement.fromString("Megrendelés Szűrés")
-                attrs.cancelButtonProps = jsObject {
-                    this.asDynamic().id = AlvallalkozoScreenIds.modal.buttons.close
+
+object CustomSearchModalComponent : DefinedReactComponent<CustomSearchModalParams>() {
+    override fun RBuilder.body(props: CustomSearchModalParams) {
+        val (state, setState) = useState(CustomSearchModalState(props.szuroMezok))
+        Modal {
+            attrs.visible = props.visible
+            attrs.width = 800
+            attrs.title = StringOrReactElement.fromString("Megrendelés Szűrés")
+            attrs.cancelButtonProps = jsObject {
+                this.asDynamic().id = AlvallalkozoScreenIds.modal.buttons.close
+            }
+            attrs.okButtonProps = jsObject {
+                disabled = with(state) {
+                    state.szuroMezok.isEmpty() ||
+                            state.szuroMezok.any {
+                                (it.columnData.megrendelesFieldType == MegrendelesFieldType.Int ||
+                                        it.columnData.megrendelesFieldType == MegrendelesFieldType.Select) &&
+                                        it.operand.isEmpty()
+                            }
                 }
-                attrs.okButtonProps = jsObject {
-                    disabled = with(state) {
-                        state.szuroMezok.isEmpty()
+            }
+            attrs.onOk = {
+                props.onClose(true, state.szuroMezok)
+            }
+            attrs.onCancel = {
+                props.onClose(false, emptyList())
+            }
+            Row {
+                Select {
+                    attrs.asDynamic().style = jsStyle { minWidth = 300 }
+                    attrs.showSearch = true
+                    attrs.notFoundContent = "Nincs találat"
+                    attrs.filterOption = { inputString, optionElement ->
+                        (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))
+                    }
+                    attrs.onSelect = { value: MegrendelesColumnData, option ->
+                        onElementSelect(state, setState, value)
+                    }
+                    columnDefinitions.forEach {
+                        Option { attrs.value = it; +it.columnTitle }
                     }
                 }
-                attrs.onOk = {
-                    onClose(true, state.szuroMezok)
-                }
-                attrs.onCancel = {
-                    onClose(false, emptyList())
-                }
-                Row {
-                    Select {
-                        attrs.asDynamic().style = jsStyle { minWidth = 300 }
-                        attrs.showSearch = true
-                        attrs.notFoundContent = "Nincs találat"
-                        attrs.filterOption = { inputString, optionElement ->
-                            (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))
-                        }
-                        attrs.onSelect = { value: MegrendelesColumnData, option ->
-                            onElementSelect(state, setState, value)
-                        }
-                        columnDefinitions.forEach {
-                            Option { attrs.value = it; +it.columnTitle }
-                        }
-                    }
-                }
-                br{};br{}
-                Form {
-                    state.szuroMezok.forEachIndexed { index, szuroMezo ->
-                        Row {
-                            Col(span = 8) {
-                                Input {
-                                    attrs.disabled = true
-                                    attrs.value = szuroMezo.columnData.columnTitle
-                                    attrs.asDynamic().style = jsStyle { fontWeight = "bold" }
-                                }
+            }
+            br {};br {}
+            Form {
+                state.szuroMezok.forEachIndexed { index, szuroMezo ->
+                    Row {
+                        Col(span = 8) {
+                            Input {
+                                attrs.disabled = true
+                                attrs.value = szuroMezo.columnData.columnTitle
+                                attrs.asDynamic().style = jsStyle { fontWeight = "bold" }
                             }
-                            when {
-                                szuroMezo.columnData.renderer == ebRenderer ->
-                                    ebOperatorAndOperand(appState, state, setState, index, szuroMezo)
-                                szuroMezo.columnData.renderer == avRenderer ->
-                                    avOperatorAndOperand(appState, state, setState, index, szuroMezo)
-                                szuroMezo.columnData.megrendelesFieldType == MegrendelesFieldType.Int ->
-                                    intOperatorAndOperand(state, setState, index, szuroMezo)
-                                szuroMezo.columnData.megrendelesFieldType == MegrendelesFieldType.String ->
-                                    stringOperatorAndOperand(state, setState, index, szuroMezo)
-                                szuroMezo.columnData.megrendelesFieldType == MegrendelesFieldType.Date ->
-                                    dateOperatorAndOperand(state, setState, index, szuroMezo)
-                            }
-                            Tooltip("Szűrő törlése") {
-                                Button {
-                                    attrs.icon = "delete"
-                                    attrs.type = ButtonType.danger
-                                    attrs.onClick = {
-                                        setState(state.copy(
-                                                szuroMezok = state.szuroMezok.take(index) + state.szuroMezok.drop(index + 1)
-                                        ))
-                                    }
+                        }
+                        when {
+                            szuroMezo.columnData.renderer == ebRenderer ->
+                                ebOperatorAndOperand(props.appState, state, setState, index, szuroMezo)
+                            szuroMezo.columnData.renderer == avRenderer ->
+                                avOperatorAndOperand(props.appState, state, setState, index, szuroMezo)
+                            szuroMezo.columnData.megrendelesFieldType == MegrendelesFieldType.Int ->
+                                intOperatorAndOperand(state, setState, index, szuroMezo)
+                            szuroMezo.columnData.megrendelesFieldType == MegrendelesFieldType.String ->
+                                stringOperatorAndOperand(state, setState, index, szuroMezo)
+                            szuroMezo.columnData.megrendelesFieldType == MegrendelesFieldType.Date ->
+                                dateOperatorAndOperand(state, setState, index, szuroMezo)
+                        }
+                        Tooltip("Szűrő törlése") {
+                            Button {
+                                attrs.icon = "delete"
+                                attrs.type = ButtonType.danger
+                                attrs.onClick = {
+                                    setState(state.copy(
+                                            szuroMezok = state.szuroMezok.take(index) + state.szuroMezok.drop(index + 1)
+                                    ))
                                 }
                             }
                         }
@@ -104,11 +107,7 @@ fun customSearchModal(
                 }
             }
         }
-    }, props = jsObject<dynamic> {
-        this.szuroMezok = szuroMezok
-        this.appState = appState
-        this.visible = visible
-    })
+    }
 }
 
 private fun onElementSelect(state: CustomSearchModalState,
@@ -122,10 +121,10 @@ private fun onElementSelect(state: CustomSearchModalState,
     } else {
         "Tartalmazza"
     }
-    val defaultOperand = if (columnData.megrendelesFieldType == MegrendelesFieldType.Int || keyEquality) {
-        "0"
-    } else if (columnData.megrendelesFieldType == MegrendelesFieldType.Date) {
+    val defaultOperand = if (columnData.megrendelesFieldType == MegrendelesFieldType.Date) {
         moment().format(dateFormat)
+    } else if (columnData.megrendelesFieldType == MegrendelesFieldType.Int) {
+        "0"
     } else {
         ""
     }
@@ -254,7 +253,7 @@ private fun <KEY> RBuilder.selectInput(szuroMezo: SzuroMezo, data: List<Pair<KEY
         attrs.onSelect = { value: String, option ->
             whenChange(szuroMezo.operator, value)
         }
-        (listOf(Pair("0", "")) + data).forEach {
+        data.forEach {
             Option { attrs.value = it.first.toString(); +it.second }
         }
     }
@@ -262,10 +261,10 @@ private fun <KEY> RBuilder.selectInput(szuroMezo: SzuroMezo, data: List<Pair<KEY
 
 private fun RBuilder.numberInput(szuroMezo: SzuroMezo, whenChange: (String, String) -> Unit) {
     MyNumberInput {
-        attrs.value = szuroMezo.operand
+        attrs.number = szuroMezo.operand.toLong()
         attrs.asDynamic().style = jsStyle { textAlign = "right" }
         attrs.onValueChange = { value ->
-            whenChange(szuroMezo.operator, value.toString())
+            whenChange(szuroMezo.operator, (value ?: 0).toString())
         }
     }
 }

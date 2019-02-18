@@ -26,6 +26,7 @@ import react.dom.b
 import react.dom.div
 import react.dom.jsStyle
 import store.Action
+import store.MegrendelesFromServer
 import store.addMegrendelesExternalListener
 import store.removeListener
 import kotlin.browser.document
@@ -154,11 +155,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
             attrs.type = ButtonType.primary
             attrs.disabled = tabState.akadalyReason == null || props.formState.megrendeles.id == 0
             attrs.onClick = {
-                setTabState(tabState.copy(
-                        szovegesMagyarazat = "",
-                        akadalyReason = null
-                ))
-                communicator.getEntityFromServer<dynamic, Unit>(RestUrl.akadalyKozles,
+                communicator.getEntityFromServer<Array<MegrendelesFromServer>, Unit>(RestUrl.akadalyKozles,
                         object {
                             val megrendelesId = props.formState.megrendeles.id
                             val ujHatarido = tabState.hataridoForAkadaly.format(dateTimeFormat)
@@ -175,6 +172,10 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                     }
                     message.success("Akadály rögztíve")
                 }
+                setTabState(tabState.copy(
+                        szovegesMagyarazat = "",
+                        akadalyReason = null
+                ))
             }
             +"Akadály közlése"
         }

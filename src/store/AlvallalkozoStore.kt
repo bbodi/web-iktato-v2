@@ -67,7 +67,6 @@ fun alvallalkozoActionHandler(state: AlvallalkozoState, action: Action): Alvalla
                                 ertekbecslok = loadErtekbecslok().map { it.id to it }.toMap(),
                                 regioOsszerendelesek = loadRegioOsszerendelesek().map { it.id to it }.toMap()
                         )
-                        //registerEditingHandlers()
                     }
                     Role.ROLE_USER -> state.copy(
                             alvallalkozok = loadSingleAlvallalkozoFromServer().let { hashMapOf(it.id to it) }
@@ -81,7 +80,10 @@ fun alvallalkozoActionHandler(state: AlvallalkozoState, action: Action): Alvalla
             } else {
                 state.copy(
                         alvallalkozok = hashMapOf(),
-                        regioOsszerendelesek = hashMapOf()
+                        ertekbecslok = hashMapOf(),
+                        regioOsszerendelesek = hashMapOf(),
+                        allLeiras = emptyArray(),
+                        allMunkatipus = emptyArray()
                 )
             }
         }

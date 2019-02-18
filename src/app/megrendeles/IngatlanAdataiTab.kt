@@ -125,7 +125,9 @@ private fun RBuilder.helyszinelesPanel(tabState: Megrendeles,
                     attrs.help = if (helpMsg != null) StringOrReactElement.from {
                         span {
                             +helpMsg
-                            child(reactElement!!)
+                            if (reactElement != null) {
+                                child(reactElement)
+                            }
                         }
                     } else attrs.help
                 } else {

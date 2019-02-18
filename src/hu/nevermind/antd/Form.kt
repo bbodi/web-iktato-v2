@@ -3,6 +3,7 @@ package hu.nevermind.antd
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.jsStyle
 import kotlinx.html.InputType
+import org.w3c.dom.events.Event
 import org.w3c.dom.events.InputEvent
 import react.RBuilder
 import react.RClass
@@ -24,7 +25,7 @@ object FormLayout {
 
 external interface FormProps : RProps {
     var layout: FormLayout
-    var onSubmit: () -> Unit
+    var onSubmit: (Event) -> Unit
 }
 
 fun RBuilder.Form(handler: RHandler<FormProps> = {}) {

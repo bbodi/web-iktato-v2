@@ -1,8 +1,10 @@
 package store
 
+import app.Dispatcher
 import app.common.Moment
 import app.common.moment
 import hu.nevermind.iktato.RestUrl
+import hu.nevermind.iktato.Result
 import hu.nevermind.utils.store.*
 import kotlin.browser.window
 
@@ -10,16 +12,6 @@ data class MegrendelesState(
         val megrendelesek: Map<Int, Megrendeles> = hashMapOf()
 )
 
-//val megrendelesReducer: Reducer<MegrendelesState, RAction> = { formState, action ->
-//    if (formState == undefined) {
-//        MegrendelesState(emptyMap())
-//    } else when (action) {
-//        is Actions.MegrendelesekFromServer -> {
-//            megrendelesekFromServer(formState, action)
-//        }
-//        else -> formState
-//    }
-//}
 
 private val listeners = hashMapOf<String, (Megrendeles) -> Unit>()
 
@@ -41,36 +33,29 @@ fun emitEvent(item: Megrendeles) {
 fun megrendelesekFromServer(state: MegrendelesState, action: Action): MegrendelesState {
     return when (action) {
         is Action.MegrendelesekFromServer -> {
-            if (state.megrendelesek.isEmpty()) {
-                state.copy(megrendelesek = action.data.map {
-                    val megr = toMegrendeles(it)
-                    emitEvent(megr)
-                    (it.id as Int) to megr
-                }.toMap())
-            } else {
-                val updatedMegrendelesek = action.data.map {
-                    val updatedMegr = toMegrendeles(it)
-                    emitEvent(updatedMegr)
-                    val oldMegr = state.megrendelesek[updatedMegr.id]
-                    if (oldMegr == null) {
-                        console.info("Új Megrendelés: ${updatedMegr.id}, ${updatedMegr.azonosito}")
-                    } else {
-                        console.info("Megrendelés módosult: ${updatedMegr.id}, ${updatedMegr.azonosito}")
-                        val diffs = diff(oldMegr, updatedMegr)
-                        diffs?.forEach { diffNode ->
-                            if (diffNode.kind[0] == 'E') {
-                                if (diffNode.path[0] != "modified")
-                                    console.info(" ${diffNode.path[0]}: ${diffNode.lhs} -> ${diffNode.rhs}")
-                            }
+            val updatedMegrendelesek = convertMegrendelesekFromServer(state, action.data)
+            state.copy(megrendelesek = state.megrendelesek + updatedMegrendelesek)
+        }
+        is Action.SetLoggedInUser -> {
+            val newMegrendelesek = if (action.data != null) {
+
+                val megr: List<Pair<Int, Megrendeles>> = when (action.data.role) {
+                    Role.ROLE_ADMIN -> {
+                        communicator.getEntitiesFromServer(RestUrl.getMegrendelesFromServer) { returnedArray: Array<dynamic> ->
+                            convertMegrendelesekFromServer(state, returnedArray)
                         }
                     }
-                    updatedMegr.id to updatedMegr
-                    // TODO: notification az uj megrendelésről?!
+                    Role.ROLE_USER, Role.ROLE_ELLENORZO -> {
+                        loadMegrendelesekOfAlvallalkozo()
+                    }
                 }
-                state.copy(megrendelesek = state.megrendelesek + updatedMegrendelesek)
+                megr.toMap()
+            } else {
+
+                emptyMap()
             }
+            state.copy(megrendelesek = newMegrendelesek)
         }
-        is Action.SetLoggedInUser -> state
         is Action.ChangeURL -> state
         is Action.changeURLSilently -> state
         is Action.SetActiveFilter -> if (action.payload is SetActiveFilterPayload.HaviTeljesites) state.copy(
@@ -87,71 +72,62 @@ fun megrendelesekFromServer(state: MegrendelesState, action: Action): Megrendele
     }
 }
 
-
-//
-object MegrendelesStore {
-
-
-    fun init() {
-//        register(globalDispatcher, Actions.setLoggedInUser) { loggedInUser ->
-//            if (loggedInUser != null) {
-//                if (loggedInUser.role == Role.ROLE_ADMIN) {
-//        loadMegrendelesek()
-//                } else if (loggedInUser.role == Role.ROLE_USER) {
-//                    loadMegrendelesekOfAlvallalkozo()
-//                }
-        window.setTimeout({
-            pollServerForChanges(moment())
-        }, 30_000)
+private fun convertMegrendelesekFromServer(state: MegrendelesState, megrendelesekFromServer: Array<dynamic>): List<Pair<Int, Megrendeles>> {
+    val updatedMegrendelesek = if (state.megrendelesek.isEmpty()) {
+        megrendelesekFromServer.map {
+            val megr = toMegrendeles(it)
+            emitEvent(megr)
+            (it.id as Int) to megr
+        }
+    } else {
+        megrendelesekFromServer.map {
+            val updatedMegr = toMegrendeles(it)
+            emitEvent(updatedMegr)
+            val oldMegr = state.megrendelesek[updatedMegr.id]
+            if (oldMegr == null) {
+                console.info("Új Megrendelés: ${updatedMegr.id}, ${updatedMegr.azonosito}")
+            } else {
+                console.info("Megrendelés módosult: ${updatedMegr.id}, ${updatedMegr.azonosito}")
+                val diffs = diff(oldMegr, updatedMegr)
+                diffs?.forEach { diffNode ->
+                    if (diffNode.kind[0] == 'E') {
+                        if (diffNode.path[0] != "modified")
+                            console.info(" ${diffNode.path[0]}: ${diffNode.lhs} -> ${diffNode.rhs}")
+                    }
+                }
+            }
+            updatedMegr.id to updatedMegr
+            // TODO: notification az uj megrendelésről?!
+        }
     }
-//            emitChange()
-//        }
-//        register(globalDispatcher, Actions.megrendelesekFromServer) { responses ->
-//            responses.forEach { response ->
-//                _megrendelesek.put(response.id, toMegrendeles(response))
-//            }
-//            emitChange()
-//        }
-//        register(globalDispatcher, Actions.filterMegrendelesek) { filter ->
-//            filterMegrendelesek(filter.alvallalkozoId, filter.date)
-//            emitChange()
-//        }
+    return updatedMegrendelesek
 }
 
-//
-private fun pollServerForChanges(lastUpdateTime: Moment) {
+fun pollServerForChanges(lastUpdateTime: Moment, dispatch: Dispatcher<Action>): Int {
     val message: Any = object {
         val lastUpdate = lastUpdateTime.format(dateTimeSecondFormat)
     }
     val now = moment()
-    communicator.getEntityFromServer(RestUrl.getMegrendelesUpdates, message) { response: dynamic ->
-        //        store.dispatch(Actions.MegrendelesekFromServer(response))
-        window.setTimeout({
-            pollServerForChanges(now)
-        }, 30_000)
-//            if ((response as Array<Any>).isNotEmpty()) {
-//                emitChange()
-//            }
+    communicator.asyncPost(RestUrl.getMegrendelesUpdates, message) { result: Result<Array<MegrendelesFromServer>, String> ->
+        result.ifOk { response ->
+            if (response.isNotEmpty()) {
+                dispatch(Action.MegrendelesekFromServer(response))
+            }
+        }
     }
+    return window.setTimeout({
+        pollServerForChanges(now, dispatch)
+    }, 60_000)
 }
 
-//
-//    private fun loadMegrendelesekOfAlvallalkozo() {
-//        communicator.getEntitiesFromServer(RestUrl.getMegrendelesekOfAlvallalkozo) { returnedArray: Array<dynamic> ->
-//            returnedArray.forEach {
-//                val megrendeles = toMegrendeles(it)
-//                _megrendelesek.put(megrendeles.id, megrendeles)
-//            }
-//        }
-//    }
-//
-
-//
-//
-//
-
-//
-//}
+private fun loadMegrendelesekOfAlvallalkozo(): List<Pair<Int, Megrendeles>> {
+    return communicator.getEntitiesFromServer(RestUrl.getMegrendelesekOfAlvallalkozo) { returnedArray: Array<dynamic> ->
+        returnedArray.map {
+            val megrendeles = toMegrendeles(it)
+            megrendeles.id to megrendeles
+        }
+    }
+}
 
 private fun filterMegrendelesek(avId: Int, d: Moment): List<Pair<Int, Megrendeles>> {
     return communicator.getEntitiesFromServer(

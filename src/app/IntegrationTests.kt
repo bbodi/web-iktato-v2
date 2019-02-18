@@ -16,8 +16,6 @@ import kotlin.browser.window
 import kotlin.dom.hasClass
 import kotlin.js.*
 
-// TODO: néhány screenen nincs a table-knek háttérszinük
-
 private val ReactTestUtils = kotlinext.js.require("react-dom/test-utils")
 
 open class TestBuilder(val description: TestDescription, val afterItFinished: () -> Unit) {

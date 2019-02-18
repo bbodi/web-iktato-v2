@@ -89,12 +89,7 @@ class LayoutDemoPage : RComponent<RProps, RState>() {
                     }
                 }
                 Layout(style = jsStyle { padding = "0 24px 24px" }) {
-                    // TODO
-//                <Breadcrumb style ={ { margin: '16px 0' } } >
-//                    <Breadcrumb.Item > Home < / Breadcrumb . Item >
-//                    <Breadcrumb.Item > List < / Breadcrumb . Item >
-//                    <Breadcrumb.Item > App < / Breadcrumb . Item >
-//                </Breadcrumb>
+
                     Content {
                         attrs.style = jsStyle { padding = "24"; background = "#fff";margin = 0;minHeight = 200 }
                         +"Content"

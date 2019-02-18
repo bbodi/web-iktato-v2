@@ -25,8 +25,12 @@ sealed class SetActiveFilterPayload {
     data class MindFilter(val ids: List<Int>, val szuromezok: List<SzuroMezo>) : SetActiveFilterPayload()
 }
 
+interface MegrendelesFromServer {
+    val id: Int
+}
+
 sealed class Action {
-    data class MegrendelesekFromServer(val data: Array<dynamic>) : Action()
+    data class MegrendelesekFromServer(val data: Array<MegrendelesFromServer>) : Action()
     data class SetLoggedInUser(val data: LoggedInUser?) : Action()
     data class ChangeURL(val url: String) : Action()
     data class changeURLSilently(val url: String) : Action()

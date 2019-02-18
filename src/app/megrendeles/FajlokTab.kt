@@ -23,10 +23,7 @@ import react.RBuilder
 import react.RElementBuilder
 import react.buildElement
 import react.dom.*
-import store.Action
-import store.UploadData
-import store.addMegrendelesExternalListener
-import store.removeListener
+import store.*
 import kotlin.js.Promise
 
 
@@ -303,8 +300,8 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
             updatedMegr = updatedMegr.copy(fajlagosBecsultAr = excel.fajlagosAr?.toInt())
         }
         //ifExcelIsFilledButMegrIsNot(excel.szemleIdopontja ?: "", megrendeles.szemleIdopontja?.format(dateFormat) ?: "") { megrendeles.szemleIdopontja = moment(it, dateFormat) }
-        if (excel.szemleIdopontja != null) {
-            updatedMegr = updatedMegr.copy(szemleIdopontja = moment(excel.szemleIdopontja!!, dateFormat))
+        excel.szemleIdopontja?.let { szemleIdopontja ->
+            updatedMegr = updatedMegr.copy(szemleIdopontja = moment(szemleIdopontja, dateFormat))
         }
         ifExcelIsFilledButMegrIsNot(excel.forgalmiErtek?.toInt(), megr.becsultErtek) {
             updatedMegr = updatedMegr.copy(becsultErtek = it)
@@ -312,7 +309,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
         ifExcelIsFilledButMegrIsNot(excel.hrsz ?: "", megr.hrsz) {
             updatedMegr = updatedMegr.copy(hrsz = it)
         }
-        ifExcelIsFilledButMegrIsNot(excel.ingatlanTerulet?.toInt(), megr.lakasTerulet?.toInt()) {
+        ifExcelIsFilledButMegrIsNot(excel.ingatlanTerulet?.toInt(), megr.lakasTerulet) {
             updatedMegr = updatedMegr.copy(lakasTerulet = it)
         }
         ifExcelIsFilledButMegrIsNot(excel.ingatlanTipusa?.toLowerCase()
@@ -351,7 +348,7 @@ object FajlokTabComponent : DefinedReactComponent<FajlokTabParams>() {
                                 tabState.uploadingFiles,
                                 tabState.tartalmazErtekbecsles ?: false,
                                 tabState.tartalmazEnergetika ?: false
-                        )) { response: Megrendeles ->
+                        )) { response: MegrendelesFromServer ->
                     setTabState(tabState.copy(uploadingFiles = emptyList(), uploadModalVisible = false))
                     globalDispatch(Action.MegrendelesekFromServer(arrayOf(response)))
                     message.success("Fájlok sikeresen feltöltve")

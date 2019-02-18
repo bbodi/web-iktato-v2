@@ -15,6 +15,7 @@ import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.*
+import kotlinext.js.jsObject
 import kotlinx.html.id
 import react.RBuilder
 import react.RElementBuilder
@@ -22,6 +23,7 @@ import react.ReactElement
 import react.buildElement
 import react.dom.*
 import store.Action
+import store.MegrendelesFromServer
 import store.diff
 
 data class MegrendelesFormState(val activeTab: String,
@@ -36,6 +38,8 @@ data class MegrendelesFormState(val activeTab: String,
 data class MegrendelesFormScreenParams(val megrendelesId: Int,
                                        val appState: AppState,
                                        val globalDispatch: (Action) -> Unit)
+
+public inline fun jsObj(builder: dynamic.() -> kotlin.Unit): dynamic = jsObject<Int> { builder(this) }
 
 object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScreenParams>() {
     override fun RBuilder.body(props: MegrendelesFormScreenParams) {
@@ -61,11 +65,11 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
 
         val megrIsAvailable = props.megrendelesId == 0 || props.megrendelesId in props.appState.megrendelesState.megrendelesek
         if (!megrIsAvailable) {
-            communicator.asyncPost<dynamic>(RestUrl.getMegrendelesByIdFromServer,
-                    object {
-                        val megrendelesId = props.megrendelesId
-                    }) { response ->
-                props.globalDispatch(Action.MegrendelesekFromServer(response))
+            communicator.asyncPost<Array<MegrendelesFromServer>>(RestUrl.getMegrendelesByIdFromServer,
+                    jsObj { megrendelesId = props.megrendelesId }) { result ->
+                result.ifOk { response ->
+                    props.globalDispatch(Action.MegrendelesekFromServer(response))
+                }
             }
         }
         val (state, setState) = useState(MegrendelesFormState(
@@ -381,7 +385,7 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
         }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.ingatlanAdatai
-            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Ingatlan adatai", icon = "home", color = "red", id = MegrendelesScreenIds.modal.tab.ingatlanAdatai))
+            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Ingatlan adatai", icon = "home", color = "black", id = MegrendelesScreenIds.modal.tab.ingatlanAdatai))
             IngatlanAdataiTabComponent.insert(this, IngatlanAdataiTabParams(state, appState, onSaveFunctions, setFormState))
         }
         TabPane {

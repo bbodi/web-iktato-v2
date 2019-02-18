@@ -35,7 +35,7 @@ fun sajatArActionHandler(state: SajatArState, action: Action): SajatArState {
             val sajatArak = if (action.data != null && action.data.role == Role.ROLE_ADMIN) {
                 loadSajatArak()
             } else {
-                hashMapOf()
+                emptyMap()
             }
             SajatArState(
                     sajatArak = sajatArak,

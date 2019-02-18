@@ -29,7 +29,7 @@ object AccountModalComponent : DefinedReactComponent<AccountModalParams>() {
             }
             attrs.okButtonProps = jsObject {
                 disabled = with(modalState.account) {
-                    alvallalkozoId == 0 || username.length < 3 || ((modalState.account.id == 0 || modalState.account.plainPassword.isNotEmpty()) && plainPassword.length < 3)
+                    username.length < 3 || ((modalState.account.id == 0 || modalState.account.plainPassword.isNotEmpty()) && plainPassword.length < 3)
                 }
                 this.asDynamic().id = AccountScreenIds.modal.buttons.save
             }

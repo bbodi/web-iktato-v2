@@ -23,11 +23,6 @@ fun accountActionHandler(state: AccountStore, action: Action): AccountStore {
     return when (action) {
         is Action.MegrendelesekFromServer -> state
         is Action.SetLoggedInUser -> {
-            if (action.data != null) {
-                if (action.data.role == Role.ROLE_ADMIN) {
-                    loadAccounts()
-                }
-            }
             AccountStore(accounts = if (action.data?.role == Role.ROLE_ADMIN) loadAccounts() else emptyArray())
         }
         is Action.ChangeURL -> state

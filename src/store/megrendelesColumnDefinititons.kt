@@ -31,7 +31,7 @@ val clickableRenderer = { cell: String?, row: Any, index: Int, appState: AppStat
             attrs.onClickFunction = {
                 onClick(row.unsafeCast<Megrendeles>())
             }
-            +(cell!!)
+            +(cell ?: "")
         }
     }
 }

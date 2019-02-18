@@ -3,10 +3,8 @@ package app
 import app.common.moment
 import app.megrendeles.*
 import hu.nevermind.antd.*
-import hu.nevermind.iktato.JqueryAjaxPoster
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
-import hu.nevermind.iktato.Result
 import hu.nevermind.utils.app.runIntegrationTests
 import hu.nevermind.utils.hu.nevermind.antd.Menu
 import hu.nevermind.utils.hu.nevermind.antd.MenuItem
@@ -51,7 +49,7 @@ interface IdProps : RProps {
     var id: Int
 }
 
-val globalEventListeners: MutableList<(AppState)->Unit> = arrayListOf()
+val globalEventListeners: MutableList<(AppState) -> Unit> = arrayListOf()
 
 fun main(args: Array<String>) {
     // HACK: operator invoke is translated as `invoke()` function call in Javascript -_-'
@@ -59,14 +57,8 @@ fun main(args: Array<String>) {
     moment.asDynamic().fn.toJSON = {
         js("return this.format('$dateTimeFormat');")
     }
-//    js("moment.fn.toJSON = function() { return this.format('$dateTimeFormat'); }")
-    requireAll(require.context("src", true, js("/\\.css$/")))
 
-    val data = object {
-        val username = "admin"
-        val password = "admin"
-    }
-//        Jq.blockUI(object {val baseZ = 2000})
+    requireAll(require.context("src", true, js("/\\.css$/")))
 
     fun appReducer(state: LoggedInUser?, action: Action): LoggedInUser? {
         return when (action) {
@@ -84,12 +76,31 @@ fun main(args: Array<String>) {
         }
     }
 
+    fun checkAuthenticationAndSetLoggedInUser(globalDispatch: (Action) -> Unit) {
+        communicator.getRequest(RestUrl.authenticate) { authResult ->
+            authResult.ifOk { response ->
+                val principal = response.asDynamic()
+                globalDispatch(Action.SetLoggedInUser(LoggedInUser(
+                        principal.username,
+                        principal.fullName,
+                        principal.alvallalkozoId,
+                        Role.valueOf(principal.role),
+                        stringToColumnDefArray(principal.megrendelesTableColumns)
+                )))
+            }
+            authResult.ifError {
+                globalDispatch(Action.SetLoggedInUser(null))
+            }
+        }
+
+    }
+
     fun megrendelesTableFilterReducer(state: MegrendelesTableFilterState, action: Action): MegrendelesTableFilterState {
         return when (action) {
             is Action.MegrendelesekFromServer -> state
             is Action.SetLoggedInUser -> state.copy(
-                    haviTeljesites = if (action.data?.isAlvallalkozo ?: false) {
-                        HaviTeljesites(action.data!!.alvallalkozoId, moment())
+                    haviTeljesites = if (action.data != null && action.data.isAlvallalkozo) {
+                        HaviTeljesites(action.data.alvallalkozoId, moment())
                     } else null
             )
             is Action.ChangeURL -> state
@@ -168,12 +179,13 @@ fun main(args: Array<String>) {
         val (appState, dispatch) = useReducer<AppState, Action>({ currentState, action ->
             console.log("Message arrived: $action")
             val newUrlData = routerStoreHandler(currentState.urlData, action)
+            val maybeLoggedInUser = appReducer(currentState.maybeLoggedInUser, action)
             currentState.copy(
                     megrendelesState = megrendelesekFromServer(currentState.megrendelesState, action),
                     alvallalkozoState = alvallalkozoActionHandler(currentState.alvallalkozoState, action),
                     urlData = newUrlData,
-                    currentScreen = route(currentState.maybeLoggedInUser, newUrlData.path),
-                    maybeLoggedInUser = appReducer(currentState.maybeLoggedInUser, action),
+                    currentScreen = route(maybeLoggedInUser, newUrlData.path),
+                    maybeLoggedInUser = maybeLoggedInUser,
                     megrendelesTableFilterState = megrendelesTableFilterReducer(currentState.megrendelesTableFilterState, action),
                     geoData = geoReducer(currentState.geoData, action),
                     sajatArState = sajatArActionHandler(currentState.sajatArState, action),
@@ -193,7 +205,19 @@ fun main(args: Array<String>) {
                         szuroMezok = emptyList(),
                         haviTeljesites = null
                 ),
-                accountStore = AccountStore(emptyArray()))) // TODO: parse current uRL
+                accountStore = AccountStore(emptyArray())))
+        useEffectWithCleanup(RUN_ONLY_WHEN_MOUNT) {
+            console.info("pollServerForChanges")
+            var pollTimer = 0
+            pollTimer = window.setTimeout({
+                pollTimer = pollServerForChanges(moment(), dispatch)
+            }, 60_000)
+            val cleanup = {
+                console.info("CLEANUP - pollServerForChanges $pollTimer")
+                window.clearTimeout(pollTimer)
+            }
+            cleanup
+        }
         useEffectWithCleanup {
             val callback = { e: Event ->
                 val externalChange = appState.urlData.path != window.location.hash.substring(1)
@@ -207,39 +231,8 @@ fun main(args: Array<String>) {
             }
             cleanup
         }
-
-        useEffect(emptyArray<Any>()) {
-            JqueryAjaxPoster().ajaxPost(
-                    contentType = "application/x-www-form-urlencoded; charset=UTF-8",
-                    url = "/login",
-                    data = data,
-                    type = "POST",
-                    async = false) { result: Result<Any, String> ->
-                result.ifOk { response ->
-
-                }
-                result.ifError { response ->
-                    communicator.authenticate { authResult ->
-                        authResult.ifOk { response ->
-                            val principal = response.asDynamic()
-                            dispatch(Action.SetLoggedInUser(LoggedInUser(
-                                    principal.username,
-                                    principal.fullName,
-                                    principal.alvallalkozoId,
-                                    Role.valueOf(principal.role),
-                                    stringToColumnDefArray(principal.megrendelesTableColumns)
-                            )))
-                        }
-                    }
-
-                }
-            }
-        }
-
         useEffect(RUN_ONLY_WHEN_MOUNT) {
-            communicator.getEntitiesFromServer(RestUrl.getMegrendelesFromServer) { returnedArray: Array<dynamic> ->
-                dispatch(Action.MegrendelesekFromServer(returnedArray))
-            }
+            checkAuthenticationAndSetLoggedInUser(dispatch)
         }
 
         buildElement {
@@ -269,7 +262,10 @@ fun main(args: Array<String>) {
                             }
                         } else null
                     }
-                    is AppScreen.LoginAppScreen -> null
+                    is AppScreen.LoginAppScreen -> LoginScreenComponent.createElement(LoginScreenParams(
+                            appState,
+                            dispatch
+                    ))
                     is AppScreen.AlvallalkozoAppScreen ->
                         AlvallalkozoScreenComponent.createElement(AlvallalkozoScreenParams(
                                 currentScreen.avId,
@@ -327,31 +323,79 @@ fun main(args: Array<String>) {
                                         val initialAlvallalkozoId = appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.first().id
                                         dispatch(Action.ChangeURL(Path.ertekbecslo.root(initialAlvallalkozoId)))
                                     }
+                                    Path.alvallalkozo.sajatAdatok -> {
+                                        dispatch(Action.ChangeURL(Path.alvallalkozo.sajatAdatok))
+                                    }
+                                    "User" -> {
+                                        val accountId = appState.accountStore.accounts.firstOrNull { it.username == appState.maybeLoggedInUser?.username }?.id
+                                        if (appState.maybeLoggedInUser.isAdmin && accountId != null) {
+                                            dispatch(Action.ChangeURL(Path.account.withOpenedEditorModal(accountId)))
+                                        } else {
+                                            dispatch(Action.ChangeURL(Path.alvallalkozo.sajatAdatok))
+                                        }
+                                    }
+                                    "Logout" -> {
+                                        Modal.confim {
+                                            title = "Biztos elhagyja az alkalmazást?"
+                                            okText = "Igen"
+                                            cancelText = "Mégsem"
+                                            okType = ButtonType.primary
+                                            onOk = {
+                                                communicator.getRequest(RestUrl.logout) { authResult ->
+                                                }
+                                                dispatch(Action.SetLoggedInUser(null))
+                                                null
+                                            }
+                                        }
+                                    }
                                 }
                             }
-                            MenuItem(AppScreen.MegrendelesAppScreen::class.simpleName!!) {
-                                attrs.asDynamic().id = MegrendelesScreenIds.menu.megrendelesek
-                                +"Megrendelések"
-                            }
-                            MenuItem(AppScreen.SajatArAppScreen::class.simpleName!!) {
-                                attrs.asDynamic().id = MegrendelesScreenIds.menu.sajatar
-                                +"Sajár ár"
-                            }
-                            MenuItem(AppScreen.AlvallalkozoAppScreen::class.simpleName!!) {
-                                attrs.asDynamic().id = MegrendelesScreenIds.menu.alvallalkozok
-                                +"Alvállalkozók"
-                            }
-                            MenuItem(AppScreen.ErtekbecsloAppScreen::class.simpleName!!) {
-                                attrs.asDynamic().id = MegrendelesScreenIds.menu.ertekbecslok
-                                +"Értékbecslők"
-                            }
-                            MenuItem(AppScreen.AccountAppScreen::class.simpleName!!) {
-                                attrs.asDynamic().id = MegrendelesScreenIds.menu.felhasznalok
-                                +"Felhasználók"
-                            }
-                            MenuItem(AppScreen.RegioAppScreen::class.simpleName!!) {
-                                attrs.asDynamic().id = MegrendelesScreenIds.menu.regiok
-                                +"Régiók"
+                            if (appState.maybeLoggedInUser != null) {
+                                MenuItem(AppScreen.MegrendelesAppScreen::class.simpleName!!) {
+                                    attrs.asDynamic().id = MegrendelesScreenIds.menu.megrendelesek
+                                    +"Megrendelések"
+                                }
+                                if (appState.maybeLoggedInUser.isAdmin) {
+                                    MenuItem(AppScreen.SajatArAppScreen::class.simpleName!!) {
+                                        attrs.asDynamic().id = MegrendelesScreenIds.menu.sajatar
+                                        +"Sajár ár"
+                                    }
+                                    MenuItem(AppScreen.AlvallalkozoAppScreen::class.simpleName!!) {
+                                        attrs.asDynamic().id = MegrendelesScreenIds.menu.alvallalkozok
+                                        +"Alvállalkozók"
+                                    }
+                                    MenuItem(AppScreen.ErtekbecsloAppScreen::class.simpleName!!) {
+                                        attrs.asDynamic().id = MegrendelesScreenIds.menu.ertekbecslok
+                                        +"Értékbecslők"
+                                    }
+                                    MenuItem(AppScreen.AccountAppScreen::class.simpleName!!) {
+                                        attrs.asDynamic().id = MegrendelesScreenIds.menu.felhasznalok
+                                        +"Felhasználók"
+                                    }
+                                    MenuItem(AppScreen.RegioAppScreen::class.simpleName!!) {
+                                        attrs.asDynamic().id = MegrendelesScreenIds.menu.regiok
+                                        +"Régiók"
+                                    }
+                                }
+                                MenuItem("Logout") {
+                                    attrs.asDynamic().style = jsStyle {
+                                        float = "right"
+                                    }
+                                    Icon("logout")
+                                    +"Kijelentkezés"
+                                }
+                                MenuItem("User") {
+                                    attrs.asDynamic().style = jsStyle {
+                                        float = "right"
+                                    }
+                                    Icon("edit")
+                                    +appState.maybeLoggedInUser.fullName
+                                }
+                            } else {
+                                MenuItem("Bejelentkezés") {
+                                    Icon("user")
+                                    +"Bejelentkezés"
+                                }
                             }
                         }
                     }
@@ -359,6 +403,7 @@ fun main(args: Array<String>) {
                         attrs.style = jsStyle {
                             margin = "24px 16px"
                             padding = "0px"
+                            minHeight = "600px"
                         }
                         if (content != null) {
                             child(content)
@@ -366,12 +411,14 @@ fun main(args: Array<String>) {
                     }
                     Footer {
                         +"Presting Iktató ©2019 Created by NeverMind Software Kft"
-                        Button {
-                            attrs.type = ButtonType.primary
-                            attrs.onClick = {
-                                runIntegrationTests(dispatch, appState)
+                        if (appState.maybeLoggedInUser?.username == "admin") {
+                            Button {
+                                attrs.type = ButtonType.primary
+                                attrs.onClick = {
+                                    runIntegrationTests(dispatch, appState)
+                                }
+                                +"Tests"
                             }
-                            +"Tests"
                         }
                     }
                 }
@@ -406,47 +453,63 @@ private fun route(maybeLoggedInUser: LoggedInUser?,
         console.log("-- match: $screen")
         screen
     }
-    // TODO: login
-    return if (false && !maybeLoggedInUser.isLoggedIn)
+    return if (!maybeLoggedInUser.isLoggedIn)
         loggingDispatcher(AppScreen.LoginAppScreen())
-     else RouterStore.match(path,
-            Path.login to { params ->
-                loggingDispatcher(AppScreen.LoginAppScreen())
-            },
-            "${Path.account.root}?editedAccountId" to { params ->
-                val id = (params["editedAccountId"] ?: "").toIntOrNull()
-                loggingDispatcher(AppScreen.AccountAppScreen(id))
-            },
-            "${Path.sajatAr.root}?editedSajatArId" to { params ->
-                val id = (params["editedSajatArId"] ?: "").toIntOrNull()
-                loggingDispatcher(AppScreen.SajatArAppScreen(id))
-            },
-            "${Path.alvallalkozo.root}regio/?alvallalkozoId/?regioOsszerendelesId" to { params ->
-                val avId = (params["alvallalkozoId"]!!).toInt()
-                val regioId = (params["regioOsszerendelesId"] ?: "").toIntOrNull()
-                loggingDispatcher(AppScreen.RegioAppScreen(avId, regioId))
-            },
-            "${Path.alvallalkozo.root}av/:alvallalkozoId" to { params ->
-                val avId = (params["alvallalkozoId"] ?: "").toIntOrNull()
-                loggingDispatcher(AppScreen.AlvallalkozoAppScreen(avId))
-            },
-            "${Path.ertekbecslo.r}:alvallalkozoId/ebs/?ertekbecsloId" to { params ->
-                val avId = (params["alvallalkozoId"] ?: "").toInt()
-                val ebId = (params["ertekbecsloId"] ?: "").toIntOrNull()
-                loggingDispatcher(AppScreen.ErtekbecsloAppScreen(avId, ebId))
-            },
-            Path.alvallalkozo.sajatAdatok to { params ->
-                loggingDispatcher(AppScreen.MegrendelesAppScreen(null, showAlvallalkozoSajatAdataiModal = true))
-            },
-            Path.megrendeles.tableConfig to { params ->
-                loggingDispatcher(AppScreen.MegrendelesAppScreen(null, showTableConfigurationModal = true))
-            },
-            "${Path.megrendeles.root}:megrendelesId" to { params ->
-                val id = (params["megrendelesId"] ?: "").toIntOrNull()
-                loggingDispatcher(AppScreen.MegrendelesAppScreen(id))
-            },
-            Path.alvallalkozo.root to { params ->
-                loggingDispatcher(AppScreen.AlvallalkozoAppScreen(null))
-            }
-    ) ?: loggingDispatcher(AppScreen.MegrendelesAppScreen(null))
+    else if (maybeLoggedInUser.isAlvallalkozo) {
+        RouterStore.match(path,
+                Path.login to { params ->
+                    loggingDispatcher(AppScreen.LoginAppScreen())
+                },
+                Path.alvallalkozo.sajatAdatok to { params ->
+                    loggingDispatcher(AppScreen.MegrendelesAppScreen(null, showAlvallalkozoSajatAdataiModal = true))
+                },
+                Path.megrendeles.tableConfig to { params ->
+                    loggingDispatcher(AppScreen.MegrendelesAppScreen(null, showTableConfigurationModal = true))
+                },
+                "${Path.megrendeles.root}:megrendelesId" to { params ->
+                    val id = (params["megrendelesId"] ?: "").toIntOrNull()
+                    loggingDispatcher(AppScreen.MegrendelesAppScreen(id))
+                },
+                Path.alvallalkozo.root to { params ->
+                    loggingDispatcher(AppScreen.AlvallalkozoAppScreen(null))
+                })
+    } else {
+        RouterStore.match(path,
+                Path.login to { params ->
+                    loggingDispatcher(AppScreen.LoginAppScreen())
+                },
+                "${Path.account.root}?editedAccountId" to { params ->
+                    val id = (params["editedAccountId"] ?: "").toIntOrNull()
+                    loggingDispatcher(AppScreen.AccountAppScreen(id))
+                },
+                "${Path.sajatAr.root}?editedSajatArId" to { params ->
+                    val id = (params["editedSajatArId"] ?: "").toIntOrNull()
+                    loggingDispatcher(AppScreen.SajatArAppScreen(id))
+                },
+                "${Path.alvallalkozo.root}regio/?alvallalkozoId/?regioOsszerendelesId" to { params ->
+                    val avId = (params["alvallalkozoId"]!!).toInt()
+                    val regioId = (params["regioOsszerendelesId"] ?: "").toIntOrNull()
+                    loggingDispatcher(AppScreen.RegioAppScreen(avId, regioId))
+                },
+                "${Path.alvallalkozo.root}av/:alvallalkozoId" to { params ->
+                    val avId = (params["alvallalkozoId"] ?: "").toIntOrNull()
+                    loggingDispatcher(AppScreen.AlvallalkozoAppScreen(avId))
+                },
+                "${Path.ertekbecslo.r}:alvallalkozoId/ebs/?ertekbecsloId" to { params ->
+                    val avId = (params["alvallalkozoId"] ?: "").toInt()
+                    val ebId = (params["ertekbecsloId"] ?: "").toIntOrNull()
+                    loggingDispatcher(AppScreen.ErtekbecsloAppScreen(avId, ebId))
+                },
+                Path.megrendeles.tableConfig to { params ->
+                    loggingDispatcher(AppScreen.MegrendelesAppScreen(null, showTableConfigurationModal = true))
+                },
+                "${Path.megrendeles.root}:megrendelesId" to { params ->
+                    val id = (params["megrendelesId"] ?: "").toIntOrNull()
+                    loggingDispatcher(AppScreen.MegrendelesAppScreen(id))
+                },
+                Path.alvallalkozo.root to { params ->
+                    loggingDispatcher(AppScreen.AlvallalkozoAppScreen(null))
+                }
+        )
+    } ?: loggingDispatcher(AppScreen.MegrendelesAppScreen(null))
 }
