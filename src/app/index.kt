@@ -388,7 +388,7 @@ fun main(args: Array<String>) {
                                     attrs.asDynamic().style = jsStyle {
                                         float = "right"
                                     }
-                                    Icon("edit")
+                                    Icon("setting")
                                     +appState.maybeLoggedInUser.fullName
                                 }
                             } else {

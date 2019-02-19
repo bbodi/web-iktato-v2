@@ -53,6 +53,7 @@ fun RBuilder.Tabs(handler: RHandler<TabsProps> = {}) {
 
 external interface TabPaneProps : RProps {
     var forceRender: Boolean
+    var disabled: Boolean
     var key: String
     var tab: StringOrReactElement
 }
