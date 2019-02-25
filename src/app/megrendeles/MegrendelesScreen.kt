@@ -9,7 +9,7 @@ import app.common.moment
 import app.megrendeles.MegrendelesScreen.haviTeljesitesFilter
 import app.megrendeles.MegrendelesScreen.haviTeljesitesFilterButton
 import app.megrendeles.MegrendelesScreen.mindFilter
-import app.megrendeles.MegrendelesScreen.simpleFilterButtons
+import app.megrendeles.MegrendelesScreen.mindFilterTabPane
 import app.useState
 import hu.nevermind.antd.*
 import hu.nevermind.antd.autocomplete.AutoComplete
@@ -17,30 +17,27 @@ import hu.nevermind.antd.table.ColumnProps
 import hu.nevermind.antd.table.Table
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
-import hu.nevermind.utils.app.CustomSearchModalComponent
-import hu.nevermind.utils.app.CustomSearchModalParams
-import hu.nevermind.utils.app.DefinedReactComponent
+import hu.nevermind.utils.app.*
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.*
 import kotlinext.js.jsObject
+import kotlinx.html.DIV
 import kotlinx.html.js.onClickFunction
 import org.w3c.xhr.BLOB
 import org.w3c.xhr.XMLHttpRequest
 import org.w3c.xhr.XMLHttpRequestResponseType
-import react.RBuilder
-import react.children
-import react.dom.a
-import react.dom.div
-import react.dom.jsStyle
-import react.dom.span
+import react.*
+import react.dom.*
 import store.*
 
 val downloadFile: (url: String, name: String) -> Unit = kotlinext.js.require("downloadjs")
 
 object MegrendelesScreenIds {
     val screenId = "megrendelesScreen"
+
+    val rowEdit = { index: Int -> "${screenId}edit_$index" }
 
     val addButton = "${screenId}_addButton"
 
@@ -165,7 +162,7 @@ interface MegrendelesFilter {
     fun predicate(state: MegrendelesTableFilterState, megr: Megrendeles): Boolean
 }
 
-data class SimpleMegrendelesFilter(
+open class SimpleMegrendelesFilter(
         override val id: String,
         val label: String,
         val icon: String? = null,
@@ -181,12 +178,32 @@ data class SimpleMegrendelesFilter(
 }
 
 val atNemVettFilter = SimpleMegrendelesFilter("filter_atnemvett", "Át nem vett") {
-    (megrendelesMegtekint == null)
+    atNemVettPredicate()
+}
+
+private fun Megrendeles.atNemVettPredicate(): Boolean {
+    return (megrendelesMegtekint == null)
             .and(!alvallalkozoFeltoltotteFajlokat)
             .and(penzBeerkezettDatum == null && keszpenzesBefizetes == null)
             .and(feltoltveMegrendelonek == null)
             .and(zarolva == null)
 }
+
+private val atvettFilterForAlv = SimpleMegrendelesFilter("filter_atvett_alv", "Átvett") {
+    (megrendelesMegtekint != null)
+            .and(!alvallalkozoFeltoltotteFajlokat)
+            .and(penzBeerkezettDatum == null && keszpenzesBefizetes == null)
+            .and(feltoltveMegrendelonek == null)
+            .and(zarolva == null)
+            .and(!this.isAkadalyos())
+            .or( // vagy egyik filter sem teljesül
+                    !this.atNemVettPredicate() &&
+                            !this.isAkadalyos() &&
+                            !this.utalasHianyzikPredicate() &&
+                            !this.alvallalkozoVegzettVele()
+            )
+}
+
 private val atvettFilter = SimpleMegrendelesFilter("filter_atvett", "Átvett") {
     (megrendelesMegtekint != null)
             .and(!alvallalkozoFeltoltotteFajlokat)
@@ -194,6 +211,13 @@ private val atvettFilter = SimpleMegrendelesFilter("filter_atvett", "Átvett") {
             .and(feltoltveMegrendelonek == null)
             .and(zarolva == null)
             .and(!this.isAkadalyos())
+            .or( // vagy egyik filter sem teljesül
+                    !this.atNemVettPredicate() &&
+                            !this.isAkadalyos() &&
+                            !this.utalasHianyzikPredicate() &&
+                            !this.ellenorzesreVarPredicate() &&
+                            !this.archivlasraVarPredicate()
+            )
 }
 
 fun feladatElvegezveEbbenAHonapban(ertekbecslesFeltoltve: Moment?, energetikaFeltoltve: Moment?): Boolean {
@@ -203,7 +227,7 @@ fun feladatElvegezveEbbenAHonapban(ertekbecslesFeltoltve: Moment?, energetikaFel
     return latestUplaodDate != null && moment().isSame(latestUplaodDate, Granularity.Month)
 }
 
-private val alvallalkozoVegzettVeleAdottHonapban = SimpleMegrendelesFilter("filter_alvallalkozo_vegzett", "Elvégezve", "check") {
+val alvallalkozoVegzettVeleAdottHonapban = SimpleMegrendelesFilter("filter_alvallalkozo_vegzett", "Elvégezve", "check") {
     alvallalkozoVegzettVele()
 }
 
@@ -246,23 +270,33 @@ private val akadalyosFilterForAlvallalkozo = SimpleMegrendelesFilter("filter_aka
     this.alvallalkozoFeltoltotteFajlokat.not() && this.isAkadalyos()
 }
 private val utalasHianyzikFilter = SimpleMegrendelesFilter("filter_utalas_hianyzik", "Utalás hiányzik", "dollar") {
-    (megrendelesMegtekint != null)
+    utalasHianyzikPredicate()
+}
+
+private fun Megrendeles.utalasHianyzikPredicate(): Boolean {
+    return (megrendelesMegtekint != null)
             .and(alvallalkozoFeltoltotteFajlokat)
             .and(penzBeerkezettDatum == null && keszpenzesBefizetes == null)
             .and(feltoltveMegrendelonek == null)
-            .and(!this.isAkadalyos())
             .and(zarolva == null)
+            .and(!this.isAkadalyos())
 }
+
 private val ellenorzesreVarFilter = SimpleMegrendelesFilter("ellenorzesre_var", "Ellenőrzésre vár", "check-circle") {
-    (megrendelesMegtekint != null)
+    ellenorzesreVarPredicate()
+}
+
+private fun Megrendeles.ellenorzesreVarPredicate(): Boolean {
+    return (megrendelesMegtekint != null)
             .and(alvallalkozoFeltoltotteFajlokat)
             .and(penzBeerkezettDatum != null || keszpenzesBefizetes != null)
             .and(feltoltveMegrendelonek == null)
             .and(!this.isAkadalyos())
             .and(zarolva == null)
 }
-private val archivalasraVarFilter = SimpleMegrendelesFilter("filter_archivalasra_var", "Archiválásra vár", "file-done") {
-    (megrendelesMegtekint != null)
+
+private fun Megrendeles.archivlasraVarPredicate(): Boolean {
+    return (megrendelesMegtekint != null)
             .and(alvallalkozoFeltoltotteFajlokat)
             .and(szamlaSorszama.isNotEmpty())
             .and(penzBeerkezettDatum != null || keszpenzesBefizetes != null)
@@ -271,14 +305,11 @@ private val archivalasraVarFilter = SimpleMegrendelesFilter("filter_archivalasra
             .and(zarolva == null)
 }
 
-// TODO a filtereket átirni gombokról tabokra.
-private val selectedFilterClass = jsStyle {
-    background = "#fafafa"
-    fontWeight = "bold"
-    color = "#1890ff"
-    border = "3px solid #1890ff"
-    borderBottom = "0px"
-}
+private val archivalasraVarFilter = SimpleMegrendelesFilter("filter_archivalasra_var", "Archiválásra vár",
+        "file-done",
+        { archivlasraVarPredicate() }
+)
+
 
 data class HaviTeljesites(val alvallalkozoId: Int, val date: Moment)
 
@@ -343,6 +374,8 @@ data class MegrendelesScreenState(
 )
 
 data class MegrendelesScreenParams(val appState: AppState,
+                                   val showAlvallalkozoSajatAdataiModal: Boolean,
+                                   val megrendelesModalId: Int?,
                                    val globalDispatch: (Action) -> Unit)
 
 object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParams>() {
@@ -357,98 +390,32 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
         div {
             val filterState = appState.megrendelesTableFilterState
             Row {
-                if (user.isAdmin) {
-                    Button {
-                        attrs.asDynamic().id = MegrendelesScreenIds.addButton
-                        attrs.type = ButtonType.primary
-                        attrs.onClick = {
-                            globalDispatch(Action.ChangeURL(Path.megrendeles.edit(0)))
-                        }
-                        Icon("plus-circle")
-                        +" Hozzáadás"
-                    }
-                }
                 Tabs {
                     attrs.activeKey = filterState.activeFilter.id
-                    attrs.size = TabsSize.small
-                    attrs.onChange = { key ->
-                        when (key) {
-                            atNemVettFilter.id,
-                            atvettFilter.id,
-                            hataridosFilterForAdmin.id,
-                            akadalyosFilterForAdmin.id,
-                            utalasHianyzikFilter.id,
-                            ellenorzesreVarFilter.id,
-                            archivalasraVarFilter.id,
-                            hataridosFilterForAlv.id,
-                            akadalyosFilterForAlvallalkozo.id,
-                            alvallalkozoVegzettVeleAdottHonapban.id -> {
-                                globalDispatch(Action.SetActiveFilter(SetActiveFilterPayload.SimpleFilter(filterKeyMap[key]!!)))
-                            }
-                            haviTeljesitesFilter.id -> {
-                                if (filterState.haviTeljesites != null) {
-                                    globalDispatch(Action.SetActiveFilter(
-                                            SetActiveFilterPayload.HaviTeljesites(filterState.haviTeljesites.alvallalkozoId, filterState.haviTeljesites.date)
-                                    ))
-                                }
-                            }
-                            mindFilter.id -> {
-                                globalDispatch(Action.SetActiveFilter(
-                                        SetActiveFilterPayload.MindFilter(filterState.mindFilteredMegrendelesIds, filterState.szuroMezok)
-                                ))
-                            }
+                    attrs.animated = true
+                    if (user.isAdmin) {
+                        attrs.tabBarExtraContent = StringOrReactElement.from {
+                            addNewButton(globalDispatch)
                         }
                     }
-                    simpleFilterButtons(
-                            user,
-                            state,
+                    attrs.size = TabsSize.small
+                    attrs.onChange = onFilterChange(globalDispatch, filterState)
+                    val table = buildElement {
+                        megrendelesekTable(user, appState, globalDispatch)
+                    }!!
+                    simpleFilterTabPanes(
                             filterState,
                             appState,
-                            globalDispatch,
-                            setState
+                            getSimpleFilters(user),
+                            table
                     )
-                    TabPane {
-                        attrs.key = haviTeljesitesFilter.id
-                        attrs.disabled = filterState.haviTeljesites == null
-                        attrs.tab = StringOrReactElement.from {
-                            haviTeljesitesFilterButton(
-                                    filterState,
-                                    state,
-                                    appState.megrendelesState.megrendelesek,
-                                    appState.alvallalkozoState.alvallalkozok,
-                                    setState,
-                                    globalDispatch
-                            )
-                        }
-                        megrendelesekTable(user, appState, globalDispatch)
+                    if (user.isAdmin) {
+                        mindFilterTabPane(filterState, setState, state, table)
                     }
+                    haviTeljesitesTabPane(filterState, state, appState, setState, table)
                 }
             }
-            if (haviTeljesitesFilter == filterState.activeFilter &&
-                    filterState.haviTeljesites != null &&
-                    user.isAdmin) {
-                Row {
-                    val avId = filterState.haviTeljesites.alvallalkozoId
-                    val dateStr = filterState.haviTeljesites.date.format(monthFormat)
-                    Button {
-                        attrs.onClick = {
-                            val x = XMLHttpRequest()
-                            x.open("GET", "/haviTeljesites/$avId/$dateStr", true)
-                            x.responseType = XMLHttpRequestResponseType.BLOB
-                            x.onload = { e ->
-                                val avName = appState.alvallalkozoState.alvallalkozok[avId]?.name ?: "ismeretlen"
-                                downloadFile(e.target.asDynamic().response,
-                                        "$avName ${dateStr}.xlsx")
-                            }
-                            x.send()
-
-                        }
-                        Icon("download")
-                        +" Havi teljesítés letöltése"
-                    }
-
-                }
-            }
+            haviTeljesitesDownloadButton(filterState, user, appState)
             HaviTeljesitesModalComponent.insert(this, HaviTeljesitesModalParams(user,
                     state,
                     filterState,
@@ -458,6 +425,122 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
             ))
             if (user.isAdmin) {
                 customSearchModalComponent(appState, globalDispatch, state, setState)
+            } else {
+                AlvallalkozoSajatAdataiModalComponent.insert(this, AlvallalkozoSajatAdataiModalParams(
+                        alvallalkozo = appState.alvallalkozoState.alvallalkozok[user.alvallalkozoId]!!,
+                        visible = props.showAlvallalkozoSajatAdataiModal,
+                        onClose = {
+                            globalDispatch(Action.ChangeURL(Path.root))
+                        }
+                ))
+                val openMegr = appState.megrendelesState.megrendelesek[props.megrendelesModalId]
+                if (openMegr != null) {
+                    AlvallalkozoMegrendelesFormModalComponent.insert(this, AlvallalkozoMegrendelesFormModalParams(
+                            megrendeles = openMegr,
+                            globalDispatch = globalDispatch,
+                            visible = true
+                    ))
+                }
+            }
+        }
+    }
+
+    private fun onFilterChange(globalDispatch: (Action) -> Unit,
+                               filterState: MegrendelesTableFilterState): (String) -> Unit {
+        return { key ->
+            when (key) {
+                atNemVettFilter.id,
+                atvettFilter.id,
+                atvettFilterForAlv.id,
+                hataridosFilterForAdmin.id,
+                akadalyosFilterForAdmin.id,
+                utalasHianyzikFilter.id,
+                ellenorzesreVarFilter.id,
+                archivalasraVarFilter.id,
+                hataridosFilterForAlv.id,
+                akadalyosFilterForAlvallalkozo.id,
+                alvallalkozoVegzettVeleAdottHonapban.id -> {
+                    globalDispatch(Action.SetActiveFilter(SetActiveFilterPayload.SimpleFilter(filterKeyMap[key]!!)))
+                }
+                haviTeljesitesFilter.id -> {
+                    if (filterState.haviTeljesites != null) {
+                        globalDispatch(Action.SetActiveFilter(
+                                SetActiveFilterPayload.HaviTeljesites(
+                                        filterState.haviTeljesites.alvallalkozoId,
+                                        filterState.haviTeljesites.date
+                                )
+                        ))
+                    }
+                }
+                mindFilter.id -> {
+                    globalDispatch(Action.SetActiveFilter(
+                            SetActiveFilterPayload.MindFilter(filterState.mindFilteredMegrendelesIds, filterState.szuroMezok)
+                    ))
+                }
+            }
+        }
+    }
+
+    private fun RBuilder.addNewButton(globalDispatch: (Action) -> Unit) {
+        Button {
+            attrs.asDynamic().id = MegrendelesScreenIds.addButton
+            attrs.type = ButtonType.primary
+            attrs.onClick = {
+                globalDispatch(Action.ChangeURL(Path.megrendeles.edit(0)))
+            }
+            Icon("plus-circle")
+            +" Hozzáadás"
+        }
+    }
+
+    private fun RDOMBuilder<DIV>.haviTeljesitesDownloadButton(filterState: MegrendelesTableFilterState, user: LoggedInUser, appState: AppState) {
+        if (haviTeljesitesFilter == filterState.activeFilter &&
+                filterState.haviTeljesites != null &&
+                user.isAdmin) {
+            Row {
+                val avId = filterState.haviTeljesites.alvallalkozoId
+                val dateStr = filterState.haviTeljesites.date.format(monthFormat)
+                Button {
+                    attrs.onClick = {
+                        val x = XMLHttpRequest()
+                        x.open("GET", "/haviTeljesites/$avId/$dateStr", true)
+                        x.responseType = XMLHttpRequestResponseType.BLOB
+                        x.onload = { e ->
+                            val avName = appState.alvallalkozoState.alvallalkozok[avId]?.name ?: "ismeretlen"
+                            downloadFile(e.target.asDynamic().response,
+                                    "$avName ${dateStr}.xlsx")
+                        }
+                        x.send()
+
+                    }
+                    Icon("download")
+                    +" Havi teljesítés letöltése"
+                }
+
+            }
+        }
+    }
+
+    private fun RElementBuilder<TabsProps>.haviTeljesitesTabPane(filterState: MegrendelesTableFilterState,
+                                                                 state: MegrendelesScreenState,
+                                                                 appState: AppState,
+                                                                 setState: Dispatcher<MegrendelesScreenState>,
+                                                                 table: ReactElement) {
+        TabPane {
+            attrs.key = haviTeljesitesFilter.id
+            attrs.disabled = filterState.haviTeljesites == null
+            attrs.tab = StringOrReactElement.from {
+                haviTeljesitesFilterButton(
+                        appState.maybeLoggedInUser!!,
+                        filterState,
+                        state,
+                        appState.megrendelesState.megrendelesek,
+                        appState.alvallalkozoState.alvallalkozok,
+                        setState
+                )
+            }
+            if (filterState.activeFilter == haviTeljesitesFilter) {
+                child(table)
             }
         }
     }
@@ -466,12 +549,14 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
 private fun RBuilder.megrendelesekTable(user: LoggedInUser,
                                         appState: AppState,
                                         globalDispatch: (Action) -> Unit) {
+
     val filteredMegrendelesek = appState.megrendelesState.megrendelesek.values.filter {
         appState.megrendelesTableFilterState.activeFilter.predicate(appState.megrendelesTableFilterState, it)
     }.toTypedArray()
     val onClick = { megr: Megrendeles ->
         if (user.isAlvallalkozo && megr.atNemVett) {
             communicator.getEntityFromServer<dynamic, Any>(RestUrl.megrendelesAtvetele, object {
+                val megrendelesId = megr.id
             }) { response ->
                 globalDispatch(Action.MegrendelesekFromServer(arrayOf(response)))
                 globalDispatch(Action.ChangeURL(Path.megrendeles.edit(megr.id)))
@@ -479,26 +564,46 @@ private fun RBuilder.megrendelesekTable(user: LoggedInUser,
             }
         } else {
             communicator.asyncPost<MegrendelesFromServer>(RestUrl.megrendelesMegnyitasa, object {
+                val megrendelesId = megr.id
             }) { result ->
                 result.ifOk { response ->
                     globalDispatch(Action.MegrendelesekFromServer(arrayOf(response)))
+                    globalDispatch(Action.ChangeURL(Path.megrendeles.edit(megr.id)))
                 }
             }
-            globalDispatch(Action.ChangeURL(Path.megrendeles.edit(megr.id)))
         }
     }
     val columns = user.megrendelesTableColumns.map { columnDef ->
         ColumnProps {
             title = columnDef.columnTitle
             dataIndex = columnDef.fieldName
-            filters = columnDef.filter?.filterComboValues?.invoke(filteredMegrendelesek)?.map {
+            filters = columnDef.filter?.filterComboValues?.invoke(appState, filteredMegrendelesek)?.map {
                 object {
                     val text = it.first;
                     val value = it.second
                 }
             }?.toTypedArray()
             onFilter = columnDef.filter?.filter.asDynamic()
-            this.asDynamic().render = { cell: Statusz?, row: Any, index: Int -> columnDef.renderer.asDynamic()(cell, row, index, appState, onClick) }
+            this.asDynamic().render = { cell: Any?, row: Any, index: Int -> columnDef.renderer.asDynamic()(cell, row, index, appState) }
+        }
+    }.let { columns ->
+        columns + ColumnProps {
+            title = "Szerk"; key = "action"; width = 50
+            render = { megr: Megrendeles, _, rowIndex ->
+                buildElement {
+                    div {
+                        Tooltip("Szerkesztés") {
+                            Button {
+                                attrs.asDynamic().id = MegrendelesScreenIds.rowEdit(rowIndex)
+                                attrs.icon = "edit"
+                                attrs.onClick = {
+                                    onClick(megr)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }.toTypedArray()
     Table {
@@ -506,13 +611,11 @@ private fun RBuilder.megrendelesekTable(user: LoggedInUser,
         attrs.dataSource = filteredMegrendelesek
         attrs.rowKey = "id"
         attrs.bordered = true
-        attrs.onRow = { megrendeles: Megrendeles ->
-            jsObject {
-                this.asDynamic().onClick = { onClick(megrendeles) }
-            }
-        }
         attrs.asDynamic().pagination = jsObject<dynamic> {
             defaultPageSize = 1000
+        }
+        attrs.asDynamic().style = jsStyle {
+            minHeight = "400px"
         }
         attrs.asDynamic().size = "middle"
     }
@@ -557,6 +660,7 @@ private fun RBuilder.customSearchModalComponent(
 val filterKeyMap = mapOf(
         atNemVettFilter.id to atNemVettFilter,
         atvettFilter.id to atvettFilter,
+        atvettFilterForAlv.id to atvettFilterForAlv,
         hataridosFilterForAdmin.id to hataridosFilterForAdmin,
         hataridosFilterForAlv.id to hataridosFilterForAlv,
         akadalyosFilterForAdmin.id to akadalyosFilterForAdmin,
@@ -565,6 +669,7 @@ val filterKeyMap = mapOf(
         utalasHianyzikFilter.id to utalasHianyzikFilter,
         archivalasraVarFilter.id to archivalasraVarFilter,
         haviTeljesitesFilter.id to haviTeljesitesFilter,
+        alvallalkozoVegzettVeleAdottHonapban.id to alvallalkozoVegzettVeleAdottHonapban,
         mindFilter.id to mindFilter
 )
 
@@ -591,12 +696,12 @@ object MegrendelesScreen {
         override fun predicate(state: MegrendelesTableFilterState, megr: Megrendeles): Boolean = megr.id in state.mindFilteredMegrendelesIds
     }
 
-    fun RBuilder.haviTeljesitesFilterButton(filterState: MegrendelesTableFilterState,
+    fun RBuilder.haviTeljesitesFilterButton(loggedInUser: LoggedInUser,
+                                            filterState: MegrendelesTableFilterState,
                                             state: MegrendelesScreenState,
                                             megrendelesek: Map<Int, Megrendeles>,
                                             alvallalkozok: Map<Int, Alvallalkozo>,
-                                            screenDispatch: Dispatcher<MegrendelesScreenState>,
-                                            globalDispatch: (Action) -> Unit) {
+                                            screenDispatch: Dispatcher<MegrendelesScreenState>) {
         val filteredMegrendelesek = megrendelesek.values.filter { haviTeljesitesFilter.predicate(filterState, it) }
         Popover {
             attrs.title = StringOrReactElement.fromString("Havi teljesítés")
@@ -605,10 +710,15 @@ object MegrendelesScreen {
                     attrs.onClickFunction = {
                         screenDispatch(state.copy(haviTeljesitesModalOpen = true))
                     }
-                    +"Alvállalkozó és hónap kiválasztása"
+                    +(if (loggedInUser.isAdmin) {
+                        "Alvállalkozó és hónap kiválasztása"
+                    } else {
+                        "Hónap kiválasztása"
+                    })
                 }
             }
             Badge(filteredMegrendelesek.count()) {
+                attrs.showZero = true
                 attrs.asDynamic().style = jsStyle {
                     backgroundColor = "#1890ff"
                 }
@@ -628,44 +738,34 @@ object MegrendelesScreen {
         }
     }
 
-    fun RBuilder.simpleFilterButtons(loggedInUser: LoggedInUser,
-                                     state: MegrendelesScreenState,
-                                     filterState: MegrendelesTableFilterState,
-                                     appState: AppState,
-                                     globalDispatch: (Action) -> Unit,
-                                     setState: Dispatcher<MegrendelesScreenState>) {
-        createSimpleFilterButtons(
-                loggedInUser,
-                filterState,
-                appState,
-                getSimpleFilters(loggedInUser),
-                globalDispatch
-        )
-
-        if (loggedInUser.isAdmin) {
-            TabPane {
-                attrs.key = mindFilter.id
-                attrs.disabled = filterState.szuroMezok.isEmpty()
-                attrs.tab = StringOrReactElement.from {
-                    Popover {
-                        attrs.title = StringOrReactElement.fromString("Szűrés")
-                        attrs.content = StringOrReactElement.from {
-                            a(href = null) {
-                                attrs.onClickFunction = {
-                                    setState(state.copy(
-                                            showMindFilterModal = true
-                                    ))
-                                }
-                                +"Szűrőmezők beállítása"
+    fun RBuilder.mindFilterTabPane(filterState: MegrendelesTableFilterState,
+                                   setState: Dispatcher<MegrendelesScreenState>,
+                                   state: MegrendelesScreenState,
+                                   tabPaneContent: ReactElement) {
+        TabPane {
+            attrs.key = mindFilter.id
+            attrs.disabled = filterState.szuroMezok.isEmpty()
+            attrs.tab = StringOrReactElement.from {
+                Popover {
+                    attrs.title = StringOrReactElement.fromString("Szűrés")
+                    attrs.content = StringOrReactElement.from {
+                        a(href = null) {
+                            attrs.onClickFunction = {
+                                setState(state.copy(
+                                        showMindFilterModal = true
+                                ))
                             }
-                        }
-                        span {
-                            Icon("search")
-                            +"Szűrés"
+                            +"Szűrőmezők beállítása"
                         }
                     }
+                    span {
+                        Icon("search")
+                        +"Szűrés"
+                    }
                 }
-                megrendelesekTable(loggedInUser, appState, globalDispatch)
+            }
+            if (filterState.activeFilter == mindFilter) {
+                child(tabPaneContent)
             }
         }
     }
@@ -684,7 +784,7 @@ private fun getSimpleFilters(loggedInUser: LoggedInUser): Array<SimpleMegrendele
         )
         Role.ROLE_USER -> arrayOf(
                 atNemVettFilter,
-                atvettFilter,
+                atvettFilterForAlv,
                 hataridosFilterForAlv,
                 akadalyosFilterForAlvallalkozo,
                 utalasHianyzikFilter,
@@ -694,12 +794,11 @@ private fun getSimpleFilters(loggedInUser: LoggedInUser): Array<SimpleMegrendele
     }
 }
 
-private fun RBuilder.createSimpleFilterButtons(
-        user: LoggedInUser,
+private fun RBuilder.simpleFilterTabPanes(
         filterState: MegrendelesTableFilterState,
         appState: AppState,
         simpleFilters: Array<SimpleMegrendelesFilter>,
-        globalDispatch: (Action) -> Unit) {
+        tabPaneContent: ReactElement) {
     simpleFilters.forEachIndexed { index, filter ->
         val megrendelesek = appState.megrendelesState.megrendelesek.values.filter { filter.predicate(filterState, it) }
         val count = megrendelesek.count()
@@ -710,28 +809,28 @@ private fun RBuilder.createSimpleFilterButtons(
                     if (filter.icon != null) {
                         Icon(filter.icon)
                     }
-                    if (count != 0) {
-                        Badge(count) {
-                            attrs.asDynamic().style = jsStyle {
-                                backgroundColor = when (filter.label) {
-                                    "Határidős" -> "#f5222d"
-                                    "Akadályos" -> "#faad14"
-                                    else -> "#1890ff"
-                                }
-                            }
-                            span {
-                                attrs.jsStyle {
-                                    marginRight = "15px"
-                                }
-                                +((if (filter.icon == null) "" else " ") + filter.label)
+                    Badge(count) {
+                        attrs.showZero = true
+                        attrs.asDynamic().style = jsStyle {
+                            backgroundColor = when (filter.label) {
+                                "Határidős" -> "#f5222d"
+                                "Akadályos" -> "#faad14"
+                                else -> "#1890ff"
                             }
                         }
-                    } else {
-                        +filter.label
+                        span {
+                            attrs.jsStyle {
+                                marginRight = "15px"
+                            }
+                            +((if (filter.icon == null) "" else " ") + filter.label)
+                        }
                     }
+
                 }
             }
-            megrendelesekTable(user, appState, globalDispatch)
+            if (filterState.activeFilter == filter) {
+                child(tabPaneContent)
+            }
         }
     }
 }

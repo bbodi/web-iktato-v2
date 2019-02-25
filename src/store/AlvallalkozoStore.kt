@@ -184,20 +184,20 @@ private fun createRegioOsszerendelesFromJson(json: dynamic): RegioOsszerendeles 
 }
 
 //fun registerEditingHandlers() {
-//    register(globalDispatcher, Actions.alvallalkozoFromServer) { response ->
+//    register(globalDispatch, Actions.alvallalkozoFromServer) { response ->
 //        _alvallalkozok.put(response.id, createAlvallalkozoFromJson(response))
 //        emitChange()
 //    }
-//    register(globalDispatcher, Actions.ertekbecsloFromServer) { response ->
+//    register(globalDispatch, Actions.ertekbecsloFromServer) { response ->
 //        _ertekbecslok.put(response.id, createErtekbecsloFromJson(response))
 //        emitChange()
 //    }
-//    register(globalDispatcher, Actions.regioOsszerendelesFromServer) { response ->
+//    register(globalDispatch, Actions.regioOsszerendelesFromServer) { response ->
 //        _regioOsszerendelesek.put(response.id, createRegioOsszerendelesFromJson(response))
 //        emitChange()
 //
 //    }
-//    register(globalDispatcher, Actions.deleteRegioOsszerendeles) { modReg ->
+//    register(globalDispatch, Actions.deleteRegioOsszerendeles) { modReg ->
 //        communicator.deleteEntity("RegioOsszerendeles", modReg.id) {
 //            _regioOsszerendelesek.remove(modReg.id)
 //            emitChange()

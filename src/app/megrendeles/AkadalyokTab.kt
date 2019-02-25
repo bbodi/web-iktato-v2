@@ -4,7 +4,6 @@ import app.*
 import app.common.Moment
 import app.common.TimeUnit
 import app.common.moment
-import app.megrendeles.MegrendelesFormState
 import app.megrendeles.MegrendelesScreenIds
 import hu.nevermind.antd.*
 import hu.nevermind.antd.table.ColumnProps
@@ -32,11 +31,10 @@ import store.removeListener
 import kotlin.browser.document
 
 
-data class AkadalyokTabParams(val jelenlegiHatarido: Moment?,
-                              val onSaveFunctions: Array<(Megrendeles) -> Megrendeles>,
+data class AkadalyokTabParams(val onSaveFunctions: Array<(Megrendeles) -> Megrendeles>,
                               val globalDispatch: (Action) -> Unit,
-                              val formState: MegrendelesFormState,
-                              val setFormState: Dispatcher<MegrendelesFormState>)
+                              val megrendeles: Megrendeles,
+                              val setFormState: Dispatcher<Megrendeles>?)
 
 data class AkadalyokTabComponentState(val akadalyReason: Statusz?,
                                       val hataridoForAkadaly: Moment,
@@ -46,35 +44,40 @@ data class AkadalyokTabComponentState(val akadalyReason: Statusz?,
 object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
     override fun RBuilder.body(props: AkadalyokTabParams) {
         val (tabState, setTabState) = useState(AkadalyokTabComponentState(
-                hataridoForAkadaly = props.jelenlegiHatarido?.clone() ?: moment(),
+                hataridoForAkadaly = props.megrendeles.hatarido?.clone() ?: moment(),
                 akadalyReason = null,
                 szovegesMagyarazat = "",
-                megjegyzes = props.formState.megrendeles.megjegyzes
+                megjegyzes = props.megrendeles.megjegyzes
         ))
-        useEffect {
-            props.onSaveFunctions[2] = { globalMegrendeles ->
-                globalMegrendeles.copy(
-                        megjegyzes = tabState.megjegyzes
-                )
+        if (props.onSaveFunctions.size > 2) {
+            useEffect {
+                props.onSaveFunctions[2] = { globalMegrendeles ->
+                    globalMegrendeles.copy(
+                            megjegyzes = tabState.megjegyzes
+                    )
+                }
             }
         }
-        useEffectWithCleanup(RUN_ONLY_WHEN_MOUNT) {
-            addMegrendelesExternalListener("AkadalyokTab") { megr ->
-                props.setFormState(props.formState.copy(megrendeles = props.formState.megrendeles.copy(
-                        akadalyok = megr.akadalyok,
-                        hatarido = if (megr.statusz != Statusz.G4 && megr.statusz != Statusz.G6) {
-                            megr.hatarido
-                        } else props.formState.megrendeles.hatarido,
-                        statusz = megr.statusz
-                )))
+        val setFormState = props.setFormState
+        if (setFormState != null) {
+            useEffectWithCleanup(RUN_ONLY_WHEN_MOUNT) {
+                addMegrendelesExternalListener("AkadalyokTab") { megr ->
+                    setFormState(props.megrendeles.copy(
+                            akadalyok = megr.akadalyok,
+                            hatarido = if (megr.statusz != Statusz.G4 && megr.statusz != Statusz.G6) {
+                                megr.hatarido
+                            } else props.megrendeles.hatarido,
+                            statusz = megr.statusz
+                    ))
+                }
+                val cleanup: () -> Unit = { removeListener("AkadalyokTab") }
+                cleanup
             }
-            val cleanup: () -> Unit = { removeListener("AkadalyokTab") }
-            cleanup
         }
         div {
             Collapse {
                 attrs.defaultActiveKey = arrayOf("Akadály közlése", "Megjegyzés")
-                if (props.formState.megrendeles.akadalyok.isNotEmpty()) {
+                if (props.megrendeles.akadalyok.isNotEmpty()) {
                     attrs.defaultActiveKey += arrayOf("Akadályok")
                 }
                 Panel("Akadályok") {
@@ -82,7 +85,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                     attrs.header = StringOrReactElement.fromString("Akadályok")
                     Row {
                         Col(span = 24) {
-                            table(props.formState.megrendeles.akadalyok)
+                            table(props.megrendeles.akadalyok)
                         }
                     }
                 }
@@ -153,11 +156,11 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
         Button {
             attrs.asDynamic().id = MegrendelesScreenIds.modal.button.akadalyFeltoltes
             attrs.type = ButtonType.primary
-            attrs.disabled = tabState.akadalyReason == null || props.formState.megrendeles.id == 0
+            attrs.disabled = tabState.akadalyReason == null || props.megrendeles.id == 0
             attrs.onClick = {
                 communicator.getEntityFromServer<Array<MegrendelesFromServer>, Unit>(RestUrl.akadalyKozles,
                         object {
-                            val megrendelesId = props.formState.megrendeles.id
+                            val megrendelesId = props.megrendeles.id
                             val ujHatarido = tabState.hataridoForAkadaly.format(dateTimeFormat)
                             val akadalyOka = tabState.akadalyReason!!.text
                             val szoveg = tabState.szovegesMagyarazat
@@ -203,7 +206,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
             DatePicker {
                 attrs.allowClear = false
                 attrs.disabled = true
-                attrs.value = props.jelenlegiHatarido
+                attrs.value = props.megrendeles.hatarido
             }
         }
     }
@@ -249,7 +252,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
 
                     setTabState(tabState.copy(
                             akadalyReason = statusz,
-                            hataridoForAkadaly = (props.jelenlegiHatarido ?: moment())
+                            hataridoForAkadaly = (props.megrendeles.hatarido ?: moment())
                                     .clone().add(newHataridoOffset, TimeUnit.Days)
                     ))
                 }

@@ -217,17 +217,20 @@ object MegrendelesFormScreenComponent : DefinedReactComponent<MegrendelesFormScr
     }
 
     private fun RBuilder.steps(megr: Megrendeles, appState: AppState) {
-        val current = if (megr.zarolva != null || megr.feltoltveMegrendelonek != null) {
-            5
-        } else if (megr.penzBeerkezettDatum != null || megr.keszpenzesBefizetes != null) {
-            4
-        } else if (megr.alvallalkozoFeltoltotteFajlokat) {
-            3
-        } else if (megr.szemleIdopontja != null) {
-            2
-        } else if (megr.megrendelesMegtekint != null) {
+        val current = if (megr.megrendelesMegtekint == null) {
+            0
+        } else if (megr.szemleIdopontja == null) {
             1
-        } else 0
+        } else if (!megr.alvallalkozoFeltoltotteFajlokat) {
+            2
+        } else if (megr.penzBeerkezettDatum == null && megr.keszpenzesBefizetes == null) {
+            3
+        } else if (megr.zarolva == null && megr.feltoltveMegrendelonek == null) {
+            4
+        } else {
+            5
+        }
+
         Steps {
             attrs.current = current
             attrs.status = if (megr.isAkadalyos()) {
@@ -392,22 +395,36 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
             attrs.key = MegrendelesScreenIds.modal.tab.akadalyok
             val akadalyok = state.megrendeles.akadalyok
             val akadalyokSize = maxOf(akadalyok.size, if (state.megrendeles.megjegyzes.isNotEmpty()) 1 else 0)
-            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Megjegyzés/Akadály", icon = "message", badgeNum = akadalyokSize, color = "black", id = MegrendelesScreenIds.modal.tab.akadalyok))
+            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Megjegyzés/Akadály",
+                    icon = "message",
+                    badgeNum = akadalyokSize,
+                    color = "black",
+                    id = MegrendelesScreenIds.modal.tab.akadalyok
+            ))
             AkadalyokTabComponent.insert(this,
-                    AkadalyokTabParams(state.megrendeles.hatarido,
-                            onSaveFunctions, globalDispatch,
-                            state,
-                            setFormState))
+                    AkadalyokTabParams(onSaveFunctions,
+                            globalDispatch,
+                            state.megrendeles,
+                            { megrendeles -> setFormState(state.copy(megrendeles = megrendeles)) }
+                    ))
         }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.files
-            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Fájlok", icon = "upload", badgeNum = state.megrendeles.files.size, color = "black", id = MegrendelesScreenIds.modal.tab.files))
-            FajlokTabComponent.insert(this, FajlokTabParams(state,
+            attrs.tab = StringOrReactElement.fromReactElement(tabTitle("Fájlok",
+                    icon = "upload",
+                    badgeNum = state.megrendeles.files.size,
+                    color = "black",
+                    id = MegrendelesScreenIds.modal.tab.files
+            ))
+            FajlokTabComponent.insert(this, FajlokTabParams(state.megrendeles,
+                    state.megrendelesFieldsFromExcel,
                     onSaveFunctions,
                     globalDispatch,
                     appState,
-                    setFormState,
-                    appState.alvallalkozoState))
+                    { megrendeles -> setFormState(state.copy(megrendeles = megrendeles)) },
+                    { exc -> setFormState(state.copy(megrendelesFieldsFromExcel = exc)) },
+                    appState.alvallalkozoState
+            ))
         }
         TabPane {
             attrs.key = MegrendelesScreenIds.modal.tab.penzBeerkezett
@@ -423,11 +440,10 @@ private fun RBuilder.megrendelesForm(state: MegrendelesFormState,
                     onSaveFunctions))
         }
     }
-
 }
 
 
-private fun tabTitle(text: String, icon: String? = null, badgeNum: Int? = null, color: String? = null, id: String): ReactElement = buildElement {
+fun tabTitle(text: String, icon: String? = null, badgeNum: Int? = null, color: String? = null, id: String): ReactElement = buildElement {
     div {
         attrs.id = id
         if (icon != null) {
@@ -436,6 +452,7 @@ private fun tabTitle(text: String, icon: String? = null, badgeNum: Int? = null, 
         colorText(color ?: "white", " $text")
         if (badgeNum != null) {
             Badge(badgeNum) {
+                attrs.showZero = true
                 attrs.asDynamic().style = jsStyle {
                     backgroundColor = "#1890ff"
                 }

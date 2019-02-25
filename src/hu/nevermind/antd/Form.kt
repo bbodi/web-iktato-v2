@@ -117,8 +117,7 @@ fun Number.format(): String = parseGroupedStringToNum(this.toString()).second
 fun parseGroupedStringToNum(value: String): Pair<Long?, String> {
     val onlyDigits = value.filter { it in "0123456789" }
     val sign = if (value.startsWith('-')) -1 else 1
-    val str = onlyDigits
-            .ifEmpty { null }
+    val str = onlyDigits.ifEmpty { null }
             ?.map { it }
             ?.reversed()
             ?.chunked(3)

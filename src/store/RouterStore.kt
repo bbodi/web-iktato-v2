@@ -40,11 +40,11 @@ object RouterStore {
 //            }
 //            urlChangeOccurredByDispatchAction = false
 //        }, false);
-//        register(globalDispatcher, Actions.changeURL) { url ->
+//        register(globalDispatch, Actions.changeURL) { url ->
 //            changeURL(url)
 //            emitChange()
 //        }
-//        register(globalDispatcher, Actions.changeURLSilently) { url ->
+//        register(globalDispatch, Actions.changeURLSilently) { url ->
 //            changeURL(url)
 //        }
     }

@@ -38,7 +38,7 @@ external interface TabsProps : RProps {
     var animated: Boolean
     var hideAdd: Boolean
     var size: TabsSize
-    var tabBarExtraContent: ReactElement
+    var tabBarExtraContent: StringOrReactElement
     var tabBarGutter: Number
     var tabBarStyle: Any
     var tabPosition: TabsPosition

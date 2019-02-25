@@ -251,14 +251,25 @@ fun main(args: Array<String>) {
                             if (currentScreen.editingMegrendelesId == null) {
                                 MegrendelesScreenComponent.createElement(MegrendelesScreenParams(
                                         appState,
+                                        currentScreen.showAlvallalkozoSajatAdataiModal,
+                                        null,
                                         dispatch
                                 ))
                             } else {
-                                MegrendelesFormScreenComponent.createElement(MegrendelesFormScreenParams(
-                                        currentScreen.editingMegrendelesId,
-                                        appState,
-                                        dispatch
-                                ))
+                                if (appState.maybeLoggedInUser.isAdmin) {
+                                    MegrendelesFormScreenComponent.createElement(MegrendelesFormScreenParams(
+                                            currentScreen.editingMegrendelesId,
+                                            appState,
+                                            dispatch
+                                    ))
+                                } else {
+                                    MegrendelesScreenComponent.createElement(MegrendelesScreenParams(
+                                            appState,
+                                            currentScreen.showAlvallalkozoSajatAdataiModal,
+                                            currentScreen.editingMegrendelesId,
+                                            dispatch
+                                    ))
+                                }
                             }
                         } else null
                     }

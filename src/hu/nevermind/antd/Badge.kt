@@ -20,6 +20,8 @@ external interface BadgeProps : RProps {
     var count: Int
     var overflowCount: Int // = 99
     var title: String
+    var showZero: Boolean
+    var dot: Boolean
     var status: BadgeStatus
 }
 

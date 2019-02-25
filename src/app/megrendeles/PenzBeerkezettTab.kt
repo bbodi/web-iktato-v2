@@ -1,15 +1,15 @@
 package hu.nevermind.utils.app.megrendeles
 
-import app.Dispatcher
+import app.*
 import app.common.moment
 import app.megrendeles.MegrendelesScreenIds
-import app.useEffect
-import app.useState
 import hu.nevermind.antd.*
 import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.store.Megrendeles
 import react.RBuilder
+import store.addMegrendelesExternalListener
+import store.removeListener
 
 
 data class PenzBeerkezettTabParams(val megrendeles: Megrendeles,
@@ -19,6 +19,20 @@ data class PenzBeerkezettTabParams(val megrendeles: Megrendeles,
 object PenzBeerkezettTabComponent : DefinedReactComponent<PenzBeerkezettTabParams>() {
     override fun RBuilder.body(props: PenzBeerkezettTabParams) {
         val (tabState, setTabState) = useState(props.megrendeles.copy())
+        useEffectWithCleanup(RUN_ONLY_WHEN_MOUNT) {
+            addMegrendelesExternalListener("FajlokTab") { megr ->
+                setTabState(
+                        props.megrendeles.copy(
+                                keszpenzesBefizetes = megr.keszpenzesBefizetes,
+                                penzBeerkezettDatum = megr.penzBeerkezettDatum,
+                                szamlaSorszama = megr.szamlaSorszama
+                        )
+                )
+            }
+            val cleanup: () -> Unit = { removeListener("FajlokTab") }
+            cleanup
+        }
+
         useEffect {
             props.onSaveFunctions[4] = { globalMegrendeles ->
                 globalMegrendeles.copy(

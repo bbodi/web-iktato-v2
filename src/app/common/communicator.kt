@@ -84,7 +84,7 @@ class JqueryAjaxPoster() : AjaxPoster {
     ) {
         val error = { jqXHR: dynamic, textStatus: String, errorThrown: String ->
             console.error("ERROR: $url")
-            after(Error("""${jqXHR.status}: ${jqXHR.statusText}"""))
+            after(Error(jqXHR.responseJSON?.message ?: ""))
         }
         val success = { data: RESULT ->
             console.log("SUCCESS: $url")
@@ -196,7 +196,7 @@ class Communicator(val ajaxPoster: AjaxPoster) {
                 callback(response)
             }
             result.ifError { response ->
-//                Actions.notification(Notification("Danger", "Hiba: $response"))
+                message.error("Hiba: $response")
             }
         }
     }

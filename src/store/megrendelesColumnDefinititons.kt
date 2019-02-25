@@ -1,12 +1,11 @@
 package store
 
-import app.common.Moment
-import hu.nevermind.utils.store.Megrendeles
-import hu.nevermind.utils.store.Statusz
-import hu.nevermind.utils.store.dateFormat
-import hu.nevermind.utils.store.isEnergetika
-import hu.nevermind.utils.store.isErtekbecsles
 import app.AppState
+import app.common.Moment
+import app.megrendeles.alvallalkozoVegzettVeleAdottHonapban
+import app.megrendeles.atNemVettFilter
+import hu.nevermind.antd.Badge
+import hu.nevermind.utils.store.*
 import kotlinx.html.InputType
 import kotlinx.html.js.onClickFunction
 import react.buildElement
@@ -25,12 +24,32 @@ val stringRenderer = { cell: String?, row: Any, index: Int ->
     cell ?: ""
 }
 
-val clickableRenderer = { cell: String?, row: Any, index: Int, appState: AppState, onClick: dynamic->
+val clickableRenderer = { cell: String?, row: Any, index: Int, appState: AppState, onClick: dynamic ->
     buildElement {
         a {
             attrs.onClickFunction = {
                 onClick(row.unsafeCast<Megrendeles>())
             }
+            +(cell ?: "")
+        }
+    }
+}
+
+
+val idRenderer = { cell: String?, row: Any, index: Int, appState: AppState ->
+    val megr = row.unsafeCast<Megrendeles>()
+    val (alvallalkozoAzAtNemVettTabon, alvallalkozoAzElvegezveTabon) = if (appState.maybeLoggedInUser.isAlvallalkozo) {
+        Pair(appState.megrendelesTableFilterState.activeFilter == atNemVettFilter,
+                appState.megrendelesTableFilterState.activeFilter == alvallalkozoVegzettVeleAdottHonapban)
+    } else Pair(false, false)
+    val goodTab = !alvallalkozoAzAtNemVettTabon && !alvallalkozoAzElvegezveTabon
+    buildElement {
+        if (goodTab && megr.isUnread(appState.maybeLoggedInUser!!.role)) {
+            Badge(1) {
+                attrs.dot = true
+                +(cell ?: "")
+            }
+        } else {
             +(cell ?: "")
         }
     }
@@ -76,7 +95,7 @@ private val exactMatchFilter = { fieldGetter: (Megrendeles) -> String ->
     }
 }
 
-data class FilterDef<T>(val filterComboValues: (Array<Megrendeles>) -> Array<Pair<String, T>>,
+data class FilterDef<T>(val filterComboValues: (AppState, Array<Megrendeles>) -> Array<Pair<String, T>>,
                         val filter: ((value: T, row: Megrendeles) -> Boolean))
 
 
@@ -109,20 +128,33 @@ val kozteruletJellegek = arrayOf(
 
 val columnDefinitions = arrayOf<MegrendelesColumnData>(
         MegrendelesColumnData("id", "id", "Id", numRenderer, MegrendelesFieldType.Int),
-        MegrendelesColumnData("kulso_id", "azonosito", "Azonosító", clickableRenderer, MegrendelesFieldType.String),
+        MegrendelesColumnData("kulso_id", "azonosito", "Azonosító", idRenderer, MegrendelesFieldType.String),
         MegrendelesColumnData("hrsz", "hrsz", "HRSZ", stringRenderer, MegrendelesFieldType.String),
         MegrendelesColumnData("regio", "regio", "Régió", stringRenderer, MegrendelesFieldType.String,
-                FilterDef(filterComboValues = { megrendelesek ->
-                    megrendelesek
-                            .map { it.regio }
-                            .distinct()
-                            .sorted()
-                            .map { it to it }.toTypedArray()
-                },
-                        filter = exactMatchFilter { it.regio })
+                FilterDef(
+                        filterComboValues = { appState, megrendelesek ->
+                            megrendelesek
+                                    .map { it.regio }
+                                    .distinct()
+                                    .sorted()
+                                    .map { it to it }.toTypedArray()
+                        },
+                        filter = exactMatchFilter { it.regio }
+                )
         ),
         MegrendelesColumnData("irsz", "irsz", "IRSZ", stringRenderer, MegrendelesFieldType.String),
-        MegrendelesColumnData("telepules", "telepules", "Település", stringRenderer, MegrendelesFieldType.String),
+        MegrendelesColumnData("telepules", "telepules", "Település", stringRenderer, MegrendelesFieldType.String,
+                FilterDef(
+                        filterComboValues = { appState, megrendelesek ->
+                            megrendelesek
+                                    .map { it.telepules }
+                                    .distinct()
+                                    .sorted()
+                                    .map { it to it }.toTypedArray()
+                        },
+                        filter = exactMatchFilter { it.telepules }
+                )
+        ),
         MegrendelesColumnData("kerulet", "kerulet", "Kerület", stringRenderer, MegrendelesFieldType.String),
         /*utca, "Utca", stringRenderer, MegrendelesFieldType.String),
         MegrendelesColumnData("utca_jelleg", "utcaJelleg", "Utca jelleg", stringRenderer, MegrendelesFieldType.String),
@@ -139,7 +171,18 @@ val columnDefinitions = arrayOf<MegrendelesColumnData>(
         MegrendelesColumnData("becsult_ertek", "becsultErtek", "Becsült érték", numRenderer, MegrendelesFieldType.Int),
         MegrendelesColumnData("fajlagos_elad_ar", "fajlagosEladAr", "Fajlagos eladási ár", numRenderer, MegrendelesFieldType.Int),
         MegrendelesColumnData("fajlagos_becs_ar", "fajlagosBecsultAr", "Fajlagos becsült érték", numRenderer, MegrendelesFieldType.Int),
-        MegrendelesColumnData("statusz", "statusz", "Státusz", statuszRenderer, MegrendelesFieldType.String),
+        MegrendelesColumnData("statusz", "statusz", "Státusz", statuszRenderer, MegrendelesFieldType.String,
+                FilterDef(
+                        filterComboValues = { appState, megrendelesek ->
+                            megrendelesek
+                                    .map { it.statusz.text }
+                                    .distinct()
+                                    .sorted()
+                                    .map { it to it }.toTypedArray()
+                        },
+                        filter = exactMatchFilter { it.statusz.text }
+                )
+        ),
         // Excelből jön
         MegrendelesColumnData("helyszinelo", "helyszinelo", "Helyszínelő", stringRenderer, MegrendelesFieldType.String),
         MegrendelesColumnData("ellenorizve", "ellenorizve", "Ellenőrizve", booleanRenderer, MegrendelesFieldType.Boolean),
@@ -163,7 +206,21 @@ val columnDefinitions = arrayOf<MegrendelesColumnData>(
 
         MegrendelesColumnData("megjegyzes", "megjegyzes", "Megjegyzés", stringRenderer, MegrendelesFieldType.String),
         MegrendelesColumnData("problema", "problema", "Probléma", stringRenderer, MegrendelesFieldType.String),
-        MegrendelesColumnData("alvallalkozo_id", "alvallalkozoId", "Alvállalkozó", avRenderer, MegrendelesFieldType.Select),
+        MegrendelesColumnData("alvallalkozo_id", "alvallalkozoId", "Alvállalkozó", avRenderer, MegrendelesFieldType.Select,
+                FilterDef(
+                        filterComboValues = { appState, megrendelesek ->
+                            megrendelesek
+                                    .map { appState.alvallalkozoState.alvallalkozok[it.alvallalkozoId] }
+                                    .filterNotNull()
+                                    .distinctBy { it.id }
+                                    .sortedBy { it.name }
+                                    .map { it.name to it.id.toString() }.toTypedArray()
+                        },
+                        filter = exactMatchFilter {
+                            it.alvallalkozoId.toString()
+                        }
+                )
+        ),
         MegrendelesColumnData("ertekbecslo_id", "ertekbecsloId", "Értékbecslő", ebRenderer, MegrendelesFieldType.Select),
         MegrendelesColumnData("ert_nev", "ertesitesiNev", "Név", stringRenderer, MegrendelesFieldType.String),
         MegrendelesColumnData("ert_tel", "ertesitesiTel", "Telefonszám", stringRenderer, MegrendelesFieldType.String),
