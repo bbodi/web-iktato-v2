@@ -71,7 +71,7 @@ object RegioScreenComponent : DefinedReactComponent<RegioScreenParams>() {
 
         div {
             Row {
-                Col(offset = 3, span = 10) {
+                Col(offset = 7, span = 10) {
                     Form {
                         FormItem {
                             attrs.labelCol = ColProperties { span = 5 }
@@ -81,7 +81,7 @@ object RegioScreenComponent : DefinedReactComponent<RegioScreenParams>() {
                         }
                     }
                 }
-                Col(offset = 3, span = 2) {
+                Col(offset = 4, span = 3) {
                     addNewButton(alvallalkozoId, globalDispatch)
                 }
             }
@@ -89,12 +89,8 @@ object RegioScreenComponent : DefinedReactComponent<RegioScreenParams>() {
                 Col(span = 6) {
                     regioChooser(state, setState, appState, alvallalkozoId)
                 }
-                Col(span = 18) {
-                    Row {
-                        Col(span = 22, offset = 1) {
-                            regioTable(alvallalkozoId, state.selectedMegye, appState, globalDispatch)
-                        }
-                    }
+                Col(offset = 1, span = 17) {
+                    regioTable(alvallalkozoId, state.selectedMegye, appState, globalDispatch)
                 }
             }
             if (editingRegioId != null) {
@@ -133,7 +129,7 @@ object RegioScreenComponent : DefinedReactComponent<RegioScreenParams>() {
                         +megyeName
                     }
                 }
-    //                                }
+                //                                }
             }
         }
     }
@@ -150,7 +146,7 @@ object RegioScreenComponent : DefinedReactComponent<RegioScreenParams>() {
                 globalDispatch(Action.ChangeURL(Path.alvallalkozo.regio(value)))
             }
             appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.forEach {
-                Option { attrs.value = it.id; +it.name }
+                Option(it.id, it.name)
             }
         }
     }
@@ -197,6 +193,7 @@ private fun RBuilder.regioEditingModal(alvallalkozoId: Int,
 private fun RElementBuilder<ColProps>.addNewButton(alvallalkozoId: Int, globalDispatch: (Action) -> Unit) {
     Button {
         attrs.asDynamic().id = RegioScreenIds.addButton
+        attrs.block = true
         attrs.type = ButtonType.primary
         attrs.onClick = {
             globalDispatch(Action.ChangeURL(Path.alvallalkozo.withOpenedRegioOsszerendelesModal(alvallalkozoId, 0)))
@@ -238,37 +235,34 @@ private fun RBuilder.regioTable(alvallalkozoId: Int,
                 title = "ÁFA (%)"; dataIndex = "afa"; width = 65; align = ColumnAlign.right
             },
             ColumnProps {
-                title = "Szerk"; key = "action"; width = 100
+                title = "Szerk"; key = "action"; width = 100; align = ColumnAlign.center
                 render = { row: RegioOsszerendeles, _, rowIndex ->
                     buildElement {
-                        Row {
-                            Col(span = 12) {
-                                Tooltip("Szerkesztés") {
-                                    Button {
-                                        attrs.asDynamic().id = RegioScreenIds.table.row.editButton(rowIndex)
-                                        attrs.icon = "edit"
-                                        attrs.onClick = {
-                                            globalDispatch(Action.ChangeURL(Path.alvallalkozo.withOpenedRegioOsszerendelesModal(alvallalkozoId, row.id)))
-                                        }
+                        div {
+                            Tooltip("Szerkesztés") {
+                                Button {
+                                    attrs.asDynamic().id = RegioScreenIds.table.row.editButton(rowIndex)
+                                    attrs.icon = "edit"
+                                    attrs.onClick = {
+                                        globalDispatch(Action.ChangeURL(Path.alvallalkozo.withOpenedRegioOsszerendelesModal(alvallalkozoId, row.id)))
                                     }
                                 }
                             }
-                            Col(span = 12) {
-                                Tooltip("Törlés") {
-                                    Button {
-                                        attrs.asDynamic().id = RegioScreenIds.table.row.deleteButton(rowIndex)
-                                        attrs.icon = "delete"
-                                        attrs.type = ButtonType.danger
-                                        attrs.onClick = {
-                                            Modal.confim {
-                                                title = "Biztos törli a Régió összerendelést?"
-                                                okText = "Igen"
-                                                cancelText = "Mégsem"
-                                                okType = ButtonType.danger
-                                                onOk = {
-                                                    globalDispatch(Action.DeleteRegioOsszerendeles(row))
-                                                    null
-                                                }
+                            Divider(type = DividerType.vertical)
+                            Tooltip("Törlés") {
+                                Button {
+                                    attrs.asDynamic().id = RegioScreenIds.table.row.deleteButton(rowIndex)
+                                    attrs.icon = "delete"
+                                    attrs.type = ButtonType.danger
+                                    attrs.onClick = {
+                                        Modal.confim {
+                                            title = "Biztos törli a Régió összerendelést?"
+                                            okText = "Igen"
+                                            cancelText = "Mégsem"
+                                            okType = ButtonType.danger
+                                            onOk = {
+                                                globalDispatch(Action.DeleteRegioOsszerendeles(row))
+                                                null
                                             }
                                         }
                                     }

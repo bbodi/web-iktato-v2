@@ -399,7 +399,7 @@ fun main(args: Array<String>) {
                                     attrs.asDynamic().style = jsStyle {
                                         float = "right"
                                     }
-                                    Icon("setting")
+                                    Icon("user")
                                     +appState.maybeLoggedInUser.fullName
                                 }
                             } else {

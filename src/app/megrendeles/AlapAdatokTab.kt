@@ -649,7 +649,7 @@ private fun RElementBuilder<PanelProps>.hitelPanel(tabState: AlapAdatokTabCompon
                                 )))
                             }
                             arrayOf("vásárlás", "építés", "hitelkiváltás", "felújítás", "bővítés", "közművesítés").forEach {
-                                Option { attrs.value = it; +it }
+                                Option(it, it)
                             }
                         }
                     }
@@ -890,7 +890,7 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(
                             setMegrendelo(appState, tabState.megrendeles, tabState, newMegrendelo, setTabState)
                         }
                         appState.sajatArState.allMegrendelo.forEach { megrendeloName ->
-                            Option { attrs.value = megrendeloName; +megrendeloName }
+                            Option(megrendeloName, megrendeloName)
                         }
                     }
                 }
@@ -905,7 +905,7 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(
                             setNewRegio(appState, tabState, tabState.megrendeles, regio, setTabState)
                         }
                         megyek.forEach {
-                            Option { attrs.value = it; +it }
+                            Option(it, it)
                         }
                     }
                 }
@@ -999,7 +999,7 @@ private fun RElementBuilder<PanelProps>.megrendelesPanel(
                             setTabState(tabState.copy(megrendeles = tabState.megrendeles.copy(foVallalkozo = value)))
                         }
                         arrayOf("", "Presting Zrt.", "Viridis Kft.", "Estating Kft.").forEach {
-                            Option { attrs.value = it; +it }
+                            Option(it, it)
                         }
                     }
                 }
@@ -1054,7 +1054,7 @@ private fun RElementBuilder<ColProps>.munkatipusField(tabState: AlapAdatokTabCom
                 setMunkatipus(appState, tabState, tabState.megrendeles, munkatipus, setTabState)
             }
             tabState.selectableMunkatipusok.forEach {
-                Option { attrs.value = it; +it }
+                Option(it, it)
             }
         }
     }
@@ -1075,7 +1075,7 @@ private fun RElementBuilder<ColProps>.ertekbecsloField(appState: AppState, tabSt
             }
             appState.alvallalkozoState.alvallalkozok[tabState.megrendeles.alvallalkozoId]?.let { alvallalkozo ->
                 appState.alvallalkozoState.getErtekbecslokOf(alvallalkozo).filter { !it.disabled }.forEach { eb ->
-                    Option { attrs.value = eb.id; +eb.name }
+                    Option(eb.id, eb.name)
                 }
             }
         }
@@ -1094,7 +1094,7 @@ private fun RElementBuilder<ColProps>.alvallalkozoField(tabState: AlapAdatokTabC
                 setTabState(tabState.copy(megrendeles = setAlvallalkozoId(appState, tabState.megrendeles, avId)))
             }
             selectableAlvallalkozok.forEach { alv ->
-                Option { attrs.value = alv.id; +alv.name }
+                Option(alv.id, alv.name)
             }
         }
     }
@@ -1113,7 +1113,7 @@ private fun RElementBuilder<ColProps>.ingatlanTipusField(appState: AppState, tab
                 setLeiras(appState, tabState, tabState.megrendeles, sajatArId, setTabState)
             }
             sajatArak.forEach { sajatAr ->
-                Option { attrs.value = sajatAr.id; +sajatAr.leiras }
+                Option(sajatAr.id, sajatAr.leiras)
             }
         }
     }

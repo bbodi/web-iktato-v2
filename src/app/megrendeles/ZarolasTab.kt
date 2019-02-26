@@ -63,7 +63,7 @@ private fun RBuilder.megrPanel(tabState: Megrendeles,
                         )))
                     }
                     Statusz.values().forEach { status ->
-                        Option { attrs.value = status.name; +(status.name) }
+                        Option(status.name, status.name)
                     }
                 }
             }

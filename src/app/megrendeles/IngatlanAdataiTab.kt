@@ -245,7 +245,7 @@ private fun RElementBuilder<ColProps>.bovebbTipus(tabState: Megrendeles, excel: 
                 ))
             }
             ingatlanBovebbTipusaArray.forEach { ingatlanBt ->
-                Option { attrs.value = ingatlanBt; +(ingatlanBt) }
+                Option(ingatlanBt, ingatlanBt)
             }
         }
     }

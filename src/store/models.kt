@@ -134,11 +134,11 @@ data class LoggedInUser(val username: String,
 
 fun stringToColumnDefArray(megrendelesTableColumns: String?): Array<MegrendelesColumnData> {
     return megrendelesTableColumns?.split(",")?.map { colName ->
-        columnDefinitions.firstOrNull { it.fieldName == colName }.apply {
-            if (this == null) {
-                console.error("UNKNOWN COLUMN NAME: $colName")
-            }
+        val colDef = columnDefinitions[colName]
+        if (colDef == null) {
+            console.error("UNKNOWN COLUMN NAME: $colName")
         }
+        colDef
     }?.filterNotNull()?.toTypedArray() ?: emptyArray()
 }
 
@@ -171,7 +171,7 @@ enum class Statusz(val text: String) {
             } else {
                 val status = values().firstOrNull { it.name == str.substring(1, 3) }
                 require(status != null) { "There is no Statusz for '$str'" }
-                status
+                status!!
             }
         }
     }

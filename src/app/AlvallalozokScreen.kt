@@ -1,6 +1,7 @@
 package app
 
 import hu.nevermind.antd.*
+import hu.nevermind.antd.table.ColumnAlign
 import hu.nevermind.antd.table.ColumnProps
 import hu.nevermind.antd.table.Table
 import hu.nevermind.iktato.Path
@@ -43,7 +44,7 @@ object AlvallalkozoScreenComponent : DefinedReactComponent<AlvallalkozoScreenPar
         val (state, setState) = useState(AlvallalkozoScreenState("", ""))
         div {
             Row {
-                Col(offset = 19, span = 2) {
+                Col(offset = 20, span = 3) {
                     addNewButton(globalDispatch)
                 }
             }
@@ -85,6 +86,7 @@ private fun RElementBuilder<ColProps>.addNewButton(globalDispatch: (Action) -> U
     Button {
         attrs.asDynamic().id = AlvallalkozoScreenIds.addButton
         attrs.type = ButtonType.primary
+        attrs.block = true
         attrs.onClick = {
             globalDispatch(Action.ChangeURL(Path.alvallalkozo.withOpenedAlvallalkozoEditorModal(0)))
         }
@@ -140,7 +142,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                 title = "Cím"; dataIndex = "cim"; width = 300
             },
             ColumnProps {
-                title = "Állapot"; key = "formState"; width = 50
+                title = "Állapot"; key = "formState"; width = 50; align = ColumnAlign.center
                 render = { alvallalkozo: Alvallalkozo, _, _ ->
                     buildElement {
                         Tag {
@@ -158,7 +160,7 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                 }
             },
             ColumnProps {
-                title = "Szerk"; key = "action"; width = 140
+                title = "Szerk"; key = "action"; width = 140; align = ColumnAlign.center
                 render = { row: Alvallalkozo, _, rowIndex ->
                     buildElement {
                         div {

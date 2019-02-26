@@ -13,6 +13,7 @@ external interface PopoverProps : RProps {
     var visible: Boolean
     var content: StringOrReactElement
     var title: StringOrReactElement?
+    var mouseEnterDelay: Number
 }
 
 fun RBuilder.Popover(handler: RHandler<PopoverProps> = {}) {

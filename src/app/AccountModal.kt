@@ -85,7 +85,7 @@ object AccountModalComponent : DefinedReactComponent<AccountModalParams>() {
                                     )
                                 }
                                 Role.values().forEach { role ->
-                                    Option { attrs.value = role.name; +(role.name) }
+                                    Option(role.name, role.name)
                                 }
                             }
                         }
@@ -111,7 +111,7 @@ object AccountModalComponent : DefinedReactComponent<AccountModalParams>() {
                                     )
                                 }
                                 props.appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.forEach {
-                                    Option { attrs.value = it.id; +it.name }
+                                    Option(it.id, it.name)
                                 }
                             }
                         }

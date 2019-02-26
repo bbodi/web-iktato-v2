@@ -61,11 +61,11 @@ object CustomSearchModalComponent : DefinedReactComponent<CustomSearchModalParam
                     attrs.filterOption = { inputString, optionElement ->
                         (optionElement.props.children as String).toUpperCase().replace(" ", "").contains(inputString.toUpperCase().replace(" ", ""))
                     }
-                    attrs.onSelect = { value: MegrendelesColumnData, option ->
-                        onElementSelect(state, setState, value)
+                    attrs.onSelect = { fieldName: String, option ->
+                        onElementSelect(state, setState, columnDefinitions[fieldName]!!)
                     }
-                    columnDefinitions.forEach {
-                        Option { attrs.value = it; +it.columnTitle }
+                    columnDefinitions.values.sortedBy { it.columnTitle }.forEach {
+                        Option(it.fieldName, it.columnTitle)
                     }
                 }
             }
@@ -219,7 +219,7 @@ private fun RBuilder.operatorSelect(values: Array<String>, szuroMezo: SzuroMezo,
             whenChange(value, szuroMezo.operand)
         }
         values.forEach {
-            Option { attrs.value = it; +it }
+            Option(it, it)
         }
     }
 }
@@ -254,7 +254,7 @@ private fun <KEY> RBuilder.selectInput(szuroMezo: SzuroMezo, data: List<Pair<KEY
             whenChange(szuroMezo.operator, value)
         }
         data.forEach {
-            Option { attrs.value = it.first.toString(); +it.second }
+            Option(it.first.toString(), it.second)
         }
     }
 }

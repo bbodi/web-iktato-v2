@@ -1,6 +1,7 @@
 package app
 
 import hu.nevermind.antd.*
+import hu.nevermind.antd.table.ColumnAlign
 import hu.nevermind.antd.table.ColumnProps
 import hu.nevermind.antd.table.Table
 import hu.nevermind.iktato.Path
@@ -18,7 +19,6 @@ import kotlinext.js.jsObject
 import kotlinx.html.DIV
 import react.RBuilder
 import react.RClass
-import react.RElementBuilder
 import react.buildElement
 import react.dom.RDOMBuilder
 import react.dom.div
@@ -45,7 +45,7 @@ object AccountScreenComponent : DefinedReactComponent<AccountScreenParams>() {
         val (state, setState) = useState(AccountScreenState("", ""))
         div {
             Row {
-                Col(offset = 17, span = 2) {
+                Col(offset = 18, span = 3) {
                     addNewButton(globalDispatch)
                 }
             }
@@ -94,10 +94,11 @@ private fun RDOMBuilder<DIV>.accountEditingModal(editingAccountId: Int, appState
     })
 }
 
-private fun RElementBuilder<ColProps>.addNewButton(globalDispatch: (Action) -> Unit) {
+private fun RBuilder.addNewButton(globalDispatch: (Action) -> Unit) {
     Button {
         attrs.asDynamic().id = AccountScreenIds.addButton
         attrs.type = ButtonType.primary
+        attrs.block = true
         attrs.onClick = {
             globalDispatch(Action.ChangeURL(Path.account.withOpenedEditorModal(0)))
         }
@@ -211,7 +212,7 @@ private fun RBuilder.accountTable(appState: AppState,
                 title = "Név"; dataIndex = "fullName"; width = 125
             },
             ColumnProps {
-                title = "Állapot"; key = "formState"; width = 50
+                title = "Állapot"; key = "formState"; width = 50; align = ColumnAlign.center
                 render = { account: Account, _, _ ->
                     buildElement {
                         Tag {
@@ -229,19 +230,15 @@ private fun RBuilder.accountTable(appState: AppState,
                 }
             },
             ColumnProps {
-                title = "Szerk"; key = "action"; width = 50
+                title = "Szerk"; key = "action"; width = 50; align = ColumnAlign.center
                 render = { row: Account, _, rowIndex ->
                     buildElement {
-                        Row {
-                            Col(span = 12) {
-                                Tooltip("Szerkesztés") {
-                                    Button {
-                                        attrs.asDynamic().id = AccountScreenIds.table.row.editButton(rowIndex)
-                                        attrs.icon = "edit"
-                                        attrs.onClick = {
-                                            globalDispatch(Action.ChangeURL(Path.account.withOpenedEditorModal(row.id)))
-                                        }
-                                    }
+                        Tooltip("Szerkesztés") {
+                            Button {
+                                attrs.asDynamic().id = AccountScreenIds.table.row.editButton(rowIndex)
+                                attrs.icon = "edit"
+                                attrs.onClick = {
+                                    globalDispatch(Action.ChangeURL(Path.account.withOpenedEditorModal(row.id)))
                                 }
                             }
                         }

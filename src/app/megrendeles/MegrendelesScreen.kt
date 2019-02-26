@@ -591,14 +591,12 @@ private fun RBuilder.megrendelesekTable(user: LoggedInUser,
             title = "Szerk"; key = "action"; width = 50
             render = { megr: Megrendeles, _, rowIndex ->
                 buildElement {
-                    div {
-                        Tooltip("Szerkesztés") {
-                            Button {
-                                attrs.asDynamic().id = MegrendelesScreenIds.rowEdit(rowIndex)
-                                attrs.icon = "edit"
-                                attrs.onClick = {
-                                    onClick(megr)
-                                }
+                    Tooltip("Szerkesztés") {
+                        Button {
+                            attrs.asDynamic().id = MegrendelesScreenIds.rowEdit(rowIndex)
+                            attrs.icon = "edit"
+                            attrs.onClick = {
+                                onClick(megr)
                             }
                         }
                     }
@@ -718,7 +716,7 @@ object MegrendelesScreen {
                 }
             }
             Badge(filteredMegrendelesek.count()) {
-                attrs.showZero = true
+                attrs.showZero = filterState.activeFilter == haviTeljesitesFilter
                 attrs.asDynamic().style = jsStyle {
                     backgroundColor = "#1890ff"
                 }
@@ -734,7 +732,6 @@ object MegrendelesScreen {
                     +" $label "
                 }
             }
-
         }
     }
 
@@ -748,6 +745,7 @@ object MegrendelesScreen {
             attrs.tab = StringOrReactElement.from {
                 Popover {
                     attrs.title = StringOrReactElement.fromString("Szűrés")
+                    attrs.mouseEnterDelay = 0
                     attrs.content = StringOrReactElement.from {
                         a(href = null) {
                             attrs.onClickFunction = {
@@ -758,9 +756,17 @@ object MegrendelesScreen {
                             +"Szűrőmezők beállítása"
                         }
                     }
-                    span {
-                        Icon("search")
-                        +"Szűrés"
+                    Icon("search")
+                    Badge(filterState.mindFilteredMegrendelesIds.size) {
+                        attrs.asDynamic().style = jsStyle {
+                            backgroundColor = "#1890ff"
+                        }
+                        span {
+                            attrs.jsStyle {
+                                marginRight = "15px"
+                            }
+                            +" Szűrés"
+                        }
                     }
                 }
             }

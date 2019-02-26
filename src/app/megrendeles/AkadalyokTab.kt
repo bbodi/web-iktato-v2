@@ -258,7 +258,7 @@ object AkadalyokTabComponent : DefinedReactComponent<AkadalyokTabParams>() {
                 }
                 arrayOf(Statusz.G1, Statusz.G2, Statusz.G3, Statusz.G4, Statusz.G5, Statusz.G6).forEach {
                     val akadalyStr = it.text
-                    Option { attrs.value = it.name; +akadalyStr }
+                    Option(it.name, akadalyStr)
                 }
             }
         }

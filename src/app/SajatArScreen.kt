@@ -12,11 +12,9 @@ import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.SajatAr
 import hu.nevermind.utils.store.communicator
-import kotlinx.html.DIV
 import react.RBuilder
 import react.RElementBuilder
 import react.buildElement
-import react.dom.RDOMBuilder
 import react.dom.div
 import store.Action
 
@@ -40,23 +38,19 @@ object SajatArScreenComponent : DefinedReactComponent<SajatArScreenParams>() {
                 selectedMegrendelo = defaultMegrendelo,
                 selectedMunkatipus = appState.sajatArState.getMunkatipusokForMegrendelo(defaultMegrendelo).first())
         )
-        Row {
-            Col(span = 16, offset = 4) {
-                Row {
-                    attrs.type = "flex"
-                    attrs.justify = Justify.spaceBetween
-                    Col(span = 20) {
-                        megrendeloSelect(appState, state, setState)
-                        munkatipusSelect(appState, state, setState)
-                    }
-                    Col(span = 4) {
-                        addNewButton(globalDispatch)
-                    }
+        div {
+            Row {
+                Col(span = 13, offset = 4) {
+                    megrendeloSelect(appState, state, setState)
+                    munkatipusSelect(appState, state, setState)
                 }
-                Row {
-                    Col(span = 24) {
-                        table(appState, state, globalDispatch)
-                    }
+                Col(span = 3) {
+                    addNewButton(globalDispatch)
+                }
+            }
+            Row {
+                Col(span = 16, offset = 4) {
+                    table(appState, state, globalDispatch)
                 }
             }
             if (editingSajatArId != null) {
@@ -131,7 +125,7 @@ private fun RBuilder.megrendeloSelect(appState: AppState,
             )
         }
         appState.sajatArState.allMegrendelo.forEach { megrendeloName ->
-            Option { attrs.value = megrendeloName; +megrendeloName }
+            Option(megrendeloName, megrendeloName)
         }
     }
 }
@@ -149,7 +143,7 @@ private fun RBuilder.munkatipusSelect(appState: AppState,
             )
         }
         appState.sajatArState.getMunkatipusokForMegrendelo(state.selectedMegrendelo).forEach { munkaTipus ->
-            Option { attrs.value = munkaTipus; +munkaTipus }
+            Option(munkaTipus, munkaTipus)
         }
     }
 }
@@ -178,14 +172,12 @@ private fun RBuilder.table(appState: AppState,
                 title = "Szerk"; key = "action";align = ColumnAlign.center
                 render = { sajatAr: SajatAr, _, rowIndex ->
                     buildElement {
-                        div {
-                            Tooltip("Szerkesztés") {
-                                Button {
-                                    attrs.asDynamic().id = SajatArScreenIds.rowEdit(rowIndex)
-                                    attrs.icon = "edit"
-                                    attrs.onClick = {
-                                        globalDispatch(Action.ChangeURL(Path.sajatAr.withOpenedEditorModal((sajatAr as SajatAr).id)))
-                                    }
+                        Tooltip("Szerkesztés") {
+                            Button {
+                                attrs.asDynamic().id = SajatArScreenIds.rowEdit(rowIndex)
+                                attrs.icon = "edit"
+                                attrs.onClick = {
+                                    globalDispatch(Action.ChangeURL(Path.sajatAr.withOpenedEditorModal((sajatAr as SajatAr).id)))
                                 }
                             }
                         }

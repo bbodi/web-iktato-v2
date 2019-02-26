@@ -1,6 +1,7 @@
 package app
 
 import hu.nevermind.antd.*
+import hu.nevermind.antd.table.ColumnAlign
 import hu.nevermind.antd.table.ColumnProps
 import hu.nevermind.antd.table.Table
 import hu.nevermind.iktato.Path
@@ -74,7 +75,7 @@ object ErtekbecsloScreenComponent : DefinedReactComponent<ErtekbecsloScreenParam
                         }
                     }
                 }
-                Col(offset = 3, span = 2) {
+                Col(offset = 5, span = 3) {
                     addNewButton(alvallalkozoId, globalDispatch)
                 }
             }
@@ -102,7 +103,7 @@ object ErtekbecsloScreenComponent : DefinedReactComponent<ErtekbecsloScreenParam
                 globalDispatch(Action.ChangeURL(Path.ertekbecslo.root(value)))
             }
             appState.alvallalkozoState.alvallalkozok.values.sortedBy { it.name }.forEach {
-                Option { attrs.value = it.id; +it.name }
+                Option(it.id, it.name)
             }
         }
     }
@@ -145,6 +146,7 @@ private fun RElementBuilder<ColProps>.addNewButton(alvallalkozoId: Int, globalDi
     Button {
         attrs.asDynamic().id = ErtekbecslokScreenIds.addButton
         attrs.type = ButtonType.primary
+        attrs.block = true
         attrs.onClick = {
             globalDispatch(Action.ChangeURL(Path.ertekbecslo.withOpenedErtekbecsloEditorModal(alvallalkozoId, 0)))
         }
@@ -168,7 +170,7 @@ private fun RBuilder.ertekbecsloTable(alvallalkozoId: Int,
                 title = "Email"; dataIndex = "email"; width = 150
             },
             ColumnProps {
-                title = "Állapot"; key = "formState"; width = 50
+                title = "Állapot"; key = "formState"; width = 50; align = ColumnAlign.center
                 render = { ertekbecslo: Ertekbecslo, _, _ ->
                     buildElement {
                         Tag {
@@ -186,17 +188,15 @@ private fun RBuilder.ertekbecsloTable(alvallalkozoId: Int,
                 }
             },
             ColumnProps {
-                title = "Szerk"; key = "action"; width = 50
+                title = "Szerk"; key = "action"; width = 50; align = ColumnAlign.center
                 render = { row: Ertekbecslo, _, rowIndex ->
                     buildElement {
-                        div {
-                            Tooltip("Szerkesztés") {
-                                Button {
-                                    attrs.asDynamic().id = ErtekbecslokScreenIds.table.editButton(rowIndex)
-                                    attrs.icon = "edit"
-                                    attrs.onClick = {
-                                        globalDispatch(Action.ChangeURL(Path.ertekbecslo.withOpenedErtekbecsloEditorModal(alvallalkozoId, row.id)))
-                                    }
+                        Tooltip("Szerkesztés") {
+                            Button {
+                                attrs.asDynamic().id = ErtekbecslokScreenIds.table.editButton(rowIndex)
+                                attrs.icon = "edit"
+                                attrs.onClick = {
+                                    globalDispatch(Action.ChangeURL(Path.ertekbecslo.withOpenedErtekbecsloEditorModal(alvallalkozoId, row.id)))
                                 }
                             }
                         }

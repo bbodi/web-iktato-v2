@@ -253,4 +253,4 @@ val columnDefinitions = arrayOf<MegrendelesColumnData>(
         }, MegrendelesFieldType.Boolean),
 
         MegrendelesColumnData("afa", "afa", "ÁFA", numRenderer, MegrendelesFieldType.Int)
-)
+).groupBy { it.fieldName }.mapValues { it.value.first() }
