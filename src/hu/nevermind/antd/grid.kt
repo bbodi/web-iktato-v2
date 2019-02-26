@@ -8,16 +8,8 @@ import react.RProps
 
 val RowComponent: RClass<RowProps> = kotlinext.js.require("antd").Row
 
-fun RBuilder.Row(align: Align = Align.top,
-                 gutter: Int = 0,
-                 justify: Justify = Justify.start,
-                 type: String = "",
-                 handler: RHandler<RowProps>) {
+fun RBuilder.Row(handler: RHandler<RowProps>) {
     RowComponent {
-        attrs.align = align
-        attrs.gutter = gutter
-        attrs.justify = justify
-        attrs.type = type
         handler()
     }
 }

@@ -9,6 +9,7 @@ import hu.nevermind.iktato.RestUrl
 import hu.nevermind.utils.app.DefinedReactComponent
 import hu.nevermind.utils.app.sajatArModal
 import hu.nevermind.utils.hu.nevermind.antd.message
+import hu.nevermind.utils.jsStyle
 import hu.nevermind.utils.store.SajatAr
 import hu.nevermind.utils.store.communicator
 import kotlinx.html.DIV
@@ -39,19 +40,23 @@ object SajatArScreenComponent : DefinedReactComponent<SajatArScreenParams>() {
                 selectedMegrendelo = defaultMegrendelo,
                 selectedMunkatipus = appState.sajatArState.getMunkatipusokForMegrendelo(defaultMegrendelo).first())
         )
-        div {
-            Row {
-                Col(span = 13, offset = 4) {
-                    megrendeloSelect(appState, state, setState)
-                    munkatipusSelect(appState, state, setState)
+        Row {
+            Col(span = 16, offset = 4) {
+                Row {
+                    attrs.type = "flex"
+                    attrs.justify = Justify.spaceBetween
+                    Col(span = 20) {
+                        megrendeloSelect(appState, state, setState)
+                        munkatipusSelect(appState, state, setState)
+                    }
+                    Col(span = 4) {
+                        addNewButton(globalDispatch)
+                    }
                 }
-                Col(span = 2) {
-                    addNewButton(globalDispatch)
-                }
-            }
-            Row {
-                Col(span = 16, offset = 4) {
-                    table(appState, state, globalDispatch)
+                Row {
+                    Col(span = 24) {
+                        table(appState, state, globalDispatch)
+                    }
                 }
             }
             if (editingSajatArId != null) {
@@ -61,7 +66,7 @@ object SajatArScreenComponent : DefinedReactComponent<SajatArScreenParams>() {
     }
 }
 
-private fun RDOMBuilder<DIV>.editingModal(editingSajatArId: Int, appState: AppState, globalDispatch: (Action) -> Unit, componentDispatch: Dispatcher<ComponentState>, state: ComponentState) {
+private fun RBuilder.editingModal(editingSajatArId: Int, appState: AppState, globalDispatch: (Action) -> Unit, componentDispatch: Dispatcher<ComponentState>, state: ComponentState) {
     val editingSajatAr = if (editingSajatArId == 0) {
         SajatAr(
                 id = editingSajatArId,
@@ -101,10 +106,11 @@ private fun RElementBuilder<ColProps>.addNewButton(globalDispatch: (Action) -> U
     Button {
         attrs.asDynamic().id = SajatArScreenIds.addButton
         attrs.type = ButtonType.primary
+        attrs.block = true
         attrs.onClick = {
             globalDispatch(Action.ChangeURL(Path.sajatAr.withOpenedEditorModal(0)))
         }
-        Icon("plus")
+        Icon("plus-circle")
         +" Hozzáadás"
     }
 }
@@ -114,6 +120,7 @@ private fun RBuilder.megrendeloSelect(appState: AppState,
                                       componentDispatch: Dispatcher<ComponentState>) {
     Select {
         attrs.asDynamic().id = SajatArScreenIds.megrendeloSelect
+        attrs.asDynamic().style = jsStyle { minWidth = 200 }
         attrs.value = state.selectedMegrendelo
         attrs.onSelect = { value, option ->
             componentDispatch(
@@ -133,8 +140,9 @@ private fun RBuilder.munkatipusSelect(appState: AppState,
                                       state: ComponentState,
                                       componentDispatch: Dispatcher<ComponentState>) {
     Select {
-        attrs.value = state.selectedMunkatipus
         attrs.asDynamic().id = SajatArScreenIds.munkatipusSelect
+        attrs.value = state.selectedMunkatipus
+        attrs.asDynamic().style = jsStyle { minWidth = 300 }
         attrs.onSelect = { value, option ->
             componentDispatch(
                     state.copy(selectedMunkatipus = value)
@@ -156,18 +164,18 @@ private fun RBuilder.table(appState: AppState,
 
 
     val columns = arrayOf(
-            ColumnProps { title = "Leírás"; dataIndex = "leiras"; width = 300 },
+            ColumnProps { title = "Leírás"; dataIndex = "leiras" },
             ColumnProps {
-                title = "Nettó ár (Ft)"; dataIndex = "nettoAr"; align = ColumnAlign.right; width = 100
+                title = "Nettó ár (Ft)"; dataIndex = "nettoAr"; align = ColumnAlign.right
                 render = { nettoAr: Int, _, _ ->
                     buildElement {
                         +parseGroupedStringToNum(nettoAr.toString()).second
                     }
                 }
             },
-            ColumnProps { title = "ÁFA (%)"; dataIndex = "afa"; align = ColumnAlign.right; width = 100 },
+            ColumnProps { title = "ÁFA (%)"; dataIndex = "afa"; align = ColumnAlign.right },
             ColumnProps {
-                title = "Szerk"; key = "action"; width = 50
+                title = "Szerk"; key = "action";align = ColumnAlign.center
                 render = { sajatAr: SajatAr, _, rowIndex ->
                     buildElement {
                         div {

@@ -73,27 +73,15 @@ object LayoutComponents {
 }
 
 
-fun RBuilder.Layout(className: String = "",
-                    style: Style = jsUndefined,
-                    hasSider: Boolean = jsUndefined,
-                    handler: RHandler<LayoutProps>) {
+fun RBuilder.Layout(handler: RHandler<LayoutProps>) {
     LayoutComponents.Layout {
-        attrs.className = className
-        attrs.style = style
-        attrs.hasSider = hasSider
         handler()
     }
 }
 
 
-fun RBuilder.Header(className: String = "",
-                    style: Style = jsUndefined,
-                    hasSider: Boolean = jsUndefined,
-                    handler: RHandler<HeaderProps>) {
+fun RBuilder.Header(handler: RHandler<HeaderProps>) {
     LayoutComponents.Header {
-        attrs.className = className
-        attrs.style = style
-        attrs.hasSider = hasSider
         handler()
     }
 }

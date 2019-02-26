@@ -43,7 +43,7 @@ external interface InputProps : RProps {
     var placeholder: String
     var value: String
     var defaultValue: String
-    var type: InputType
+    var type: String
     var onChange: (e: InputEvent) -> Unit
     var onPressEnter: () -> Unit
 }
@@ -78,16 +78,9 @@ fun RBuilder.TextArea(handler: RHandler<TextAreaProps> = {}) {
 fun RBuilder.MyNumberInput(handler: RHandler<MyNumberInputProps> = {}) {
     Input {
         handler.asDynamic()(this)
-        if (attrs.asDynamic().style != null) {
-//            attrs.asDynamic().style["textAlign"] = "right"
-        } else {
-//            attrs.asDynamic().style = jsStyle { textAlign = "right" }
-        }
-        if (attrs.asDynamic().className != null) {
-//            attrs.asDynamic().className += "my-number-input"
-        } else {
-//            attrs.asDynamic().className = "my-number-input"
-        }
+        val onValueChange = attrs.asDynamic().onValueChange
+        val attrsTmp = attrs
+        js("delete attrsTmp.onValueChange")
         if (attrs.asDynamic().number) {
             attrs.value = parseGroupedStringToNum((attrs.unsafeCast<MyNumberInputProps>()).number.toString()).second
         } else {
@@ -101,7 +94,7 @@ fun RBuilder.MyNumberInput(handler: RHandler<MyNumberInputProps> = {}) {
                     it + "000"
                 } else it
             }
-            attrs.asDynamic().onValueChange(parseGroupedStringToNum(value).first)
+            onValueChange(parseGroupedStringToNum(value).first)
         }
     }
 }

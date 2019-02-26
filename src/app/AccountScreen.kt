@@ -101,7 +101,7 @@ private fun RElementBuilder<ColProps>.addNewButton(globalDispatch: (Action) -> U
         attrs.onClick = {
             globalDispatch(Action.ChangeURL(Path.account.withOpenedEditorModal(0)))
         }
-        Icon("plus")
+        Icon("plus-circle")
         +" Hozzáadás"
     }
 }

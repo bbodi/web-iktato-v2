@@ -30,7 +30,8 @@ class LayoutDemoPage : RComponent<RProps, RState>() {
 
     val headerSider: RBuilder.() -> Unit = {
         Layout {
-            Header(className = "header") {
+            Header {
+                attrs.className = "header"
                 div(classes = "logo") {
                     attrs.jsStyle = jsStyle {
                         width = "120px"
@@ -88,8 +89,8 @@ class LayoutDemoPage : RComponent<RProps, RState>() {
                         }
                     }
                 }
-                Layout(style = jsStyle { padding = "0 24px 24px" }) {
-
+                Layout {
+                    attrs.style = jsStyle { padding = "0 24px 24px" }
                     Content {
                         attrs.style = jsStyle { padding = "24"; background = "#fff";margin = 0;minHeight = 200 }
                         +"Content"
@@ -101,7 +102,8 @@ class LayoutDemoPage : RComponent<RProps, RState>() {
 
 
     val headerContentFooter: RBuilder.() -> Unit = {
-        Layout(className = "layout") {
+        Layout {
+            attrs.className = "layout"
             Header {
                 div(classes = "logo") {
                     attrs.jsStyle = jsStyle {

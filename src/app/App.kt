@@ -91,7 +91,8 @@ class App : RComponent<RProps, AppComponentState>() {
             }
             Content {
                 attrs.style = jsStyle { padding = "0 50px" }
-                Layout(style = jsStyle { padding = "0 50px" }) {
+                Layout {
+                    attrs.style = jsStyle { padding = "0 50px" }
                     Sider {
                         attrs.width = 200
                         attrs.style = jsStyle { background = "#fff" }

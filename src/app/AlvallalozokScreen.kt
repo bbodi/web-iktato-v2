@@ -88,7 +88,7 @@ private fun RElementBuilder<ColProps>.addNewButton(globalDispatch: (Action) -> U
         attrs.onClick = {
             globalDispatch(Action.ChangeURL(Path.alvallalkozo.withOpenedAlvallalkozoEditorModal(0)))
         }
-        Icon("plus")
+        Icon("plus-circle")
         +" Hozzáadás"
     }
 }

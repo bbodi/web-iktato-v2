@@ -74,7 +74,7 @@ object LoginScreenComponent : DefinedReactComponent<LoginScreenParams>() {
                     FormItem {
                         attrs.required = true
                         Input {
-                            attrs.type = InputType.password
+                            attrs.type = InputType.password.realValue
                             attrs.prefix = StringOrReactElement.from {
                                 Icon("lock") {
                                     attrs.style = jsStyle { color = "rgba(0,0,0,.25)" }

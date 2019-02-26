@@ -11,6 +11,8 @@ import kotlinx.html.js.onClickFunction
 import react.buildElement
 import react.dom.a
 import react.dom.input
+import react.dom.jsStyle
+import react.dom.span
 
 
 data class MegrendelesColumnData(val dbName: String,
@@ -47,7 +49,12 @@ val idRenderer = { cell: String?, row: Any, index: Int, appState: AppState ->
         if (goodTab && megr.isUnread(appState.maybeLoggedInUser!!.role)) {
             Badge(1) {
                 attrs.dot = true
-                +(cell ?: "")
+                span {
+                    attrs.jsStyle {
+                        marginRight = "5px"
+                    }
+                    +(cell ?: "")
+                }
             }
         } else {
             +(cell ?: "")

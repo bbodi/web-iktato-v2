@@ -148,7 +148,7 @@ private fun RElementBuilder<ColProps>.addNewButton(alvallalkozoId: Int, globalDi
         attrs.onClick = {
             globalDispatch(Action.ChangeURL(Path.ertekbecslo.withOpenedErtekbecsloEditorModal(alvallalkozoId, 0)))
         }
-        Icon("plus")
+        Icon("plus-circle")
         +" Hozzáadás"
     }
 }

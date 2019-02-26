@@ -95,7 +95,7 @@ object AlvallalkozoSajatAdataiModalComponent : DefinedReactComponent<Alvallalkoz
                                     attrs.label = StringOrReactElement.fromString("Régi jelszó")
                                     Input {
                                         attrs.value = modalState.oldPass
-                                        attrs.type = InputType.password
+                                        attrs.type = InputType.password.realValue
                                         attrs.onChange = { e ->
                                             setComponentState(
                                                     modalState.copy(oldPass = e.currentTarget.asDynamic().value)
@@ -114,7 +114,7 @@ object AlvallalkozoSajatAdataiModalComponent : DefinedReactComponent<Alvallalkoz
                                     attrs.validateStatus = if (modalState.newPass.length.let { it > 0 && it < 4 }) ValidateStatus.error else null
                                     Input {
                                         attrs.value = modalState.newPass
-                                        attrs.type = InputType.password
+                                        attrs.type = InputType.password.realValue
                                         attrs.onChange = { e ->
                                             setComponentState(
                                                     modalState.copy(newPass = e.currentTarget.asDynamic().value)
@@ -137,7 +137,7 @@ object AlvallalkozoSajatAdataiModalComponent : DefinedReactComponent<Alvallalkoz
                                         null
                                     Input {
                                         attrs.value = modalState.newPass2
-                                        attrs.type = InputType.password
+                                        attrs.type = InputType.password.realValue
                                         attrs.onChange = { e ->
                                             setComponentState(
                                                     modalState.copy(newPass2 = e.currentTarget.asDynamic().value)
