@@ -1,6 +1,10 @@
 package hu.nevermind.utils.store
 
+import hu.nevermind.antd.Modal
+import hu.nevermind.iktato.Ok
 import hu.nevermind.iktato.RestUrl
+import hu.nevermind.iktato.Result
+import hu.nevermind.utils.hu.nevermind.antd.StringOrReactElement
 import hu.nevermind.utils.hu.nevermind.antd.message
 import store.Action
 
@@ -92,6 +96,21 @@ fun alvallalkozoActionHandler(state: AlvallalkozoState, action: Action): Alvalla
         is Action.SetActiveFilter -> state
         is Action.SajatArFromServer -> state
         is Action.AccountFromServer -> state
+        is Action.DeleteMegrendeles -> state
+        is Action.DeleteAlvallalkozo -> {
+            val result = communicator.deleteEntity("Alvallalkozo", action.alvallalkozo.id)
+            js("debugger")
+            if (result is Ok) {
+                message.success("Alvállalkozó törölve")
+                state.copy(alvallalkozok = state.alvallalkozok - action.alvallalkozo.id)
+            } else {
+                Modal.error {
+                    title = "Sikertelen törlés"
+                    content = StringOrReactElement.fromString("Az alvállalkozóra még hivatkozik Értékbecslő vagy Felhasználó. Kérem szüntesse meg először a hivatkozásokat.")
+                }
+                state
+            }
+        }
         is Action.DeleteRegioOsszerendeles -> {
             communicator.deleteEntity("RegioOsszerendeles", action.regioOsszerendeles.id)
             message.success("Régió összerendelés törölve")

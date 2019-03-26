@@ -88,7 +88,11 @@ class JqueryAjaxPoster() : AjaxPoster {
         }
         val success = { data: RESULT ->
             console.log("SUCCESS: $url")
-            after(Ok(data))
+            if (data.asDynamic().not_OK) {
+                after(Error(data.asDynamic().not_OK))
+            } else {
+                after(Ok(data))
+            }
         }
         val ajaxRequest: dynamic = object {
             val url = url
@@ -152,7 +156,7 @@ class Communicator(val ajaxPoster: AjaxPoster) {
                 type = "POST",
                 data = JSON.stringify(data),
                 async = false) { result: Result<Array<dynamic>, String> ->
-//            js("$.unblockUI()")
+            //            js("$.unblockUI()")
             result.withOkOrError { returnedEntities ->
                 returnValue = callback(returnedEntities)
             }
@@ -191,7 +195,7 @@ class Communicator(val ajaxPoster: AjaxPoster) {
                 type = "POST",
                 data = JSON.stringify(data),
                 async = false) { result: Result<dynamic, String> ->
-//            js("$.unblockUI()")
+            //            js("$.unblockUI()")
             result.ifOk { response ->
                 callback(response)
             }
@@ -207,32 +211,45 @@ class Communicator(val ajaxPoster: AjaxPoster) {
                 url = url,
                 data = JSON.stringify(entity),
                 async = false) { result: Result<IN, String> ->
-//            js("$.unblockUI()")
+            //            js("$.unblockUI()")
             result.ifOk { response ->
                 callback(response)
             }
             result.ifError { response ->
-//                Actions.notification(Notification("Danger", "Hiba: $response"))
+                //                Actions.notification(Notification("Danger", "Hiba: $response"))
             }
         }
     }
+
+    fun deleteEntity(entityType: String, id: Int): Result<Any, String> {
+        val data = object {
+            val entityType = entityType
+            val id = id
+        }
+        var result: Result<Any, String>? = null
+        ajaxPoster.ajaxPost(
+                url = "/deleteEntity",
+                data = JSON.stringify(data),
+                after = {r: Result<Any, String> -> result = r},
+                async = false)
+        return result!!
+    }
+
 
     fun deleteEntity(entityType: String, id: Int, callback: () -> Unit = {}) {
         val data = object {
             val entityType = entityType
             val id = id
         }
-//        Jq.blockUI(object {val baseZ = 2000})
         ajaxPoster.ajaxPost(
                 url = "/deleteEntity",
                 data = JSON.stringify(data),
                 async = false) { result: Result<Any, String> ->
-//            js("$.unblockUI()")
             result.ifOk { response ->
                 callback()
             }
             result.ifError { response ->
-//                Actions.notification(Notification("Danger", "Hiba: $response"))
+
             }
         }
     }
@@ -257,12 +274,12 @@ class Communicator(val ajaxPoster: AjaxPoster) {
                     val filename = filename
                 }),
                 async = false) { result: Result<MegrendelesFieldsFromExternalSource, String> ->
-//            js("$.unblockUI()")
+            //            js("$.unblockUI()")
             result.ifOk { response ->
                 callback(response)
             }
             result.ifError { response ->
-//                Actions.notification(Notification("Danger", "Hiba: $response"))
+                //                Actions.notification(Notification("Danger", "Hiba: $response"))
             }
         }
     }

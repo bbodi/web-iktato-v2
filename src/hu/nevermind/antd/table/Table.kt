@@ -8,12 +8,15 @@ import react.ReactElement
 
 val Table: RClass<TableProps> = kotlinext.js.require("antd").Table
 
+data class SortedInfo(val order: String?, val columnKey: String?)
+
 external interface TableProps : RProps {
     var columns: Array<ColumnProps>
     var dataSource: Array<out Any>
     var rowKey: String
     var bordered: Boolean
     var onRow: (dynamic) -> Any
+    var onChange: (pagination: dynamic, filters: dynamic, sorter: SortedInfo) -> Any
 }
 
 
@@ -46,6 +49,10 @@ external interface ColumnProps {
     //                  render: (RBuilder.(text: String, record: dynamic, Int) -> ReactElement?)? = null) {
     var render: (cell: dynamic, row: dynamic, rowIndex: Int) -> ReactElement?
     var filters: Any?
+    var sorter: (a: Any, b: Any) -> Int
+    var sortDirections: Array<String>
+    var sortOrder
+            : String
     var onFilter: (value: dynamic, record: dynamic) -> Boolean
 //    val render: (String, Any, Int) -> ReactElement? = render?.let { render ->
 //        { text: String, record: Any, index: Int ->

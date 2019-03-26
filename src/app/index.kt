@@ -34,17 +34,6 @@ data class AppState(val megrendelesState: MegrendelesState,
                     val maybeLoggedInUser: LoggedInUser?,
                     val geoData: Geo)
 
-//val rootReducer = combineReducers<AppState, RAction>(mapOf(
-//        "megrendelesState" to megrendelesReducer
-//))
-//
-////val store = createStore(megrendelesReducer, emptyArray(), rEnhancer())
-//val store = createStore(rootReducer,
-//        AppState(
-//                MegrendelesState(emptyMap())),
-//        rEnhancer()
-//)
-
 interface IdProps : RProps {
     var id: Int
 }
@@ -62,6 +51,8 @@ fun main(args: Array<String>) {
 
     fun appReducer(state: LoggedInUser?, action: Action): LoggedInUser? {
         return when (action) {
+            is Action.DeleteAlvallalkozo -> state
+            is Action.DeleteMegrendeles -> state
             is Action.MegrendelesekFromServer -> state
             is Action.SetLoggedInUser -> action.data
             is Action.ChangeURL -> state
@@ -97,6 +88,8 @@ fun main(args: Array<String>) {
 
     fun megrendelesTableFilterReducer(state: MegrendelesTableFilterState, action: Action): MegrendelesTableFilterState {
         return when (action) {
+            is Action.DeleteAlvallalkozo -> state
+            is Action.DeleteMegrendeles -> state
             is Action.MegrendelesekFromServer -> state
             is Action.SetLoggedInUser -> state.copy(
                     haviTeljesites = if (action.data != null && action.data.isAlvallalkozo) {
@@ -133,6 +126,8 @@ fun main(args: Array<String>) {
 
     fun geoReducer(state: Geo, action: Action): Geo {
         return when (action) {
+            is Action.DeleteAlvallalkozo -> state
+            is Action.DeleteMegrendeles -> state
             is Action.MegrendelesekFromServer -> state
             is Action.SetLoggedInUser -> state.copy(
                     varosok = if (action.data != null && action.data.isAdmin) {

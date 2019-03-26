@@ -30,6 +30,8 @@ data class SajatArState(
 
 fun sajatArActionHandler(state: SajatArState, action: Action): SajatArState {
     return when (action) {
+        is Action.DeleteAlvallalkozo -> state
+        is Action.DeleteMegrendeles -> state
         is Action.MegrendelesekFromServer -> state
         is Action.SetLoggedInUser -> {
             val sajatArak = if (action.data != null && action.data.role == Role.ROLE_ADMIN) {

@@ -21,6 +21,8 @@ data class AccountStore(
 
 fun accountActionHandler(state: AccountStore, action: Action): AccountStore {
     return when (action) {
+        is Action.DeleteAlvallalkozo -> state
+        is Action.DeleteMegrendeles -> state
         is Action.MegrendelesekFromServer -> state
         is Action.SetLoggedInUser -> {
             AccountStore(accounts = if (action.data?.role == Role.ROLE_ADMIN) loadAccounts() else emptyArray())

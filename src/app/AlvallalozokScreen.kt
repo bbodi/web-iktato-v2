@@ -160,11 +160,11 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                 }
             },
             ColumnProps {
-                title = "Szerk"; key = "action"; width = 140; align = ColumnAlign.center
+                title = "Szerk"; key = "action"; width = 200; align = ColumnAlign.center
                 render = { row: Alvallalkozo, _, rowIndex ->
                     buildElement {
                         div {
-                            attrs.jsStyle = jsStyle { width = "130px" }
+                            attrs.jsStyle = jsStyle { width = "190px" }
                             Tooltip("Szerkesztés") {
                                 Button {
                                     attrs.asDynamic().id = AlvallalkozoScreenIds.table.row.editButton(rowIndex)
@@ -176,20 +176,52 @@ private fun RBuilder.alvallalkozoTable(appState: AppState,
                             }
                             Divider(type = DividerType.vertical)
                             Tooltip("Értékbecslők") {
-                                Button {
-                                    attrs.asDynamic().id = AlvallalkozoScreenIds.table.row.ertekbecslok(rowIndex)
-                                    attrs.icon = "usergroup-add"
-                                    attrs.onClick = {
-                                        globalDispatch(Action.ChangeURL(Path.ertekbecslo.root(row.id)))
+                                val ertekbecslok = appState.alvallalkozoState.getErtekbecslokOf(row).size
+                                Badge(ertekbecslok) {
+                                    attrs.showZero = true
+                                    attrs.asDynamic().style = jsStyle {
+                                        backgroundColor = "#1890ff"
                                     }
+                                    Button {
+                                        attrs.asDynamic().id = AlvallalkozoScreenIds.table.row.ertekbecslok(rowIndex)
+                                        attrs.icon = "usergroup-add"
+                                        attrs.onClick = {
+                                            globalDispatch(Action.ChangeURL(Path.ertekbecslo.root(row.id)))
+                                        }
+                                    }
+
                                 }
                             }
+                            Divider(type = DividerType.vertical)
                             Tooltip("Régió összerendelések") {
                                 Button {
                                     attrs.asDynamic().id = AlvallalkozoScreenIds.table.row.regioButton(rowIndex)
                                     attrs.icon = "picture"
                                     attrs.onClick = {
                                         globalDispatch(Action.ChangeURL(Path.alvallalkozo.regio(row.id)))
+                                    }
+                                }
+                            }
+                            Divider(type = DividerType.vertical)
+                            Tooltip("Törlés") {
+                                Button {
+                                    attrs.asDynamic().id = AlvallalkozoScreenIds.table.row.deleteButton(rowIndex)
+                                    attrs.icon = "delete"
+                                    attrs.type = ButtonType.danger
+                                    attrs.disabled =
+                                            appState.alvallalkozoState.getErtekbecslokOf(row).isNotEmpty() ||
+                                            appState.accountStore.accounts.any { it.alvallalkozoId == row.id }
+                                    attrs.onClick = {
+                                        Modal.confim {
+                                            title = "Biztos törli a '${row.name}' Alvállalkozót?"
+                                            okText = "Igen"
+                                            cancelText = "Mégsem"
+                                            okType = ButtonType.danger
+                                            onOk = {
+                                                globalDispatch(Action.DeleteAlvallalkozo(row))
+                                                null
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -217,6 +249,7 @@ object AlvallalkozoScreenIds {
 
         object row {
             val editButton: (Int) -> String = { rowIndex -> "${id}_editButton_$rowIndex" }
+            val deleteButton: (Int) -> String = { rowIndex -> "${id}_deleteButton_$rowIndex" }
             val ertekbecslok: (Int) -> String = { rowIndex -> "${id}_ebs$rowIndex" }
             val regioButton: (Int) -> String = { rowIndex -> "${id}_regioButton_$rowIndex" }
         }

@@ -23,7 +23,6 @@ private data class CustomSearchModalState(
 data class CustomSearchModalParams(
         val appState: AppState,
         val szuroMezok: List<SzuroMezo>,
-        val visible: Boolean,
         val onClose: (Boolean, List<SzuroMezo>) -> Unit)
 
 
@@ -31,21 +30,19 @@ object CustomSearchModalComponent : DefinedReactComponent<CustomSearchModalParam
     override fun RBuilder.body(props: CustomSearchModalParams) {
         val (state, setState) = useState(CustomSearchModalState(props.szuroMezok))
         Modal {
-            attrs.visible = props.visible
+            attrs.visible = true
             attrs.width = 800
             attrs.title = StringOrReactElement.fromString("Megrendelés Szűrés")
             attrs.cancelButtonProps = jsObject {
                 this.asDynamic().id = AlvallalkozoScreenIds.modal.buttons.close
             }
             attrs.okButtonProps = jsObject {
-                disabled = with(state) {
-                    state.szuroMezok.isEmpty() ||
-                            state.szuroMezok.any {
-                                (it.columnData.megrendelesFieldType == MegrendelesFieldType.Int ||
-                                        it.columnData.megrendelesFieldType == MegrendelesFieldType.Select) &&
-                                        it.operand.isEmpty()
-                            }
-                }
+                disabled = (state.szuroMezok.isEmpty() ||
+                        state.szuroMezok.any {
+                            (it.columnData.megrendelesFieldType == MegrendelesFieldType.Int ||
+                                    it.columnData.megrendelesFieldType == MegrendelesFieldType.Select) &&
+                                    it.operand.isEmpty()
+                        })
             }
             attrs.onOk = {
                 props.onClose(true, state.szuroMezok)
@@ -121,12 +118,10 @@ private fun onElementSelect(state: CustomSearchModalState,
     } else {
         "Tartalmazza"
     }
-    val defaultOperand = if (columnData.megrendelesFieldType == MegrendelesFieldType.Date) {
-        moment().format(dateFormat)
-    } else if (columnData.megrendelesFieldType == MegrendelesFieldType.Int) {
-        "0"
-    } else {
-        ""
+    val defaultOperand = when {
+        columnData.megrendelesFieldType == MegrendelesFieldType.Date -> moment().format(dateFormat)
+        columnData.megrendelesFieldType == MegrendelesFieldType.Int -> "0"
+        else -> ""
     }
     setState(state.copy(
             szuroMezok = state.szuroMezok + SzuroMezo(columnData, defaultOperator, defaultOperand)

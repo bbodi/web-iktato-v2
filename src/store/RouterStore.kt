@@ -7,6 +7,8 @@ data class UrlData(val path: String, val params: Map<String, String>)
 
 fun routerStoreHandler(state: UrlData, action: Action): UrlData {
     return when (action) {
+        is Action.DeleteAlvallalkozo -> state
+        is Action.DeleteMegrendeles -> state
         is Action.ChangeURL -> {
             window.location.hash = action.url
             state.copy(

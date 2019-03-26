@@ -13,7 +13,9 @@ import app.megrendeles.MegrendelesScreen.mindFilterTabPane
 import app.useState
 import hu.nevermind.antd.*
 import hu.nevermind.antd.autocomplete.AutoComplete
+import hu.nevermind.antd.table.ColumnAlign
 import hu.nevermind.antd.table.ColumnProps
+import hu.nevermind.antd.table.SortedInfo
 import hu.nevermind.antd.table.Table
 import hu.nevermind.iktato.Path
 import hu.nevermind.iktato.RestUrl
@@ -31,6 +33,8 @@ import org.w3c.xhr.XMLHttpRequestResponseType
 import react.*
 import react.dom.*
 import store.*
+import kotlin.browser.document
+import kotlin.browser.window
 
 val downloadFile: (url: String, name: String) -> Unit = kotlinext.js.require("downloadjs")
 
@@ -38,6 +42,7 @@ object MegrendelesScreenIds {
     val screenId = "megrendelesScreen"
 
     val rowEdit = { index: Int -> "${screenId}edit_$index" }
+    val rowDelete = { index: Int -> "${screenId}delete_$index" }
 
     val addButton = "${screenId}_addButton"
 
@@ -370,7 +375,8 @@ data class MegrendelesTableFilterState(val activeFilter: MegrendelesFilter,
 
 data class MegrendelesScreenState(
         val showMindFilterModal: Boolean,
-        val haviTeljesitesModalOpen: Boolean
+        val haviTeljesitesModalOpen: Boolean,
+        val sort: SortedInfo
 )
 
 data class MegrendelesScreenParams(val appState: AppState,
@@ -385,7 +391,8 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
         val user = props.appState.maybeLoggedInUser!!
         val (state, setState) = useState(MegrendelesScreenState(
                 haviTeljesitesModalOpen = false,
-                showMindFilterModal = false)
+                showMindFilterModal = false,
+                sort = SortedInfo("descend", "megrendelve"))
         )
         div {
             val filterState = appState.megrendelesTableFilterState
@@ -401,7 +408,7 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
                     attrs.size = TabsSize.small
                     attrs.onChange = onFilterChange(globalDispatch, filterState)
                     val table = buildElement {
-                        megrendelesekTable(user, appState, globalDispatch)
+                        megrendelesekTable(user, appState, globalDispatch, state, setState)
                     }!!
                     simpleFilterTabPanes(
                             filterState,
@@ -410,7 +417,7 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
                             table
                     )
                     if (user.isAdmin) {
-                        mindFilterTabPane(filterState, setState, state, table)
+                        mindFilterTabPane(filterState, setState, globalDispatch, state, table)
                     }
                     haviTeljesitesTabPane(filterState, state, appState, setState, table)
                 }
@@ -423,9 +430,9 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
                     setState,
                     globalDispatch
             ))
-            if (user.isAdmin) {
+            if (user.isAdmin && state.showMindFilterModal) {
                 customSearchModalComponent(appState, globalDispatch, state, setState)
-            } else {
+            } else if (user.isAlvallalkozo){
                 AlvallalkozoSajatAdataiModalComponent.insert(this, AlvallalkozoSajatAdataiModalParams(
                         alvallalkozo = appState.alvallalkozoState.alvallalkozok[user.alvallalkozoId]!!,
                         visible = props.showAlvallalkozoSajatAdataiModal,
@@ -548,7 +555,9 @@ object MegrendelesScreenComponent : DefinedReactComponent<MegrendelesScreenParam
 
 private fun RBuilder.megrendelesekTable(user: LoggedInUser,
                                         appState: AppState,
-                                        globalDispatch: (Action) -> Unit) {
+                                        globalDispatch: (Action) -> Unit,
+                                        state: MegrendelesScreenState,
+                                        setState: Dispatcher<MegrendelesScreenState>) {
 
     val filteredMegrendelesek = appState.megrendelesState.megrendelesek.values.filter {
         appState.megrendelesTableFilterState.activeFilter.predicate(appState.megrendelesTableFilterState, it)
@@ -583,20 +592,57 @@ private fun RBuilder.megrendelesekTable(user: LoggedInUser,
                     val value = it.second
                 }
             }?.toTypedArray()
+            if (columnDef.renderer == dateRenderer) {
+                sorter = { a, b ->
+                    val f1: Moment? = a.asDynamic()[columnDef.fieldName]
+                    val f2: Moment? = b.asDynamic()[columnDef.fieldName]
+                    if (f1 == null) {
+                        1
+                    } else if (f2 == null) {
+                        -1
+                    } else {
+                        if (f1.isBefore(f2)) -1 else 1
+                    }
+                }
+            }
+            sortOrder = if (state.sort.columnKey == columnDef.fieldName) state.sort.order
+                    ?: "descend" else false.asDynamic()
             onFilter = columnDef.filter?.filter.asDynamic()
             this.asDynamic().render = { cell: Any?, row: Any, index: Int -> columnDef.renderer.asDynamic()(cell, row, index, appState) }
         }
     }.let { columns ->
         columns + ColumnProps {
-            title = "Szerk"; key = "action"; width = 50
+            title = "Szerk"; key = "action"; width = 100; align = ColumnAlign.center
             render = { megr: Megrendeles, _, rowIndex ->
                 buildElement {
-                    Tooltip("Szerkesztés") {
-                        Button {
-                            attrs.asDynamic().id = MegrendelesScreenIds.rowEdit(rowIndex)
-                            attrs.icon = "edit"
-                            attrs.onClick = {
-                                onClick(megr)
+                    div {
+                        Tooltip("Szerkesztés") {
+                            Button {
+                                attrs.asDynamic().id = MegrendelesScreenIds.rowEdit(rowIndex)
+                                attrs.icon = "edit"
+                                attrs.onClick = {
+                                    onClick(megr)
+                                }
+                            }
+                        }
+                        Divider(type = DividerType.vertical)
+                        Tooltip("Törlés") {
+                            Button {
+                                attrs.asDynamic().id = MegrendelesScreenIds.rowDelete(rowIndex)
+                                attrs.icon = "delete"
+                                attrs.type = ButtonType.danger
+                                attrs.onClick = {
+                                    Modal.confim {
+                                        title = "Biztos törli a '${megr.azonosito}' Megrendelést?"
+                                        okText = "Igen"
+                                        cancelText = "Mégsem"
+                                        okType = ButtonType.danger
+                                        onOk = {
+                                            globalDispatch(Action.DeleteMegrendeles(megr))
+                                            null
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -616,6 +662,11 @@ private fun RBuilder.megrendelesekTable(user: LoggedInUser,
             minHeight = "400px"
         }
         attrs.asDynamic().size = "middle"
+        attrs.onChange = { pagination, filters, sorter ->
+            setState(state.copy(
+                    sort = sorter
+            ))
+        }
     }
 }
 
@@ -627,32 +678,31 @@ private fun RBuilder.customSearchModalComponent(
     CustomSearchModalComponent.insert(this, CustomSearchModalParams(
             appState = appState,
             szuroMezok = appState.megrendelesTableFilterState.szuroMezok,
-            visible = state.showMindFilterModal,
             onClose = { ok, szuroMezok ->
-                if (!ok) {
-                    setState(state.copy(
-                            showMindFilterModal = false
-                    ))
-                } else {
-                    val sqlWhereClause = szuroMezok.map { szuroMezo ->
-                        szuroMezo.toSqlWhereClause()
-                    }.joinToString(") AND (", "(", ")")
-                    communicator.getEntitiesFromServer(RestUrl.megrendelesFilter, object {
-                        val text = sqlWhereClause
-                    }) { response: Array<MegrendelesFromServer> ->
-                        val ids = response.map { it.id }
-                        setState(state.copy(
-                                showMindFilterModal = false
-                        ))
-                        globalDispatch(Action.SetActiveFilter(
-                                SetActiveFilterPayload.MindFilter(ids, szuroMezok)
-                        ))
-                        globalDispatch(Action.MegrendelesekFromServer(response))
-                        globalDispatch(Action.ChangeURL(Path.megrendeles.root))
-                    }
+                setState(state.copy(
+                        showMindFilterModal = false
+                ))
+                if (ok) {
+                    applyMindFilter(szuroMezok, globalDispatch)
+                    globalDispatch(Action.ChangeURL(Path.megrendeles.root))
                 }
             }
     ))
+}
+
+private fun applyMindFilter(szuroMezok: List<SzuroMezo>, globalDispatch: (Action) -> Unit) {
+    val sqlWhereClause = szuroMezok.map { szuroMezo ->
+        szuroMezo.toSqlWhereClause()
+    }.joinToString(") AND (", "(", ")")
+    communicator.getEntitiesFromServer(RestUrl.megrendelesFilter, object {
+        val text = sqlWhereClause
+    }) { response: Array<MegrendelesFromServer> ->
+        val ids = response.map { it.id }
+        globalDispatch(Action.SetActiveFilter(
+                SetActiveFilterPayload.MindFilter(ids, szuroMezok)
+        ))
+        globalDispatch(Action.MegrendelesekFromServer(response))
+    }
 }
 
 val filterKeyMap = mapOf(
@@ -737,6 +787,7 @@ object MegrendelesScreen {
 
     fun RBuilder.mindFilterTabPane(filterState: MegrendelesTableFilterState,
                                    setState: Dispatcher<MegrendelesScreenState>,
+                                   globalDispatch: (Action) -> Unit,
                                    state: MegrendelesScreenState,
                                    tabPaneContent: ReactElement) {
         TabPane {
@@ -746,14 +797,46 @@ object MegrendelesScreen {
                 Popover {
                     attrs.title = StringOrReactElement.fromString("Szűrés")
                     attrs.mouseEnterDelay = 0
+                    attrs.onVisibleChange = { visible ->
+                        window.setTimeout({
+                            document.getElementById("quickAzonositoFilterField")?.asDynamic().focus()
+                        }, 300)
+                    }
                     attrs.content = StringOrReactElement.from {
-                        a(href = null) {
-                            attrs.onClickFunction = {
-                                setState(state.copy(
-                                        showMindFilterModal = true
-                                ))
+                        div {
+                            a(href = null) {
+                                attrs.onClickFunction = {
+                                    setState(state.copy(
+                                            showMindFilterModal = true
+                                    ))
+                                }
+                                +"Szűrőmezők beállítása"
                             }
-                            +"Szűrőmezők beállítása"
+                            FormItem {
+                                attrs.required
+                                attrs.label = StringOrReactElement.fromString("Azonosító")
+                                Input {
+                                    attrs.asDynamic().id = "quickAzonositoFilterField"
+                                    val maybeAzonositoFilter = filterState.szuroMezok.firstOrNull()
+                                    attrs.value = if (maybeAzonositoFilter?.columnData?.fieldName == "azonosito") {
+                                        maybeAzonositoFilter.operand
+                                    } else ""
+                                    attrs.onChange = { e ->
+                                        val value: String = e.currentTarget.asDynamic().value
+                                        if (value.length > 3) {
+                                            val szuroMezok = if (maybeAzonositoFilter?.columnData?.fieldName == "azonosito") {
+                                                listOf(maybeAzonositoFilter.copy(
+                                                        operand = value
+                                                )) + filterState.szuroMezok.drop(1)
+                                            } else {
+                                                listOf(SzuroMezo(columnDefinitions["azonosito"]!!, "Tartalmazza", value)) +
+                                                        filterState.szuroMezok
+                                            }
+                                            applyMindFilter(szuroMezok, globalDispatch)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     Icon("search")

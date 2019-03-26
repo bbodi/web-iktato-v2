@@ -5,6 +5,7 @@ import app.common.Moment
 import app.common.moment
 import hu.nevermind.iktato.RestUrl
 import hu.nevermind.iktato.Result
+import hu.nevermind.utils.hu.nevermind.antd.message
 import hu.nevermind.utils.store.*
 import kotlin.browser.window
 
@@ -32,6 +33,7 @@ fun emitEvent(item: Megrendeles) {
 
 fun megrendelesekFromServer(state: MegrendelesState, action: Action): MegrendelesState {
     return when (action) {
+        is Action.DeleteAlvallalkozo -> state
         is Action.MegrendelesekFromServer -> {
             val updatedMegrendelesek = convertMegrendelesekFromServer(state, action.data)
             state.copy(megrendelesek = state.megrendelesek + updatedMegrendelesek)
@@ -69,6 +71,11 @@ fun megrendelesekFromServer(state: MegrendelesState, action: Action): Megrendele
         is Action.ErtekbecsloFromServer -> state
         is Action.RegioOsszerendelesFromServer -> state
         is Action.DeleteRegioOsszerendeles -> state
+        is Action.DeleteMegrendeles -> {
+            communicator.deleteEntity("Megrendeles", action.megr.id)
+            message.success("Megrendelés törölve")
+            state.copy(megrendelesek = state.megrendelesek - action.megr.id)
+        }
     }
 }
 

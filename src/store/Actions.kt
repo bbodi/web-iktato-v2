@@ -3,10 +3,7 @@ package store
 import app.common.Moment
 import app.megrendeles.MegrendelesFilter
 import app.megrendeles.SzuroMezo
-import hu.nevermind.utils.store.LoggedInUser
-import hu.nevermind.utils.store.Megrendeles
-import hu.nevermind.utils.store.RegioOsszerendeles
-import hu.nevermind.utils.store.SajatAr
+import hu.nevermind.utils.store.*
 import org.w3c.files.File
 
 data class AkadalyKozles(val megr: Megrendeles,
@@ -41,6 +38,8 @@ sealed class Action {
     data class ErtekbecsloFromServer(val response: dynamic) : Action()
     data class RegioOsszerendelesFromServer(val response: dynamic) : Action()
     data class DeleteRegioOsszerendeles(val regioOsszerendeles: RegioOsszerendeles) : Action()
+    data class DeleteMegrendeles(val megr: Megrendeles) : Action()
+    data class DeleteAlvallalkozo(val alvallalkozo: Alvallalkozo) : Action()
 }
 
 //object Actions {
